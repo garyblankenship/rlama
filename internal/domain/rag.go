@@ -47,4 +47,29 @@ func (r *RagSystem) GetDocumentByID(id string) *Document {
 		}
 	}
 	return nil
+}
+
+// RemoveDocument removes a document from the RAG system by its ID
+func (r *RagSystem) RemoveDocument(id string) bool {
+	// Find the document index
+	var index = -1
+	for i, doc := range r.Documents {
+		if doc.ID == id {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		return false
+	}
+
+	// Remove from the Documents slice
+	r.Documents = append(r.Documents[:index], r.Documents[index+1:]...)
+	
+	// Remove from the VectorStore
+	r.VectorStore.Remove(id)
+	
+	r.UpdatedAt = time.Now()
+	return true
 } 

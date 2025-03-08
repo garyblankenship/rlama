@@ -29,19 +29,29 @@ var listCmd = &cobra.Command{
 		
 		// Use tabwriter for aligned display
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tMODEL\tCREATED ON\tDOCUMENTS")
+		fmt.Fprintln(w, "NAME\tMODEL\tCREATED ON\tDOCUMENTS\tSIZE")
 		
 		for _, name := range ragNames {
 			rag, err := repo.Load(name)
 			if err != nil {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", name, "error", "error", "error")
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", name, "error", "error", "error", "error")
 				continue
 			}
 			
 			// Format the date
 			createdAt := rag.CreatedAt.Format("2006-01-02 15:04:05")
 			
-			fmt.Fprintf(w, "%s\t%s\t%s\t%d\n", rag.Name, rag.ModelName, createdAt, len(rag.Documents))
+			// Calculate total size
+			var totalSize int64
+			for _, doc := range rag.Documents {
+				totalSize += doc.Size
+			}
+			
+			// Format the size
+			sizeStr := formatSize(totalSize)
+			
+			fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\n", 
+				rag.Name, rag.ModelName, createdAt, len(rag.Documents), sizeStr)
 		}
 		w.Flush()
 		
