@@ -24,7 +24,10 @@ Main commands:
   run [rag-name]                          Run an existing RAG system
   list                                    List all available RAG systems
   delete [rag-name]                       Delete a RAG system
-  update                                  Check and install RLAMA updates`,
+  update                                  Check and install RLAMA updates
+
+Environment variables:
+  OLLAMA_HOST                            Specifies default Ollama host:port (overridden by --host and --port flags)`,
 }
 
 // Variables to store command flags
@@ -49,8 +52,8 @@ func init() {
 	rootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Display RLAMA version")
 	
 	// Add Ollama configuration flags
-	rootCmd.PersistentFlags().StringVar(&ollamaHost, "host", "", "Ollama host (default: localhost)")
-	rootCmd.PersistentFlags().StringVar(&ollamaPort, "port", "", "Ollama port (default: 11434)")
+	rootCmd.PersistentFlags().StringVar(&ollamaHost, "host", "", "Ollama host (overrides OLLAMA_HOST env var, default: localhost)")
+	rootCmd.PersistentFlags().StringVar(&ollamaPort, "port", "", "Ollama port (overrides port in OLLAMA_HOST env var, default: 11434)")
 	
 	// Override the Run function to handle the --version flag
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {

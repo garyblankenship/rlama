@@ -6,11 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-)
-
-const (
-	DefaultOllamaHost = "localhost"
-	DefaultOllamaPort = "11434"
+	"os"
+	"strings"
 )
 
 // OllamaClient est un client pour l'API Ollama
@@ -60,12 +57,33 @@ type GenerationResponse struct {
 
 // NewOllamaClient crée un nouveau client Ollama
 // Si host ou port sont vides, les valeurs par défaut sont utilisées
+// Si OLLAMA_HOST est défini, il est utilisé comme valeur par défaut
 func NewOllamaClient(host, port string) *OllamaClient {
+	// Check for OLLAMA_HOST environment variable
+	ollamaHostEnv := os.Getenv("OLLAMA_HOST")
+	
+	// Default values
+	defaultHost := DefaultOllamaHost
+	defaultPort := DefaultOllamaPort
+	
+	// If OLLAMA_HOST is set, parse it
+	if ollamaHostEnv != "" {
+		// OLLAMA_HOST could be in the form "host:port" or just "host"
+		parts := strings.Split(ollamaHostEnv, ":")
+		if len(parts) >= 1 {
+			defaultHost = parts[0]
+		}
+		if len(parts) >= 2 {
+			defaultPort = parts[1]
+		}
+	}
+	
+	// Command flags override environment variables
 	if host == "" {
-		host = DefaultOllamaHost
+		host = defaultHost
 	}
 	if port == "" {
-		port = DefaultOllamaPort
+		port = defaultPort
 	}
 	
 	baseURL := fmt.Sprintf("http://%s:%s", host, port)
