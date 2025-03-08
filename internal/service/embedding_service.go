@@ -21,13 +21,25 @@ func NewEmbeddingService() *EmbeddingService {
 
 // GenerateEmbeddings generates embeddings for a list of documents
 func (es *EmbeddingService) GenerateEmbeddings(docs []*domain.Document, modelName string) error {
+	// Try to use bge-m3 for embeddings first
+	embeddingModel := "bge-m3"
+	
+	// Process all documents
 	for _, doc := range docs {
-		// We can chunk here if needed
-
-		// Generate embedding
-		embedding, err := es.ollamaClient.GenerateEmbedding(modelName, doc.Content)
+		// Generate embedding with bge-m3 first
+		embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, doc.Content)
+		
+		// If bge-m3 fails, fallback to the specified model
 		if err != nil {
-			return fmt.Errorf("error generating embedding for %s: %w", doc.Path, err)
+			fmt.Printf("⚠️ Could not use %s for embeddings: %v\n", embeddingModel, err)
+			fmt.Printf("Falling back to %s for embeddings. For better performance, consider:\n", modelName)
+			fmt.Printf("  ollama pull bge-m3\n\n")
+			
+			// Try with the specified model instead
+			embedding, err = es.ollamaClient.GenerateEmbedding(modelName, doc.Content)
+			if err != nil {
+				return fmt.Errorf("error generating embedding for %s: %w", doc.Path, err)
+			}
 		}
 
 		doc.Embedding = embedding
@@ -38,9 +50,21 @@ func (es *EmbeddingService) GenerateEmbeddings(docs []*domain.Document, modelNam
 
 // GenerateQueryEmbedding generates an embedding for a query
 func (es *EmbeddingService) GenerateQueryEmbedding(query string, modelName string) ([]float32, error) {
-	embedding, err := es.ollamaClient.GenerateEmbedding(modelName, query)
+	// Try to use bge-m3 for embeddings first
+	embeddingModel := "bge-m3"
+	
+	// Generate embedding with bge-m3
+	embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, query)
+	
+	// If bge-m3 fails, fallback to the specified model
 	if err != nil {
-		return nil, fmt.Errorf("error generating embedding for query: %w", err)
+		// We don't need to show the warning again if already shown in GenerateEmbeddings
+		
+		// Try with the specified model instead
+		embedding, err = es.ollamaClient.GenerateEmbedding(modelName, query)
+		if err != nil {
+			return nil, fmt.Errorf("error generating embedding for query: %w", err)
+		}
 	}
 
 	return embedding, nil
