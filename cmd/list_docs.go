@@ -18,8 +18,11 @@ Example: rlama list-docs my-docs`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
 
+		// Get Ollama client from root command
+		ollamaClient := GetOllamaClient()
+
 		// Create necessary services
-		ragService := service.NewRagService()
+		ragService := service.NewRagService(ollamaClient)
 
 		// Load the RAG
 		rag, err := ragService.LoadRag(ragName)
@@ -71,4 +74,4 @@ func formatSize(size int64) string {
 	default:
 		return fmt.Sprintf("%d B", size)
 	}
-} 
+}

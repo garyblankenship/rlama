@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	DefaultOllamaURL = "http://localhost:11434"
+	DefaultOllamaHost = "localhost"
+	DefaultOllamaPort = "11434"
 )
 
 // OllamaClient est un client pour l'API Ollama
@@ -58,11 +59,27 @@ type GenerationResponse struct {
 }
 
 // NewOllamaClient crée un nouveau client Ollama
-func NewOllamaClient() *OllamaClient {
+// Si host ou port sont vides, les valeurs par défaut sont utilisées
+func NewOllamaClient(host, port string) *OllamaClient {
+	if host == "" {
+		host = DefaultOllamaHost
+	}
+	if port == "" {
+		port = DefaultOllamaPort
+	}
+	
+	baseURL := fmt.Sprintf("http://%s:%s", host, port)
+	
 	return &OllamaClient{
-		BaseURL: DefaultOllamaURL,
+		BaseURL: baseURL,
 		Client:  &http.Client{},
 	}
+}
+
+// NewDefaultOllamaClient crée un nouveau client Ollama avec les valeurs par défaut
+// Gardé pour compatibilité avec le code existant
+func NewDefaultOllamaClient() *OllamaClient {
+	return NewOllamaClient(DefaultOllamaHost, DefaultOllamaPort)
 }
 
 // GenerateEmbedding génère un embedding pour le texte donné

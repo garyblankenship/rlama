@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/repository"
 )
 
@@ -21,8 +20,10 @@ recreate the RAG with the new model instead.`,
 		ragName := args[0]
 		newModel := args[1]
 
+		// Get Ollama client from root command
+		ollamaClient := GetOllamaClient()
+		
 		// Check if Ollama is installed and the new model is available
-		ollamaClient := client.NewOllamaClient()
 		if err := ollamaClient.CheckOllamaAndModel(newModel); err != nil {
 			return err
 		}
@@ -53,4 +54,4 @@ recreate the RAG with the new model instead.`,
 
 func init() {
 	rootCmd.AddCommand(updateModelCmd)
-} 
+}

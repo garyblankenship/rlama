@@ -125,6 +125,15 @@ You can get help on all commands by using:
 rlama --help
 ```
 
+### Global Flags
+
+These flags can be used with any command:
+
+```bash
+--host string   Ollama host (default: localhost)
+--port string   Ollama port (default: 11434)
+```
+
 ### rag - Create a RAG system
 
 Creates a new RAG system by indexing all documents in the specified folder.
@@ -257,8 +266,13 @@ Installing dependencies via `install_deps.sh` is recommended to improve support 
 
 If you encounter connection errors to Ollama:
 1. Check that Ollama is running.
-2. Ollama must be accessible at `http://localhost:11434`.
-3. Check Ollama logs for potential errors.
+2. By default, Ollama must be accessible at `http://localhost:11434`. 
+3. If your Ollama instance is running on a different host or port, use the `--host` and `--port` flags:
+   ```bash
+   rlama --host 192.168.1.100 --port 8000 list
+   rlama --host my-ollama-server --port 11434 run my-rag
+   ```
+4. Check Ollama logs for potential errors.
 
 ### Text extraction issues
 

@@ -23,8 +23,11 @@ The document ID is typically the filename. You can see document IDs by using the
 		ragName := args[0]
 		docID := args[1]
 
+		// Get Ollama client from root command
+		ollamaClient := GetOllamaClient()
+
 		// Create necessary services
-		ragService := service.NewRagService()
+		ragService := service.NewRagService(ollamaClient)
 
 		// Load the RAG
 		rag, err := ragService.LoadRag(ragName)
@@ -72,4 +75,4 @@ The document ID is typically the filename. You can see document IDs by using the
 func init() {
 	rootCmd.AddCommand(removeDocCmd)
 	removeDocCmd.Flags().BoolVarP(&forceRemoveDoc, "force", "f", false, "Remove without asking for confirmation")
-} 
+}

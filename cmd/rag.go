@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/service"
-	"github.com/dontizi/rlama/internal/client"
 )
 
 var ragCmd = &cobra.Command{
@@ -23,8 +22,8 @@ Supported formats include: .txt, .md, .html, .json, .csv, and various source cod
 		ragName := args[1]
 		folderPath := args[2]
 
-		// Check if Ollama is installed and running
-		ollamaClient := client.NewOllamaClient()
+		// Get Ollama client with configured host and port
+		ollamaClient := GetOllamaClient()
 		if err := ollamaClient.CheckOllamaAndModel(modelName); err != nil {
 			return err
 		}
@@ -33,7 +32,7 @@ Supported formats include: .txt, .md, .html, .json, .csv, and various source cod
 		fmt.Printf("Creating RAG '%s' with model '%s' from folder '%s'...\n", 
 			ragName, modelName, folderPath)
 
-		ragService := service.NewRagService()
+		ragService := service.NewRagService(ollamaClient)
 		err := ragService.CreateRag(modelName, ragName, folderPath)
 		if err != nil {
 			// Improve error messages related to Ollama
@@ -51,4 +50,4 @@ Supported formats include: .txt, .md, .html, .json, .csv, and various source cod
 
 func init() {
 	rootCmd.AddCommand(ragCmd)
-} 
+}

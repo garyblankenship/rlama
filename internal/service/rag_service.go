@@ -18,12 +18,16 @@ type RagService struct {
 }
 
 // NewRagService creates a new instance of RagService
-func NewRagService() *RagService {
+func NewRagService(ollamaClient *client.OllamaClient) *RagService {
+	if ollamaClient == nil {
+		ollamaClient = client.NewDefaultOllamaClient()
+	}
+	
 	return &RagService{
 		documentLoader:   NewDocumentLoader(),
-		embeddingService: NewEmbeddingService(),
+		embeddingService: NewEmbeddingService(ollamaClient),
 		ragRepository:    repository.NewRagRepository(),
-		ollamaClient:     client.NewOllamaClient(),
+		ollamaClient:     ollamaClient,
 	}
 }
 
