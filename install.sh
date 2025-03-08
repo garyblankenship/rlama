@@ -92,7 +92,7 @@ echo "Installing RLAMA..."
 # Determine OS and architecture for downloading the correct binary
 OS_ARCH=$(get_os_arch)
 BINARY_NAME="rlama_${OS_ARCH}"
-DOWNLOAD_URL="https://github.com/dontizi/rlama/releases/latest/download/${BINARY_NAME}"
+DOWNLOAD_URL="https://github.com/yibie/rlama/releases/latest/download/${BINARY_NAME}"
 
 echo "Downloading RLAMA for $OS_ARCH..."
 

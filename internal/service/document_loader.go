@@ -60,6 +60,7 @@ func NewDocumentLoader() *DocumentLoader {
 			".xlsx":  true,
 			".xls":   true,
 			".epub":  true,
+			".org":   true,
 		},
 		// We'll use pdftotext if available
 		extractorPath: findExternalExtractor(),
