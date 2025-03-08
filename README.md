@@ -266,7 +266,7 @@ Installing dependencies via `install_deps.sh` is recommended to improve support 
 
 If you encounter connection errors to Ollama:
 1. Check that Ollama is running.
-2. By default, Ollama must be accessible at `http://localhost:11434`. 
+2. By default, Ollama must be accessible at `http://localhost:11434` or the host and port specified by the OLLAMA_HOST environment variable.
 3. If your Ollama instance is running on a different host or port, use the `--host` and `--port` flags:
    ```bash
    rlama --host 192.168.1.100 --port 8000 list
