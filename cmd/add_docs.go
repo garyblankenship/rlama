@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/service"
 )
 
@@ -21,10 +20,13 @@ and add them to the existing RAG system.`,
 		ragName := args[0]
 		folderPath := args[1]
 
+		// Get Ollama client from root command
+		ollamaClient := GetOllamaClient()
+		
 		// Create necessary services
-		ragService := service.NewRagService()
+		ragService := service.NewRagService(ollamaClient)
 		documentLoader := service.NewDocumentLoader()
-		embeddingService := service.NewEmbeddingService()
+		embeddingService := service.NewEmbeddingService(ollamaClient)
 
 		// Load the RAG
 		rag, err := ragService.LoadRag(ragName)
@@ -33,7 +35,6 @@ and add them to the existing RAG system.`,
 		}
 
 		// Check if Ollama is available with the model
-		ollamaClient := client.NewOllamaClient()
 		if err := ollamaClient.CheckOllamaAndModel(rag.ModelName); err != nil {
 			return err
 		}
@@ -89,4 +90,4 @@ and add them to the existing RAG system.`,
 
 func init() {
 	rootCmd.AddCommand(addDocsCmd)
-} 
+}

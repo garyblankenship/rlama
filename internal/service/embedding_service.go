@@ -13,9 +13,12 @@ type EmbeddingService struct {
 }
 
 // NewEmbeddingService creates a new instance of EmbeddingService
-func NewEmbeddingService() *EmbeddingService {
+func NewEmbeddingService(ollamaClient *client.OllamaClient) *EmbeddingService {
+	if ollamaClient == nil {
+		ollamaClient = client.NewDefaultOllamaClient()
+	}
 	return &EmbeddingService{
-		ollamaClient: client.NewOllamaClient(),
+		ollamaClient: ollamaClient,
 	}
 }
 

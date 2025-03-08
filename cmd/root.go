@@ -2,11 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	// Remove or comment these two lines if they're not used
-	// "fmt"
-	// "os"
 
 	"github.com/spf13/cobra"
+	
+	"github.com/dontizi/rlama/internal/client"
 )
 
 const (
@@ -25,20 +24,36 @@ Main commands:
   run [rag-name]                          Run an existing RAG system
   list                                    List all available RAG systems
   delete [rag-name]                       Delete a RAG system
-  update                                  Check and install RLAMA updates`,
+  update                                  Check and install RLAMA updates
+
+Environment variables:
+  OLLAMA_HOST                            Specifies default Ollama host:port (overridden by --host and --port flags)`,
 }
 
-// Variable to store the version flag
-var versionFlag bool
+// Variables to store command flags
+var (
+	versionFlag bool
+	ollamaHost  string
+	ollamaPort  string
+)
 
 // Execute executes the root command
 func Execute() error {
 	return rootCmd.Execute()
 }
 
+// GetOllamaClient returns an Ollama client configured with host and port from command flags
+func GetOllamaClient() *client.OllamaClient {
+	return client.NewOllamaClient(ollamaHost, ollamaPort)
+}
+
 func init() {
 	// Add --version flag
 	rootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Display RLAMA version")
+	
+	// Add Ollama configuration flags
+	rootCmd.PersistentFlags().StringVar(&ollamaHost, "host", "", "Ollama host (overrides OLLAMA_HOST env var, default: localhost)")
+	rootCmd.PersistentFlags().StringVar(&ollamaPort, "port", "", "Ollama port (overrides port in OLLAMA_HOST env var, default: 11434)")
 	
 	// Override the Run function to handle the --version flag
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {

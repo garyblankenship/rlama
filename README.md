@@ -125,6 +125,15 @@ You can get help on all commands by using:
 rlama --help
 ```
 
+### Global Flags
+
+These flags can be used with any command:
+
+```bash
+--host string   Ollama host (default: localhost)
+--port string   Ollama port (default: 11434)
+```
+
 ### rag - Create a RAG system
 
 Creates a new RAG system by indexing all documents in the specified folder.
@@ -257,8 +266,13 @@ Installing dependencies via `install_deps.sh` is recommended to improve support 
 
 If you encounter connection errors to Ollama:
 1. Check that Ollama is running.
-2. Ollama must be accessible at `http://localhost:11434`.
-3. Check Ollama logs for potential errors.
+2. By default, Ollama must be accessible at `http://localhost:11434` or the host and port specified by the OLLAMA_HOST environment variable.
+3. If your Ollama instance is running on a different host or port, use the `--host` and `--port` flags:
+   ```bash
+   rlama --host 192.168.1.100 --port 8000 list
+   rlama --host my-ollama-server --port 11434 run my-rag
+   ```
+4. Check Ollama logs for potential errors.
 
 ### Text extraction issues
 
@@ -280,3 +294,25 @@ For any other issues, please open an issue on the [GitHub repository](https://gi
 2. The complete output of the command.
 3. Your operating system and architecture.
 4. The RLAMA version (`rlama --version`).
+
+### Configuring Ollama Connection
+
+RLAMA provides multiple ways to connect to your Ollama instance:
+
+1. **Command-line flags** (highest priority):
+   ```bash
+   rlama --host 192.168.1.100 --port 8080 run my-rag
+   ```
+
+2. **Environment variable**:
+   ```bash
+   # Format: "host:port" or just "host"
+   export OLLAMA_HOST=remote-server:8080
+   rlama run my-rag
+   ```
+
+3. **Default values** (used if no other method is specified):
+   - Host: `localhost`
+   - Port: `11434`
+
+The precedence order is: command-line flags > environment variable > default values.

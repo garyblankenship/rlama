@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 )
 
+// Default connection settings for Ollama
 const (
-	DefaultOllamaURL = "http://localhost:11434"
+	DefaultOllamaHost = "localhost"
+	DefaultOllamaPort = "11434"
 )
 
 // OllamaClient est un client pour l'API Ollama
@@ -58,11 +62,48 @@ type GenerationResponse struct {
 }
 
 // NewOllamaClient crée un nouveau client Ollama
-func NewOllamaClient() *OllamaClient {
+// Si host ou port sont vides, les valeurs par défaut sont utilisées
+// Si OLLAMA_HOST est défini, il est utilisé comme valeur par défaut
+func NewOllamaClient(host, port string) *OllamaClient {
+	// Check for OLLAMA_HOST environment variable
+	ollamaHostEnv := os.Getenv("OLLAMA_HOST")
+	
+	// Default values
+	defaultHost := DefaultOllamaHost
+	defaultPort := DefaultOllamaPort
+	
+	// If OLLAMA_HOST is set, parse it
+	if ollamaHostEnv != "" {
+		// OLLAMA_HOST could be in the form "host:port" or just "host"
+		parts := strings.Split(ollamaHostEnv, ":")
+		if len(parts) >= 1 {
+			defaultHost = parts[0]
+		}
+		if len(parts) >= 2 {
+			defaultPort = parts[1]
+		}
+	}
+	
+	// Command flags override environment variables
+	if host == "" {
+		host = defaultHost
+	}
+	if port == "" {
+		port = defaultPort
+	}
+	
+	baseURL := fmt.Sprintf("http://%s:%s", host, port)
+	
 	return &OllamaClient{
-		BaseURL: DefaultOllamaURL,
+		BaseURL: baseURL,
 		Client:  &http.Client{},
 	}
+}
+
+// NewDefaultOllamaClient crée un nouveau client Ollama avec les valeurs par défaut
+// Gardé pour compatibilité avec le code existant
+func NewDefaultOllamaClient() *OllamaClient {
+	return NewOllamaClient(DefaultOllamaHost, DefaultOllamaPort)
 }
 
 // GenerateEmbedding génère un embedding pour le texte donné
