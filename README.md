@@ -28,6 +28,79 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 curl -fsSL https://raw.githubusercontent.com/dontizi/rlama/main/install.sh | sh
 ```
 
+## Tech Stack
+
+RLAMA is built with:
+
+- **Core Language**: Go (chosen for performance, cross-platform compatibility, and single binary distribution)
+- **CLI Framework**: Cobra (for command-line interface structure)
+- **LLM Integration**: Ollama API (for embeddings and completions)
+- **Storage**: Local filesystem-based storage (JSON files for simplicity and portability)
+- **Vector Search**: Custom implementation of cosine similarity for embedding retrieval
+
+## Architecture
+
+RLAMA follows a clean architecture pattern with clear separation of concerns:
+
+```
+rlama/
+├── cmd/                  # CLI commands (using Cobra)
+│   ├── root.go           # Base command
+│   ├── rag.go            # Create RAG systems
+│   ├── run.go            # Query RAG systems
+│   └── ...
+├── internal/
+│   ├── client/           # External API clients
+│   │   └── ollama_client.go # Ollama API integration
+│   ├── domain/           # Core domain models
+│   │   ├── rag.go        # RAG system entity
+│   │   └── document.go   # Document entity
+│   ├── repository/       # Data persistence
+│   │   └── rag_repository.go # Handles saving/loading RAGs
+│   └── service/          # Business logic
+│       ├── rag_service.go      # RAG operations
+│       ├── document_loader.go  # Document processing
+│       └── embedding_service.go # Vector embeddings
+└── pkg/                  # Shared utilities
+    └── vector/           # Vector operations
+```
+
+## Data Flow
+
+1. **Document Processing**: Documents are loaded from the file system, parsed based on their type, and converted to plain text.
+2. **Embedding Generation**: Document text is sent to Ollama to generate vector embeddings.
+3. **Storage**: The RAG system (documents + embeddings) is stored in the user's home directory (~/.rlama).
+4. **Query Process**: When a user asks a question, it's converted to an embedding, compared against stored document embeddings, and relevant content is retrieved.
+5. **Response Generation**: Retrieved content and the question are sent to Ollama to generate a contextually-informed response.
+
+## Visual Representation
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Documents  │────>│  Document   │────>│  Embedding  │
+│  (Input)    │     │  Processing │     │  Generation │
+└─────────────┘     └─────────────┘     └─────────────┘
+                                              │
+                                              ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Query     │────>│  Vector     │<────│ Vector Store│
+│  Response   │     │  Search     │     │ (RAG System)│
+└─────────────┘     └─────────────┘     └─────────────┘
+       ▲                   │
+       │                   ▼
+┌─────────────┐     ┌─────────────┐
+│   Ollama    │<────│   Context   │
+│    LLM      │     │  Building   │
+└─────────────┘     └─────────────┘
+```
+
+RLAMA is designed to be lightweight and portable, focusing on providing RAG capabilities with minimal dependencies. The entire system runs locally, with the only external dependency being Ollama for LLM capabilities.
+
+
+
+
+
+
 
 ## Available Commands
 
