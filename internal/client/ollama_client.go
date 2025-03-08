@@ -10,6 +10,12 @@ import (
 	"strings"
 )
 
+// Default connection settings for Ollama
+const (
+	DefaultOllamaHost = "localhost"
+	DefaultOllamaPort = "11434"
+)
+
 // OllamaClient est un client pour l'API Ollama
 type OllamaClient struct {
 	BaseURL string

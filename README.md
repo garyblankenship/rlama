@@ -294,3 +294,25 @@ For any other issues, please open an issue on the [GitHub repository](https://gi
 2. The complete output of the command.
 3. Your operating system and architecture.
 4. The RLAMA version (`rlama --version`).
+
+### Configuring Ollama Connection
+
+RLAMA provides multiple ways to connect to your Ollama instance:
+
+1. **Command-line flags** (highest priority):
+   ```bash
+   rlama --host 192.168.1.100 --port 8080 run my-rag
+   ```
+
+2. **Environment variable**:
+   ```bash
+   # Format: "host:port" or just "host"
+   export OLLAMA_HOST=remote-server:8080
+   rlama run my-rag
+   ```
+
+3. **Default values** (used if no other method is specified):
+   - Host: `localhost`
+   - Port: `11434`
+
+The precedence order is: command-line flags > environment variable > default values.
