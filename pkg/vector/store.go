@@ -137,4 +137,14 @@ func (s *Store) Load(path string) error {
 	}
 	
 	return nil
+}
+
+// Remove removes a vector from the storage by its ID
+func (s *Store) Remove(id string) {
+	for i, item := range s.Items {
+		if item.ID == id {
+			s.Items = append(s.Items[:i], s.Items[i+1:]...)
+			return
+		}
+	}
 } 

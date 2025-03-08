@@ -133,4 +133,13 @@ Answer concisely based only on the information provided above:`, context.String(
 	}
 
 	return response, nil
+}
+
+// UpdateRag updates an existing RAG system
+func (rs *RagService) UpdateRag(rag *domain.RagSystem) error {
+	err := rs.ragRepository.Save(rag)
+	if err != nil {
+		return fmt.Errorf("error updating the RAG: %w", err)
+	}
+	return nil
 } 
