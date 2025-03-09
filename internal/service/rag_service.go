@@ -53,20 +53,43 @@ func (rs *RagService) CreateRag(modelName, ragName, folderPath string) error {
 		return fmt.Errorf("no valid documents found in folder %s", folderPath)
 	}
 
-	fmt.Printf("Successfully loaded %d documents. Generating embeddings...\n", len(docs))
+	fmt.Printf("Successfully loaded %d documents. Chunking documents...\n", len(docs))
 	
 	// Create the RAG system
 	rag := domain.NewRagSystem(ragName, modelName)
-
-	// Generate embeddings for all documents
-	err = rs.embeddingService.GenerateEmbeddings(docs, modelName)
+	
+	// Create chunker service
+	chunkerService := NewChunkerService(DefaultChunkingConfig())
+	
+	// Process each document - chunk and generate embeddings
+	var allChunks []*domain.DocumentChunk
+	for _, doc := range docs {
+		// Add the document to the RAG
+		rag.AddDocument(doc)
+		
+		// Chunk the document
+		chunks := chunkerService.ChunkDocument(doc)
+		
+		// Update total chunks in metadata
+		for _, chunk := range chunks {
+			chunk.UpdateTotalChunks(len(chunks))
+		}
+		
+		allChunks = append(allChunks, chunks...)
+	}
+	
+	fmt.Printf("Generated %d chunks from %d documents. Generating embeddings...\n", 
+		len(allChunks), len(docs))
+	
+	// Generate embeddings for all chunks
+	err = rs.embeddingService.GenerateChunkEmbeddings(allChunks, modelName)
 	if err != nil {
 		return fmt.Errorf("error generating embeddings: %w", err)
 	}
-
-	// Add documents to the RAG
-	for _, doc := range docs {
-		rag.AddDocument(doc)
+	
+	// Add all chunks to the RAG
+	for _, chunk := range allChunks {
+		rag.AddChunk(chunk)
 	}
 
 	// Save the RAG
@@ -75,7 +98,7 @@ func (rs *RagService) CreateRag(modelName, ragName, folderPath string) error {
 		return fmt.Errorf("error saving the RAG: %w", err)
 	}
 
-	fmt.Printf("RAG created with %d indexed documents.\n", len(docs))
+	fmt.Printf("RAG created with %d indexed documents (%d chunks).\n", len(docs), len(allChunks))
 	return nil
 }
 
@@ -102,40 +125,49 @@ func (rs *RagService) Query(rag *domain.RagSystem, query string) (string, error)
 		return "", fmt.Errorf("error generating embedding for query: %w", err)
 	}
 
-	// Search for the most relevant documents
-	results := rag.VectorStore.Search(queryEmbedding, 3) // Top 3 documents
-
+	// Search for the most relevant chunks
+	results := rag.VectorStore.Search(queryEmbedding, 20) // Top 5 chunks
+	
 	// Build the context
 	var context strings.Builder
 	context.WriteString("Relevant information:\n\n")
-
+	
+	// Track which documents we've included for reference
+	includedDocs := make(map[string]bool)
+	
 	for _, result := range results {
-		doc := rag.GetDocumentByID(result.ID)
-		if doc != nil {
-			// Limit content size to avoid prompts that are too long
-			content := doc.Content
-			if len(content) > 1000 {
-				content = content[:1000] + "..."
-			}
-			context.WriteString(fmt.Sprintf("--- Document: %s ---\n%s\n\n", doc.Name, content))
+		chunk := rag.GetChunkByID(result.ID)
+		if chunk != nil {
+			// Add chunk content with its metadata
+			context.WriteString(fmt.Sprintf("--- %s ---\n%s\n\n", 
+				chunk.GetMetadataString(), chunk.Content))
+				
+			includedDocs[chunk.DocumentID] = true
 		}
 	}
-
-	// Build the prompt
+	
+	// Build the prompt with better formatting and instructions for citing sources
 	prompt := fmt.Sprintf(`You are a helpful AI assistant. Use the information below to answer the question.
 
 %s
 
 Question: %s
 
-Answer concisely based only on the information provided above:`, context.String(), query)
-
+Answer based on the provided information. If the information doesn't contain the answer, say so clearly.
+Include references to the source documents in your answer using the format (Source: document name).`, 
+	context.String(), query)
+	
+	// Show search results to the user
+	fmt.Println("\nSearching documents...\n")
+	fmt.Printf("Found %d relevant sections across %d documents\n", 
+		len(results), len(includedDocs))
+	
 	// Generate the response
 	response, err := rs.ollamaClient.GenerateCompletion(rag.ModelName, prompt)
 	if err != nil {
 		return "", fmt.Errorf("error generating response: %w", err)
 	}
-
+	
 	return response, nil
 }
 

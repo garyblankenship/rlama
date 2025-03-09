@@ -8,13 +8,14 @@ import (
 
 // RagSystem représente un système RAG complet
 type RagSystem struct {
-	Name        string    `json:"name"`
-	ModelName   string    `json:"model_name"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Description string    `json:"description"`
+	Name        string        `json:"name"`
+	ModelName   string        `json:"model_name"`
+	CreatedAt   time.Time     `json:"created_at"`
+	UpdatedAt   time.Time     `json:"updated_at"`
+	Description string        `json:"description"`
 	VectorStore *vector.Store
-	Documents   []*Document `json:"documents"`
+	Documents   []*Document     `json:"documents"`
+	Chunks      []*DocumentChunk `json:"chunks"`
 }
 
 // NewRagSystem crée une nouvelle instance de RagSystem
@@ -27,6 +28,7 @@ func NewRagSystem(name, modelName string) *RagSystem {
 		UpdatedAt:   now,
 		VectorStore: vector.NewStore(),
 		Documents:   []*Document{},
+		Chunks:      []*DocumentChunk{},
 	}
 }
 
@@ -72,4 +74,23 @@ func (r *RagSystem) RemoveDocument(id string) bool {
 	
 	r.UpdatedAt = time.Now()
 	return true
+}
+
+// AddChunk adds a chunk to the RAG system
+func (r *RagSystem) AddChunk(chunk *DocumentChunk) {
+	r.Chunks = append(r.Chunks, chunk)
+	if chunk.Embedding != nil {
+		r.VectorStore.Add(chunk.ID, chunk.Embedding)
+	}
+	r.UpdatedAt = time.Now()
+}
+
+// GetChunkByID retrieves a chunk by its ID
+func (r *RagSystem) GetChunkByID(id string) *DocumentChunk {
+	for _, chunk := range r.Chunks {
+		if chunk.ID == id {
+			return chunk
+		}
+	}
+	return nil
 } 
