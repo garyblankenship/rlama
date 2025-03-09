@@ -71,4 +71,37 @@ func (es *EmbeddingService) GenerateQueryEmbedding(query string, modelName strin
 	}
 
 	return embedding, nil
+}
+
+// Add a new method for generating embeddings for document chunks
+func (es *EmbeddingService) GenerateChunkEmbeddings(chunks []*domain.DocumentChunk, modelName string) error {
+	// Try to use bge-m3 for embeddings first
+	embeddingModel := "bge-m3"
+	
+	// Process all chunks
+	for i, chunk := range chunks {
+		fmt.Printf("Generating embedding for chunk %d/%d\r", i+1, len(chunks))
+		
+		// Generate embedding with bge-m3 first
+		embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, chunk.Content)
+		
+		// If bge-m3 fails, fallback to the specified model
+		if err != nil {
+			if i == 0 {  // Only show warning once
+				fmt.Printf("\n⚠️ Could not use %s for embeddings: %v\n", embeddingModel, err)
+				fmt.Printf("Falling back to %s for embeddings. For better performance, consider:\n", modelName)
+				fmt.Printf("  ollama pull bge-m3\n\n")
+			}
+			
+			// Try with the specified model instead
+			embedding, err = es.ollamaClient.GenerateEmbedding(modelName, chunk.Content)
+			if err != nil {
+				return fmt.Errorf("error generating embedding for chunk %s: %w", chunk.ID, err)
+			}
+		}
+
+		chunk.Embedding = embedding
+	}
+	fmt.Println() // Add a newline after progress indicator
+	return nil
 } 

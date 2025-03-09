@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/service"
+	"github.com/dontizi/rlama/internal/domain"
 )
 
 var addDocsCmd = &cobra.Command{
@@ -52,28 +53,46 @@ and add them to the existing RAG system.`,
 
 		fmt.Printf("Successfully loaded %d documents. Generating embeddings...\n", len(docs))
 
-		// Generate embeddings for all documents
-		err = embeddingService.GenerateEmbeddings(docs, rag.ModelName)
+		// Create chunker service
+		chunkerService := service.NewChunkerService(service.DefaultChunkingConfig())
+
+		// Process each document - chunk and generate embeddings
+		var allChunks []*domain.DocumentChunk
+		for _, doc := range docs {
+			// Chunk the document
+			chunks := chunkerService.ChunkDocument(doc)
+			
+			// Update total chunks in metadata
+			for _, chunk := range chunks {
+				chunk.UpdateTotalChunks(len(chunks))
+			}
+			
+			allChunks = append(allChunks, chunks...)
+		}
+
+		fmt.Printf("Generated %d chunks from %d documents. Generating embeddings...\n", 
+			len(allChunks), len(docs))
+
+		// Generate embeddings for all chunks
+		err = embeddingService.GenerateChunkEmbeddings(allChunks, rag.ModelName)
 		if err != nil {
 			return fmt.Errorf("error generating embeddings: %w", err)
 		}
 
-		// Track how many new documents were added
-		docsAdded := 0
-		existingDocs := make(map[string]bool)
-		
-		// Create a map of existing document IDs for quick lookup
-		for _, doc := range rag.Documents {
-			existingDocs[doc.ID] = true
+		// Track how many new chunks were added
+		chunksAdded := 0
+		existingChunks := make(map[string]bool)
+
+		// Create a map of existing chunk IDs for quick lookup
+		for _, chunk := range rag.Chunks {
+			existingChunks[chunk.ID] = true
 		}
 
-		// Add documents to the RAG if they don't already exist
-		for _, doc := range docs {
-			if !existingDocs[doc.ID] {
-				rag.AddDocument(doc)
-				docsAdded++
-			} else {
-				fmt.Printf("Skipping duplicate document: %s\n", doc.Name)
+		// Add chunks to the RAG if they don't already exist
+		for _, chunk := range allChunks {
+			if !existingChunks[chunk.ID] {
+				rag.AddChunk(chunk)
+				chunksAdded++
 			}
 		}
 
@@ -83,7 +102,7 @@ and add them to the existing RAG system.`,
 			return fmt.Errorf("error saving the RAG: %w", err)
 		}
 
-		fmt.Printf("Successfully added %d new documents to RAG '%s'.\n", docsAdded, ragName)
+		fmt.Printf("Successfully added %d new chunks to RAG '%s'.\n", chunksAdded, ragName)
 		return nil
 	},
 }

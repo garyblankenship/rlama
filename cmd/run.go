@@ -51,13 +51,17 @@ Example: rlama run rag1`,
 				continue
 			}
 
+			fmt.Println("\nSearching documents for relevant information...")
+
 			answer, err := ragService.Query(rag, question)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
 				continue
 			}
 
+			fmt.Println("\n--- Answer ---")
 			fmt.Println(answer)
+			fmt.Println()
 		}
 
 		return nil
