@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/dontizi/rlama/internal/domain"
@@ -69,14 +70,26 @@ func NewDocumentLoader() *DocumentLoader {
 
 // findExternalExtractor looks for external extraction tools
 func findExternalExtractor() string {
-	// Priority of text extractors
-	extractors := []string{
-		"pdftotext", // For PDFs (Poppler-utils)
-		"textutil",  // macOS
-		"catdoc",    // For .doc
-		"unrtf",     // For .rtf
+	// Define platform-specific extractors
+	var extractors []string
+	
+	if runtime.GOOS == "windows" {
+		// Windows-specific extractors
+		extractors = []string{
+			"xpdf-pdftotext.exe", // Xpdf tools for Windows
+			"pdftotext.exe",      // Poppler Windows
+			"docx2txt.exe",       // For docx files
+		}
+	} else {
+		// Unix/Mac extractors
+		extractors = []string{
+			"pdftotext", // Poppler-utils
+			"textutil",  // macOS
+			"catdoc",    // For .doc
+			"unrtf",     // For .rtf
+		}
 	}
-
+	
 	for _, extractor := range extractors {
 		path, err := exec.LookPath(extractor)
 		if err == nil {
