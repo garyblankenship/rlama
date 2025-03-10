@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,27 @@ var uninstallCmd = &cobra.Command{
 		}
 
 		// 3. Remove the executable
-		executablePath := "/usr/local/bin/rlama"
+		var executablePath string
+		if runtime.GOOS == "windows" {
+			// Try different locations where it might be installed
+			localAppData := os.Getenv("LOCALAPPDATA")
+			possiblePaths := []string{
+				filepath.Join(localAppData, "RLAMA", "rlama.exe"),
+				filepath.Join(os.Getenv("ProgramFiles"), "RLAMA", "rlama.exe"),
+				filepath.Join(os.Getenv("ProgramFiles(x86)"), "RLAMA", "rlama.exe"),
+				filepath.Join(homeDir, "AppData", "Local", "RLAMA", "rlama.exe"),
+			}
+			
+			for _, path := range possiblePaths {
+				if _, err := os.Stat(path); err == nil {
+					executablePath = path
+					break
+				}
+			}
+		} else {
+			executablePath = "/usr/local/bin/rlama"
+		}
+		
 		fmt.Printf("Removing executable: %s\n", executablePath)
 		
 		if _, err := os.Stat(executablePath); err == nil {

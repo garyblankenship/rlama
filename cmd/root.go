@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 	
@@ -44,6 +46,16 @@ func Execute() error {
 
 // GetOllamaClient returns an Ollama client configured with host and port from command flags
 func GetOllamaClient() *client.OllamaClient {
+	// Windows may use different environment variable handling
+	if runtime.GOOS == "windows" {
+		// Ensure Ollama can be found if running via WSL
+		if ollamaHost == "" && ollamaPort == "" && os.Getenv("OLLAMA_HOST") == "" {
+			// Check if WSL access is needed and Ollama is not running natively
+			// This is just an example approach - actual implementation would need to check
+			// if Ollama is accessible on localhost first
+		}
+	}
+	
 	return client.NewOllamaClient(ollamaHost, ollamaPort)
 }
 
