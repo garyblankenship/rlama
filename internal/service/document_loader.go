@@ -16,6 +16,15 @@ import (
 	"github.com/dontizi/rlama/internal/domain"
 )
 
+// DocumentLoaderOptions defines filtering options for document loading
+type DocumentLoaderOptions struct {
+	ExcludeDirs    []string 
+	ExcludeExts    []string 
+	ProcessExts    []string 
+	ChunkSize      int      
+	ChunkOverlap   int      // Add this
+}
+
 // DocumentLoader is responsible for loading documents from the file system
 type DocumentLoader struct {
 	supportedExtensions map[string]bool
@@ -44,12 +53,19 @@ func NewDocumentLoader() *DocumentLoader {
 			".java":  true,
 			".c":     true,
 			".cpp":   true,
+			".cxx":   true,
+			".f":     true,
+			".F":     true,
+			".F90":   true,
 			".h":     true,
 			".rb":    true,
 			".php":   true,
 			".rs":    true,
 			".swift": true,
 			".kt":    true,
+			".el":    true,
+			".svelte":true,
+			".ts":    true,
 			// Documents
 			".pdf":   true,
 			".docx":  true,
@@ -62,6 +78,7 @@ func NewDocumentLoader() *DocumentLoader {
 			".xls":   true,
 			".epub":  true,
 			".org":   true,
+			
 		},
 		// We'll use pdftotext if available
 		extractorPath: findExternalExtractor(),
@@ -102,11 +119,31 @@ func findExternalExtractor() string {
 	return ""
 }
 
-// LoadDocumentsFromFolder loads all supported documents from the specified folder
-func (dl *DocumentLoader) LoadDocumentsFromFolder(folderPath string) ([]*domain.Document, error) {
+// LoadDocumentsFromFolderWithOptions loads documents with filtering options
+func (dl *DocumentLoader) LoadDocumentsFromFolderWithOptions(folderPath string, options DocumentLoaderOptions) ([]*domain.Document, error) {
 	var documents []*domain.Document
 	var supportedFiles []string
 	var unsupportedFiles []string
+	var excludedFiles []string
+
+	// Normalize extensions for easier comparison
+	for i, ext := range options.ExcludeExts {
+		if !strings.HasPrefix(ext, ".") {
+			options.ExcludeExts[i] = "." + ext
+		}
+	}
+	for i, ext := range options.ProcessExts {
+		if !strings.HasPrefix(ext, ".") {
+			options.ProcessExts[i] = "." + ext
+		}
+	}
+
+	// Ensure folderPath is absolute
+	absPath, err := filepath.Abs(folderPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve absolute path: %w", err)
+	}
+	folderPath = absPath
 
 	// Check if the folder exists
 	info, err := os.Stat(folderPath)
@@ -129,18 +166,55 @@ func (dl *DocumentLoader) LoadDocumentsFromFolder(folderPath string) ([]*domain.
 		return nil, fmt.Errorf("the specified path is not a folder: %s", folderPath)
 	}
 
-	// Preliminary file check
+	// Preliminary file check - recursively walk the directory
 	err = filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			fmt.Printf("Warning: error accessing path %s: %v\n", path, err)
+			return nil // Skip this file but continue walking
 		}
 
-		// Ignore folders and hidden files (starting with .)
-		if info.IsDir() || strings.HasPrefix(filepath.Base(path), ".") {
+		// Check if this directory should be excluded
+		if info.IsDir() {
+			for _, excludeDir := range options.ExcludeDirs {
+				if strings.Contains(path, excludeDir) {
+					fmt.Printf("Excluding directory: %s\n", path)
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+
+		// Ignore hidden files (starting with .)
+		if strings.HasPrefix(filepath.Base(path), ".") {
 			return nil
 		}
 
 		ext := strings.ToLower(filepath.Ext(path))
+		
+		// Check if the extension is in the exclude list
+		for _, excludeExt := range options.ExcludeExts {
+			if ext == excludeExt {
+				excludedFiles = append(excludedFiles, path)
+				return nil
+			}
+		}
+		
+		// If we're only processing specific extensions
+		if len(options.ProcessExts) > 0 {
+			shouldProcess := false
+			for _, processExt := range options.ProcessExts {
+				if ext == processExt {
+					shouldProcess = true
+					break
+				}
+			}
+			
+			if !shouldProcess {
+				excludedFiles = append(excludedFiles, path)
+				return nil
+			}
+		}
+
 		if dl.supportedExtensions[ext] {
 			supportedFiles = append(supportedFiles, path)
 		} else {
@@ -155,8 +229,11 @@ func (dl *DocumentLoader) LoadDocumentsFromFolder(folderPath string) ([]*domain.
 
 	// Display info about found files
 	if len(supportedFiles) == 0 {
-		if len(unsupportedFiles) == 0 {
-			return nil, fmt.Errorf("folder '%s' is empty. Please add documents before creating a RAG", folderPath)
+		if len(unsupportedFiles) == 0 && len(excludedFiles) == 0 {
+			return nil, fmt.Errorf("folder '%s' is empty or contains only hidden files. Please add documents before creating a RAG", folderPath)
+		} else if len(excludedFiles) > 0 {
+			return nil, fmt.Errorf("no supported files found in '%s' after applying exclusion rules. %d unsupported, %d excluded", 
+				folderPath, len(unsupportedFiles), len(excludedFiles))
 		} else {
 			extensionsMsg := "Supported extensions: "
 			for ext := range dl.supportedExtensions {
@@ -167,7 +244,8 @@ func (dl *DocumentLoader) LoadDocumentsFromFolder(folderPath string) ([]*domain.
 		}
 	}
 
-	fmt.Printf("Found %d supported files and %d unsupported files.\n", len(supportedFiles), len(unsupportedFiles))
+	fmt.Printf("Found %d supported files, %d unsupported files, and %d excluded files.\n", 
+		len(supportedFiles), len(unsupportedFiles), len(excludedFiles))
 	
 	// Try to install dependencies if possible
 	dl.tryInstallDependencies()
@@ -210,10 +288,19 @@ func (dl *DocumentLoader) LoadDocumentsFromFolder(folderPath string) ([]*domain.
 			}
 		}
 
-		// Create a document
+		// Create a document with relative path for better identification
+		relPath, err := filepath.Rel(folderPath, path)
+		if err != nil {
+			relPath = path // Fallback to full path if relative path can't be determined
+		}
+		
+		// Use relPath for document identification, but keep the full path for file access
 		doc := domain.NewDocument(path, textContent)
+		doc.Name = relPath // Use relative path as the document name for better browsing
+		// Don't change doc.ID or doc.Path which need the absolute path
+		
 		documents = append(documents, doc)
-		fmt.Printf("Document added: %s (%d characters)\n", filepath.Base(path), len(textContent))
+		fmt.Printf("Document added: %s (%d characters)\n", relPath, len(textContent))
 	}
 
 	if len(documents) == 0 {
@@ -478,4 +565,38 @@ func (dl *DocumentLoader) tryInstallDependencies() {
 			}
 		}
 	}
+}
+
+// processContent processes the content of a document and returns chunks
+func (dl *DocumentLoader) processContent(path string, content string, options DocumentLoaderOptions) []*domain.DocumentChunk {
+	var chunks []*domain.DocumentChunk
+	runes := []rune(content)
+	
+	stepSize := options.ChunkSize - options.ChunkOverlap
+	if stepSize <= 0 {
+		stepSize = options.ChunkSize
+	}
+
+	totalChunks := (len(runes) + options.ChunkSize - 1) / options.ChunkSize
+	chunkIndex := 0
+
+	for i := 0; i < len(runes); i += stepSize {
+		end := i + options.ChunkSize
+		if end > len(runes) {
+			end = len(runes)
+		}
+		
+		chunk := &domain.DocumentChunk{
+			Content:     string(runes[i:end]),
+			ChunkNumber: chunkIndex,
+			TotalChunks: totalChunks,
+		}
+		chunks = append(chunks, chunk)
+		chunkIndex++
+
+		if end == len(runes) {
+			break
+		}
+	}
+	return chunks
 } 

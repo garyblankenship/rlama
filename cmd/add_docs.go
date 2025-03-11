@@ -5,7 +5,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/service"
-	"github.com/dontizi/rlama/internal/domain"
+)
+
+var (
+	addDocsExcludeDirs  []string
+	addDocsExcludeExts  []string
+	addDocsProcessExts  []string
 )
 
 var addDocsCmd = &cobra.Command{
@@ -26,87 +31,30 @@ and add them to the existing RAG system.`,
 		
 		// Create necessary services
 		ragService := service.NewRagService(ollamaClient)
-		documentLoader := service.NewDocumentLoader()
-		embeddingService := service.NewEmbeddingService(ollamaClient)
 
-		// Load the RAG
-		rag, err := ragService.LoadRag(ragName)
+		// Set up loader options based on flags
+		loaderOptions := service.DocumentLoaderOptions{
+			ExcludeDirs: addDocsExcludeDirs,
+			ExcludeExts: addDocsExcludeExts,
+			ProcessExts: addDocsProcessExts,
+		}
+
+		// Pass the options to the service
+		err := ragService.AddDocsWithOptions(ragName, folderPath, loaderOptions)
 		if err != nil {
 			return err
 		}
 
-		// Check if Ollama is available with the model
-		if err := ollamaClient.CheckOllamaAndModel(rag.ModelName); err != nil {
-			return err
-		}
-
-		// Load documents from the folder
-		fmt.Printf("Loading documents from '%s'...\n", folderPath)
-		docs, err := documentLoader.LoadDocumentsFromFolder(folderPath)
-		if err != nil {
-			return fmt.Errorf("error loading documents: %w", err)
-		}
-
-		if len(docs) == 0 {
-			return fmt.Errorf("no valid documents found in folder %s", folderPath)
-		}
-
-		fmt.Printf("Successfully loaded %d documents. Generating embeddings...\n", len(docs))
-
-		// Create chunker service
-		chunkerService := service.NewChunkerService(service.DefaultChunkingConfig())
-
-		// Process each document - chunk and generate embeddings
-		var allChunks []*domain.DocumentChunk
-		for _, doc := range docs {
-			// Chunk the document
-			chunks := chunkerService.ChunkDocument(doc)
-			
-			// Update total chunks in metadata
-			for _, chunk := range chunks {
-				chunk.UpdateTotalChunks(len(chunks))
-			}
-			
-			allChunks = append(allChunks, chunks...)
-		}
-
-		fmt.Printf("Generated %d chunks from %d documents. Generating embeddings...\n", 
-			len(allChunks), len(docs))
-
-		// Generate embeddings for all chunks
-		err = embeddingService.GenerateChunkEmbeddings(allChunks, rag.ModelName)
-		if err != nil {
-			return fmt.Errorf("error generating embeddings: %w", err)
-		}
-
-		// Track how many new chunks were added
-		chunksAdded := 0
-		existingChunks := make(map[string]bool)
-
-		// Create a map of existing chunk IDs for quick lookup
-		for _, chunk := range rag.Chunks {
-			existingChunks[chunk.ID] = true
-		}
-
-		// Add chunks to the RAG if they don't already exist
-		for _, chunk := range allChunks {
-			if !existingChunks[chunk.ID] {
-				rag.AddChunk(chunk)
-				chunksAdded++
-			}
-		}
-
-		// Save the RAG
-		err = ragService.UpdateRag(rag)
-		if err != nil {
-			return fmt.Errorf("error saving the RAG: %w", err)
-		}
-
-		fmt.Printf("Successfully added %d new chunks to RAG '%s'.\n", chunksAdded, ragName)
+		fmt.Printf("Documents from '%s' added to RAG '%s' successfully.\n", folderPath, ragName)
 		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(addDocsCmd)
+
+	// Add exclusion and processing flags
+	addDocsCmd.Flags().StringSliceVar(&addDocsExcludeDirs, "excludedir", nil, "Directories to exclude (comma-separated)")
+	addDocsCmd.Flags().StringSliceVar(&addDocsExcludeExts, "excludeext", nil, "File extensions to exclude (comma-separated)")
+	addDocsCmd.Flags().StringSliceVar(&addDocsProcessExts, "processext", nil, "Only process these file extensions (comma-separated)")
 }

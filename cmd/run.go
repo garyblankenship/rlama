@@ -10,6 +10,10 @@ import (
 	"github.com/dontizi/rlama/internal/service"
 )
 
+var (
+	contextSize int
+)
+
 var runCmd = &cobra.Command{
 	Use:   "run [rag-name]",
 	Short: "Run a RAG system",
@@ -53,7 +57,7 @@ Example: rlama run rag1`,
 
 			fmt.Println("\nSearching documents for relevant information...")
 
-			answer, err := ragService.Query(rag, question)
+			answer, err := ragService.Query(rag, question, contextSize)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
 				continue
@@ -70,4 +74,7 @@ Example: rlama run rag1`,
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+	
+	// Add context size flag
+	runCmd.Flags().IntVar(&contextSize, "context-size", 20, "Number of context chunks to retrieve (default: 20)")
 }

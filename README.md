@@ -26,6 +26,11 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
   - [run - Use a RAG system](#run---use-a-rag-system)
   - [list - List RAG systems](#list---list-rag-systems)
   - [delete - Delete a RAG system](#delete---delete-a-rag-system)
+  - [list-docs - List documents in a RAG](#list-docs---list-documents-in-a-rag)
+  - [list-chunks - Inspect document chunks](#list-chunks---inspect-document-chunks)
+  - [view-chunk - View chunk details](#view-chunk---view-chunk-details)
+  - [add-docs - Add documents to RAG](#add-docs---add-documents-to-rag)
+  - [update-model - Change LLM model](#update-model---change-llm-model)
   - [update - Update RLAMA](#update---update-rlama)
   - [version - Display version](#version---display-version)
 - [Uninstallation](#uninstallation)
@@ -163,6 +168,7 @@ rlama run [rag-name]
 
 **Parameters:**
 - `rag-name`: Name of the RAG system to use.
+- `--context-size`: (Optional) Number of context chunks to retrieve (default: 20)
 
 **Example:**
 
@@ -171,6 +177,16 @@ rlama run documentation
 > How do I install the project?
 > What are the main features?
 > exit
+```
+
+**Context Size Tips:**
+- Smaller values (5-15) for faster responses with key information
+- Medium values (20-40) for balanced performance
+- Larger values (50+) for complex questions needing broad context
+- Consider your model's context window limits
+
+```bash
+rlama run documentation --context-size=50  # Use 50 context chunks
 ```
 
 ### list - List RAG systems
@@ -203,6 +219,106 @@ Or to delete without confirmation:
 
 ```bash
 rlama delete old-project --force
+```
+
+### list-docs - List documents in a RAG
+
+Displays all documents in a RAG system with metadata.
+
+```bash
+rlama list-docs [rag-name]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system
+
+**Example:**
+
+```bash
+rlama list-docs documentation
+```
+
+### list-chunks - Inspect document chunks
+
+List and filter document chunks in a RAG system with various options:
+
+```bash
+# Basic chunk listing
+rlama list-chunks [rag-name]
+
+# With content preview (shows first 100 characters)
+rlama list-chunks [rag-name] --show-content
+
+# Filter by document name/ID substring
+rlama list-chunks [rag-name] --document=readme
+
+# Combine options
+rlama list-chunks [rag-name] --document=api --show-content
+```
+
+**Options:**
+- `--show-content`: Display chunk content preview
+- `--document`: Filter by document name/ID substring
+
+**Output columns:**
+- Chunk ID (use with view-chunk command)
+- Document Source
+- Chunk Position (e.g., "2/5" for second of five chunks)
+- Content Preview (if enabled)
+- Created Date
+
+### view-chunk - View chunk details
+
+Display detailed information about a specific chunk.
+
+```bash
+rlama view-chunk [rag-name] [chunk-id]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system
+- `chunk-id`: Chunk identifier from list-chunks
+
+**Example:**
+
+```bash
+rlama view-chunk documentation doc123_chunk_0
+```
+
+### add-docs - Add documents to RAG
+
+Add new documents to an existing RAG system.
+
+```bash
+rlama add-docs [rag-name] [folder-path] [flags]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system
+- `folder-path`: Path to documents folder
+
+**Example:**
+
+```bash
+rlama add-docs documentation ./new-docs --exclude-ext=.tmp
+```
+
+### update-model - Change LLM model
+
+Update the LLM model used by a RAG system.
+
+```bash
+rlama update-model [rag-name] [new-model]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system
+- `new-model`: New Ollama model name
+
+**Example:**
+
+```bash
+rlama update-model documentation deepseek-r1:7b-instruct
 ```
 
 ### update - Update RLAMA
@@ -254,8 +370,8 @@ rm -rf ~/.rlama
 
 RLAMA supports many file formats:
 
-- **Text**: `.txt`, `.md`, `.html`, `.json`, `.csv`, `.yaml`, `.yml`, `.xml`
-- **Code**: `.go`, `.py`, `.js`, `.java`, `.c`, `.cpp`, `.h`, `.rb`, `.php`, `.rs`, `.swift`, `.kt`
+- **Text**: `.txt`, `.md`, `.html`, `.json`, `.csv`, `.yaml`, `.yml`, `.xml`, `.org`
+- **Code**: `.go`, `.py`, `.js`, `.java`, `.c`, `.cpp`, `.cxx`, `.h`, `.rb`, `.php`, `.rs`, `.swift`, `.kt`, `.ts`, `.f`, `.F`, `.F90`, `.el`, `.svelte`
 - **Documents**: `.pdf`, `.docx`, `.doc`, `.rtf`, `.odt`, `.pptx`, `.ppt`, `.xlsx`, `.xls`, `.epub`
 
 Installing dependencies via `install_deps.sh` is recommended to improve support for certain formats.
@@ -286,6 +402,7 @@ If the answers are not relevant:
 1. Check that the documents are properly indexed with `rlama list`.
 2. Make sure the content of the documents is properly extracted.
 3. Try rephrasing your question more precisely.
+4. Consider adjusting chunking parameters during RAG creation
 
 ### Other issues
 
@@ -314,5 +431,55 @@ RLAMA provides multiple ways to connect to your Ollama instance:
 3. **Default values** (used if no other method is specified):
    - Host: `localhost`
    - Port: `11434`
+
+The precedence order is: command-line flags > environment variable > default values.
+
+## Advanced Usage
+
+### Context Size Management
+
+```bash
+# Quick answers with minimal context
+rlama run my-docs --context-size=10
+
+# Deep analysis with maximum context
+rlama run my-docs --context-size=50
+
+# Balance between speed and depth
+rlama run my-docs --context-size=30
+```
+
+### RAG Creation with Filtering
+```bash
+rlama rag llama3 my-project ./code \
+  --exclude-dir=node_modules,dist \
+  --process-ext=.go,.ts \
+  --exclude-ext=.spec.ts
+```
+
+### Chunk Inspection
+```bash
+# List chunks with content preview
+rlama list-chunks my-project --show-content
+
+# Filter chunks from specific document
+rlama list-chunks my-project --document=architecture
+```
+
+## Help System
+
+Get full command help:
+```bash
+rlama --help
+```
+
+Command-specific help:
+```bash
+rlama rag --help
+rlama list-chunks --help
+rlama update-model --help
+```
+
+All commands support the global `--host` and `--port` flags for custom Ollama connections.
 
 The precedence order is: command-line flags > environment variable > default values.
