@@ -54,32 +54,32 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 - ✅ **Easy Installation**: One-line installation script
 - ✅ **API Server**: HTTP endpoints for integrating RAG capabilities in other applications
 
-### Small LLM Optimization (Q2 2024)
+### Small LLM Optimization (Q2 2025)
 - [ ] **Prompt Compression**: Smart context summarization for limited context windows
 - [ ] **Adaptive Chunking**: Dynamic content segmentation based on semantic boundaries
 - [ ] **Minimal Context Retrieval**: Intelligent filtering to eliminate redundant content
 - [ ] **Parameter Optimization**: Fine-tuned settings for different model sizes
 
-### Advanced Embedding Pipeline (Q2-Q3 2024)
+### Advanced Embedding Pipeline (Q2-Q3 2025)
 - [ ] **Multi-Model Embedding Support**: Integration with various embedding models
 - [ ] **Hybrid Retrieval Techniques**: Combining sparse and dense retrievers for better accuracy
 - [ ] **Embedding Evaluation Tools**: Built-in metrics to measure retrieval quality
 - [ ] **Automated Embedding Cache**: Smart caching to reduce computation for similar queries
 
-### User Experience Enhancements (Q3 2024)
+### User Experience Enhancements (Q3 2025)
 - [ ] **Lightweight Web Interface**: Simple browser-based UI for the existing CLI backend
 - [ ] **Knowledge Graph Visualization**: Interactive exploration of document connections
 - [ ] **Guided RAG Setup Wizard**: Step-by-step interface for non-technical users
 - [ ] **Domain-Specific Templates**: Pre-configured settings for different domains
 
-### Enterprise Features (Q4 2024)
+### Enterprise Features (Q4 2025)
 - [ ] **Multi-User Access Control**: Role-based permissions for team environments
 - [ ] **Integration with Enterprise Systems**: Connectors for SharePoint, Confluence, Google Workspace
 - [ ] **Knowledge Quality Monitoring**: Detection of outdated or contradictory information
 - [ ] **System Integration API**: Webhooks and APIs for embedding RLAMA in existing workflows
 - [ ] **AI Agent Creation Framework**: Simplified system for building custom AI agents with RAG capabilities
 
-### Next-Gen Retrieval Innovations (Q1 2025)
+### Next-Gen Retrieval Innovations (Q1 2026)
 - [ ] **Multi-Step Retrieval**: Using the LLM to refine search queries for complex questions
 - [ ] **Cross-Modal Retrieval**: Support for image content understanding and retrieval
 - [ ] **Feedback-Based Optimization**: Learning from user interactions to improve retrieval
