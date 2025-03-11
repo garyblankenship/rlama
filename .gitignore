@@ -1,7 +1,4 @@
-<<<<<<< Updated upstream
-documents/
-=======
 documents/
 rlama
 dist/
->>>>>>> Stashed changes
+.DS_Store

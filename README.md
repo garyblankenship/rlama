@@ -20,6 +20,7 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 [![RLAMA Demonstration](https://img.youtube.com/vi/EIsQnBqeQxQ/0.jpg)](https://www.youtube.com/watch?v=EIsQnBqeQxQ)
 
 ## Table of Contents
+- [Vision & Roadmap](#vision--roadmap)
 - [Installation](#installation)
 - [Available Commands](#available-commands)
   - [rag - Create a RAG system](#rag---create-a-rag-system)
@@ -36,6 +37,52 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 - [Uninstallation](#uninstallation)
 - [Supported Document Formats](#supported-document-formats)
 - [Troubleshooting](#troubleshooting)
+
+## Vision & Roadmap
+
+RLAMA aims to become the definitive tool for creating local RAG systems that work seamlessly for everyone—from individual developers to large enterprises. Here's our strategic roadmap:
+
+### Completed Features ✅
+- ✅ **Basic RAG System Creation**: CLI tool for creating and managing RAG systems
+- ✅ **Document Processing**: Support for multiple document formats (.txt, .md, .pdf, etc.)
+- ✅ **Document Chunking**: Basic text splitting with configurable size and overlap
+- ✅ **Vector Storage**: Local storage of document embeddings
+- ✅ **Context Retrieval**: Basic semantic search with configurable context size
+- ✅ **Ollama Integration**: Seamless connection to Ollama models
+- ✅ **Cross-Platform Support**: Works on Linux, macOS, and Windows
+- ✅ **Easy Installation**: One-line installation script
+
+### Small LLM Optimization (Q2 2025)
+- [ ] **Prompt Compression**: Smart context summarization for limited context windows
+- [ ] **Adaptive Chunking**: Dynamic content segmentation based on semantic boundaries
+- [ ] **Minimal Context Retrieval**: Intelligent filtering to eliminate redundant content
+- [ ] **Parameter Optimization**: Fine-tuned settings for different model sizes
+
+### Advanced Embedding Pipeline (Q2-Q3 2025)
+- [ ] **Multi-Model Embedding Support**: Integration with various embedding models
+- [ ] **Hybrid Retrieval Techniques**: Combining sparse and dense retrievers for better accuracy
+- [ ] **Embedding Evaluation Tools**: Built-in metrics to measure retrieval quality
+- [ ] **Automated Embedding Cache**: Smart caching to reduce computation for similar queries
+
+### User Experience Enhancements (Q3 2025)
+- [ ] **Lightweight Web Interface**: Simple browser-based UI for the existing CLI backend
+- [ ] **Knowledge Graph Visualization**: Interactive exploration of document connections
+- [ ] **Guided RAG Setup Wizard**: Step-by-step interface for non-technical users
+- [ ] **Domain-Specific Templates**: Pre-configured settings for different domains
+
+### Enterprise Features (Q4 2025)
+- [ ] **Multi-User Access Control**: Role-based permissions for team environments
+- [ ] **Integration with Enterprise Systems**: Connectors for SharePoint, Confluence, Google Workspace
+- [ ] **Knowledge Quality Monitoring**: Detection of outdated or contradictory information
+- [ ] **System Integration API**: Webhooks and APIs for embedding RLAMA in existing workflows
+
+### Next-Gen Retrieval Innovations (Q1 2026)
+- [ ] **Multi-Step Retrieval**: Using the LLM to refine search queries for complex questions
+- [ ] **Cross-Modal Retrieval**: Support for image content understanding and retrieval
+- [ ] **Feedback-Based Optimization**: Learning from user interactions to improve retrieval
+- [ ] **Knowledge Graphs & Symbolic Reasoning**: Combining vector search with structured knowledge
+
+RLAMA's core philosophy remains unchanged: to provide a simple, powerful, local RAG solution that respects privacy, minimizes resource requirements, and works seamlessly across platforms.
 
 ## Installation
 
@@ -115,12 +162,6 @@ rlama/
 ```
 
 RLAMA is designed to be lightweight and portable, focusing on providing RAG capabilities with minimal dependencies. The entire system runs locally, with the only external dependency being Ollama for LLM capabilities.
-
-
-
-
-
-
 
 ## Available Commands
 
