@@ -75,6 +75,7 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 - [ ] **Integration with Enterprise Systems**: Connectors for SharePoint, Confluence, Google Workspace
 - [ ] **Knowledge Quality Monitoring**: Detection of outdated or contradictory information
 - [ ] **System Integration API**: Webhooks and APIs for embedding RLAMA in existing workflows
+- [ ] **AI Agent Creation Framework**: Simplified system for building custom AI agents with RAG capabilities
 
 ### Next-Gen Retrieval Innovations (Q1 2026)
 - [ ] **Multi-Step Retrieval**: Using the LLM to refine search queries for complex questions
