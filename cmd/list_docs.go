@@ -39,7 +39,7 @@ Example: rlama list-docs my-docs`,
 		
 		// Use tabwriter for aligned display
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "ID\tNAME\tSIZE\tCONTENT TYPE")
+		fmt.Fprintln(w, "ID\tPATH\tSIZE\tCONTENT TYPE")
 		
 		for _, doc := range rag.Documents {
 			sizeStr := formatSize(doc.Size)

@@ -8,6 +8,14 @@ import (
 	"github.com/dontizi/rlama/internal/service"
 )
 
+var (
+	excludeDirs   []string
+	excludeExts   []string
+	processExts   []string
+	chunkSize     int
+	chunkOverlap  int
+)
+
 var ragCmd = &cobra.Command{
 	Use:   "rag [model] [rag-name] [folder-path]",
 	Short: "Create a new RAG system",
@@ -15,7 +23,12 @@ var ragCmd = &cobra.Command{
 Example: rlama rag llama3.2 rag1 ./documents
 
 The folder will be created if it doesn't exist yet.
-Supported formats include: .txt, .md, .html, .json, .csv, and various source code files.`,
+Supported formats include: .txt, .md, .html, .json, .csv, and various source code files.
+
+You can exclude directories or file types:
+  rlama rag llama3 myproject ./code --excludedir=node_modules,dist,.git
+  rlama rag llama3 mydocs ./docs --excludeext=.log,.tmp
+  rlama rag llama3 specific ./mixed --processext=.md,.py,.js`,
 	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		modelName := args[0]
@@ -32,8 +45,17 @@ Supported formats include: .txt, .md, .html, .json, .csv, and various source cod
 		fmt.Printf("Creating RAG '%s' with model '%s' from folder '%s'...\n", 
 			ragName, modelName, folderPath)
 
+		// Set up loader options based on flags
+		loaderOptions := service.DocumentLoaderOptions{
+			ExcludeDirs:  excludeDirs,
+			ExcludeExts:  excludeExts,
+			ProcessExts:  processExts,
+			ChunkSize:    chunkSize,
+			ChunkOverlap: chunkOverlap,
+		}
+
 		ragService := service.NewRagService(ollamaClient)
-		err := ragService.CreateRag(modelName, ragName, folderPath)
+		err := ragService.CreateRagWithOptions(modelName, ragName, folderPath, loaderOptions)
 		if err != nil {
 			// Improve error messages related to Ollama
 			if strings.Contains(err.Error(), "connection refused") {
@@ -50,4 +72,11 @@ Supported formats include: .txt, .md, .html, .json, .csv, and various source cod
 
 func init() {
 	rootCmd.AddCommand(ragCmd)
+	
+	// Add exclusion and processing flags
+	ragCmd.Flags().StringSliceVar(&excludeDirs, "exclude-dir", nil, "Directories to exclude (comma-separated)")
+	ragCmd.Flags().StringSliceVar(&excludeExts, "exclude-ext", nil, "File extensions to exclude (comma-separated)")
+	ragCmd.Flags().StringSliceVar(&processExts, "process-ext", nil, "Only process these file extensions (comma-separated)")
+	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
+	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
 }

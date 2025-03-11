@@ -8,7 +8,7 @@ import (
 // DocumentChunk represents a portion of a document with metadata
 type DocumentChunk struct {
 	ID          string    `json:"id"`
-	DocumentID  string    `json:"document_id"`
+	DocumentID  string    `json:"documentId"`
 	Content     string    `json:"content"`
 	StartPos    int       `json:"start_pos"`
 	EndPos      int       `json:"end_pos"`
@@ -16,6 +16,8 @@ type DocumentChunk struct {
 	Embedding   []float32 `json:"-"` // Not serialized to JSON
 	CreatedAt   time.Time `json:"created_at"`
 	Metadata    map[string]string `json:"metadata"`
+	ChunkNumber int       `json:"chunkNumber"`
+	TotalChunks int       `json:"totalChunks"`
 }
 
 // NewDocumentChunk creates a new chunk from a document

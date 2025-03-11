@@ -9,8 +9,20 @@ import (
 	"github.com/dontizi/rlama/internal/repository"
 )
 
-// RagService manages operations related to RAG systems
-type RagService struct {
+// Remove duplicate interface declaration and keep this one
+type RagService interface {
+	CreateRagWithOptions(modelName, ragName, folderPath string, options DocumentLoaderOptions) error
+	GetRagChunks(ragName string, filter ChunkFilter) ([]*domain.DocumentChunk, error)
+	LoadRag(ragName string) (*domain.RagSystem, error)
+	Query(rag *domain.RagSystem, query string, contextSize int) (string, error)
+	AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error
+	UpdateModel(ragName string, newModel string) error
+	UpdateRag(rag *domain.RagSystem) error
+	// Add any other required methods here
+}
+
+// Update the struct implementation to match the interface
+type RagServiceImpl struct {
 	documentLoader   *DocumentLoader
 	embeddingService *EmbeddingService
 	ragRepository    *repository.RagRepository
@@ -18,12 +30,12 @@ type RagService struct {
 }
 
 // NewRagService creates a new instance of RagService
-func NewRagService(ollamaClient *client.OllamaClient) *RagService {
+func NewRagService(ollamaClient *client.OllamaClient) RagService {
 	if ollamaClient == nil {
 		ollamaClient = client.NewDefaultOllamaClient()
 	}
 	
-	return &RagService{
+	return &RagServiceImpl{
 		documentLoader:   NewDocumentLoader(),
 		embeddingService: NewEmbeddingService(ollamaClient),
 		ragRepository:    repository.NewRagRepository(),
@@ -31,8 +43,8 @@ func NewRagService(ollamaClient *client.OllamaClient) *RagService {
 	}
 }
 
-// CreateRag creates a new RAG system
-func (rs *RagService) CreateRag(modelName, ragName, folderPath string) error {
+// CreateRagWithOptions creates a new RAG system with the specified options
+func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath string, options DocumentLoaderOptions) error {
 	// Check if Ollama is available
 	if err := rs.ollamaClient.CheckOllamaAndModel(modelName); err != nil {
 		return err
@@ -43,8 +55,8 @@ func (rs *RagService) CreateRag(modelName, ragName, folderPath string) error {
 		return fmt.Errorf("a RAG with name '%s' already exists", ragName)
 	}
 
-	// Load documents
-	docs, err := rs.documentLoader.LoadDocumentsFromFolder(folderPath)
+	// Load documents with options
+	docs, err := rs.documentLoader.LoadDocumentsFromFolderWithOptions(folderPath, options)
 	if err != nil {
 		return fmt.Errorf("error loading documents: %w", err)
 	}
@@ -59,7 +71,10 @@ func (rs *RagService) CreateRag(modelName, ragName, folderPath string) error {
 	rag := domain.NewRagSystem(ragName, modelName)
 	
 	// Create chunker service
-	chunkerService := NewChunkerService(DefaultChunkingConfig())
+	chunkerService := NewChunkerService(ChunkingConfig{
+		ChunkSize:    options.ChunkSize,
+		ChunkOverlap: options.ChunkOverlap,
+	})
 	
 	// Process each document - chunk and generate embeddings
 	var allChunks []*domain.DocumentChunk
@@ -71,8 +86,9 @@ func (rs *RagService) CreateRag(modelName, ragName, folderPath string) error {
 		chunks := chunkerService.ChunkDocument(doc)
 		
 		// Update total chunks in metadata
-		for _, chunk := range chunks {
-			chunk.UpdateTotalChunks(len(chunks))
+		for i, chunk := range chunks {
+			chunk.ChunkNumber = i
+			chunk.TotalChunks = len(chunks)
 		}
 		
 		allChunks = append(allChunks, chunks...)
@@ -102,8 +118,13 @@ func (rs *RagService) CreateRag(modelName, ragName, folderPath string) error {
 	return nil
 }
 
+// Modify the existing CreateRag to use CreateRagWithOptions
+func (rs *RagServiceImpl) CreateRag(modelName, ragName, folderPath string) error {
+	return rs.CreateRagWithOptions(modelName, ragName, folderPath, DocumentLoaderOptions{})
+}
+
 // LoadRag loads a RAG system
-func (rs *RagService) LoadRag(ragName string) (*domain.RagSystem, error) {
+func (rs *RagServiceImpl) LoadRag(ragName string) (*domain.RagSystem, error) {
 	rag, err := rs.ragRepository.Load(ragName)
 	if err != nil {
 		return nil, fmt.Errorf("error loading RAG '%s': %w", ragName, err)
@@ -113,7 +134,7 @@ func (rs *RagService) LoadRag(ragName string) (*domain.RagSystem, error) {
 }
 
 // Query performs a query on a RAG system
-func (rs *RagService) Query(rag *domain.RagSystem, query string) (string, error) {
+func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize int) (string, error) {
 	// Check if Ollama is available
 	if err := rs.ollamaClient.CheckOllamaAndModel(rag.ModelName); err != nil {
 		return "", err
@@ -125,8 +146,13 @@ func (rs *RagService) Query(rag *domain.RagSystem, query string) (string, error)
 		return "", fmt.Errorf("error generating embedding for query: %w", err)
 	}
 
+	// Use the provided context size or default to 20
+	if contextSize <= 0 {
+		contextSize = 20
+	}
+	
 	// Search for the most relevant chunks
-	results := rag.VectorStore.Search(queryEmbedding, 20) // Top 5 chunks
+	results := rag.VectorStore.Search(queryEmbedding, contextSize)
 	
 	// Build the context
 	var context strings.Builder
@@ -172,10 +198,109 @@ Include references to the source documents in your answer using the format (Sour
 }
 
 // UpdateRag updates an existing RAG system
-func (rs *RagService) UpdateRag(rag *domain.RagSystem) error {
+func (rs *RagServiceImpl) UpdateRag(rag *domain.RagSystem) error {
 	err := rs.ragRepository.Save(rag)
 	if err != nil {
 		return fmt.Errorf("error updating the RAG: %w", err)
 	}
 	return nil
+}
+
+// AddDocsWithOptions adds documents to an existing RAG system with options
+func (rs *RagServiceImpl) AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error {
+	// Load existing RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return err
+	}
+
+	// Load documents with options
+	docs, err := rs.documentLoader.LoadDocumentsFromFolderWithOptions(folderPath, options)
+	if err != nil {
+		return fmt.Errorf("error loading documents: %w", err)
+	}
+
+	if len(docs) == 0 {
+		return fmt.Errorf("no valid documents found in folder %s", folderPath)
+	}
+
+	// Create chunker service with default config
+	chunkerService := NewChunkerService(DefaultChunkingConfig())
+	
+	// Process documents
+	var allChunks []*domain.DocumentChunk
+	for _, doc := range docs {
+		chunks := chunkerService.ChunkDocument(doc)
+		for _, chunk := range chunks {
+			chunk.UpdateTotalChunks(len(chunks))
+		}
+		allChunks = append(allChunks, chunks...)
+	}
+
+	// Generate embeddings
+	err = rs.embeddingService.GenerateChunkEmbeddings(allChunks, rag.ModelName)
+	if err != nil {
+		return err
+	}
+
+	// Add new chunks
+	chunksAdded := 0
+	existingChunks := make(map[string]bool)
+	for _, chunk := range rag.Chunks {
+		existingChunks[chunk.ID] = true
+	}
+	for _, chunk := range allChunks {
+		if !existingChunks[chunk.ID] {
+			rag.AddChunk(chunk)
+			chunksAdded++
+		}
+	}
+
+	// Save updated RAG
+	return rs.UpdateRag(rag)
+}
+
+// Add chunk filter struct
+type ChunkFilter struct {
+	DocumentSubstring string
+	ShowContent       bool
+}
+
+func (rs *RagServiceImpl) GetRagChunks(ragName string, filter ChunkFilter) ([]*domain.DocumentChunk, error) {
+	rag, err := rs.ragRepository.Load(ragName)
+	if err != nil {
+		return nil, fmt.Errorf("error loading RAG: %w", err)
+	}
+
+	var filtered []*domain.DocumentChunk
+	for _, chunk := range rag.Chunks {
+		// Apply document filter
+		if filter.DocumentSubstring != "" && 
+		   !strings.Contains(strings.ToLower(chunk.DocumentID), strings.ToLower(filter.DocumentSubstring)) {
+			continue
+		}
+
+		// Clone chunk to avoid modifying original
+		c := *chunk
+		
+		// Clear content if not requested
+		if !filter.ShowContent {
+			c.Content = ""
+		}
+
+		filtered = append(filtered, &c)
+	}
+
+	return filtered, nil
+}
+
+// UpdateModel updates the model of an existing RAG system
+func (rs *RagServiceImpl) UpdateModel(ragName string, newModel string) error {
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return fmt.Errorf("error loading RAG: %w", err)
+	}
+
+	rag.ModelName = newModel
+	return rs.UpdateRag(rag)
 } 
