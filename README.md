@@ -25,6 +25,7 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 - [Available Commands](#available-commands)
   - [rag - Create a RAG system](#rag---create-a-rag-system)
   - [run - Use a RAG system](#run---use-a-rag-system)
+  - [api - Start API server](#api---start-api-server)
   - [list - List RAG systems](#list---list-rag-systems)
   - [delete - Delete a RAG system](#delete---delete-a-rag-system)
   - [list-docs - List documents in a RAG](#list-docs---list-documents-in-a-rag)
@@ -51,32 +52,34 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 - ✅ **Ollama Integration**: Seamless connection to Ollama models
 - ✅ **Cross-Platform Support**: Works on Linux, macOS, and Windows
 - ✅ **Easy Installation**: One-line installation script
+- ✅ **API Server**: HTTP endpoints for integrating RAG capabilities in other applications
 
-### Small LLM Optimization (Q2 2025)
+### Small LLM Optimization (Q2 2024)
 - [ ] **Prompt Compression**: Smart context summarization for limited context windows
 - [ ] **Adaptive Chunking**: Dynamic content segmentation based on semantic boundaries
 - [ ] **Minimal Context Retrieval**: Intelligent filtering to eliminate redundant content
 - [ ] **Parameter Optimization**: Fine-tuned settings for different model sizes
 
-### Advanced Embedding Pipeline (Q2-Q3 2025)
+### Advanced Embedding Pipeline (Q2-Q3 2024)
 - [ ] **Multi-Model Embedding Support**: Integration with various embedding models
 - [ ] **Hybrid Retrieval Techniques**: Combining sparse and dense retrievers for better accuracy
 - [ ] **Embedding Evaluation Tools**: Built-in metrics to measure retrieval quality
 - [ ] **Automated Embedding Cache**: Smart caching to reduce computation for similar queries
 
-### User Experience Enhancements (Q3 2025)
+### User Experience Enhancements (Q3 2024)
 - [ ] **Lightweight Web Interface**: Simple browser-based UI for the existing CLI backend
 - [ ] **Knowledge Graph Visualization**: Interactive exploration of document connections
 - [ ] **Guided RAG Setup Wizard**: Step-by-step interface for non-technical users
 - [ ] **Domain-Specific Templates**: Pre-configured settings for different domains
 
-### Enterprise Features (Q4 2025)
+### Enterprise Features (Q4 2024)
 - [ ] **Multi-User Access Control**: Role-based permissions for team environments
 - [ ] **Integration with Enterprise Systems**: Connectors for SharePoint, Confluence, Google Workspace
 - [ ] **Knowledge Quality Monitoring**: Detection of outdated or contradictory information
 - [ ] **System Integration API**: Webhooks and APIs for embedding RLAMA in existing workflows
+- [ ] **AI Agent Creation Framework**: Simplified system for building custom AI agents with RAG capabilities
 
-### Next-Gen Retrieval Innovations (Q1 2026)
+### Next-Gen Retrieval Innovations (Q1 2025)
 - [ ] **Multi-Step Retrieval**: Using the LLM to refine search queries for complex questions
 - [ ] **Cross-Modal Retrieval**: Support for image content understanding and retrieval
 - [ ] **Feedback-Based Optimization**: Learning from user interactions to improve retrieval
@@ -228,6 +231,62 @@ rlama run documentation
 
 ```bash
 rlama run documentation --context-size=50  # Use 50 context chunks
+```
+
+### api - Start API server
+
+Starts an HTTP API server that exposes RLAMA's functionality through RESTful endpoints.
+
+```bash
+rlama api [--port PORT]
+```
+
+**Parameters:**
+- `--port`: (Optional) Port number to run the API server on (default: 11249)
+
+**Example:**
+
+```bash
+rlama api --port 8080
+```
+
+**Available Endpoints:**
+
+1. **Query a RAG system** - `POST /rag`
+   ```bash
+   curl -X POST http://localhost:11249/rag \
+     -H "Content-Type: application/json" \
+     -d '{
+       "rag_name": "documentation",
+       "prompt": "How do I install the project?",
+       "context_size": 20
+     }'
+   ```
+
+   Request fields:
+   - `rag_name` (required): Name of the RAG system to query
+   - `prompt` (required): Question or prompt to send to the RAG
+   - `context_size` (optional): Number of chunks to include in context
+   - `model` (optional): Override the model used by the RAG
+
+2. **Check server health** - `GET /health`
+   ```bash
+   curl http://localhost:11249/health
+   ```
+
+**Integration Example:**
+```javascript
+// Node.js example
+const response = await fetch('http://localhost:11249/rag', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    rag_name: 'my-docs',
+    prompt: 'Summarize the key features'
+  })
+});
+const data = await response.json();
+console.log(data.response);
 ```
 
 ### list - List RAG systems
