@@ -6,37 +6,44 @@ import (
 	"github.com/dontizi/rlama/pkg/vector"
 )
 
-// RagSystem représente un système RAG complet
+// RagSystem represents a complete RAG system
 type RagSystem struct {
 	Name        string        `json:"name"`
 	ModelName   string        `json:"model_name"`
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`
 	Description string        `json:"description"`
-	VectorStore *vector.Store
+	HybridStore *vector.EnhancedHybridStore // Use the hybrid store
 	Documents   []*Document     `json:"documents"`
 	Chunks      []*DocumentChunk `json:"chunks"`
 }
 
-// NewRagSystem crée une nouvelle instance de RagSystem
+// NewRagSystem creates a new instance of RagSystem
 func NewRagSystem(name, modelName string) *RagSystem {
 	now := time.Now()
+	hybridStore, err := vector.NewEnhancedHybridStore(":memory:", 1536) // Assuming 1536 dimensions for embeddings
+	if err != nil {
+		// Handle error appropriately
+		return nil
+	}
+
 	return &RagSystem{
 		Name:        name,
 		ModelName:   modelName,
 		CreatedAt:   now,
 		UpdatedAt:   now,
-		VectorStore: vector.NewStore(),
+		HybridStore: hybridStore,
 		Documents:   []*Document{},
 		Chunks:      []*DocumentChunk{},
 	}
 }
 
-// AddDocument ajoute un document au système RAG
+// AddDocument adds a document to the RAG system
 func (r *RagSystem) AddDocument(doc *Document) {
 	r.Documents = append(r.Documents, doc)
 	if doc.Embedding != nil {
-		r.VectorStore.Add(doc.ID, doc.Embedding)
+		// Don't use doc.Metadata if it doesn't exist
+		r.HybridStore.Add(doc.ID, doc.Embedding)
 	}
 	r.UpdatedAt = time.Now()
 }
@@ -69,8 +76,8 @@ func (r *RagSystem) RemoveDocument(id string) bool {
 	// Remove from the Documents slice
 	r.Documents = append(r.Documents[:index], r.Documents[index+1:]...)
 	
-	// Remove from the VectorStore
-	r.VectorStore.Remove(id)
+	// Remove from the HybridStore
+	r.HybridStore.Remove(id)
 	
 	r.UpdatedAt = time.Now()
 	return true
@@ -80,7 +87,7 @@ func (r *RagSystem) RemoveDocument(id string) bool {
 func (r *RagSystem) AddChunk(chunk *DocumentChunk) {
 	r.Chunks = append(r.Chunks, chunk)
 	if chunk.Embedding != nil {
-		r.VectorStore.Add(chunk.ID, chunk.Embedding)
+		r.HybridStore.Add(chunk.ID, chunk.Embedding)
 	}
 	r.UpdatedAt = time.Now()
 }
@@ -93,4 +100,9 @@ func (r *RagSystem) GetChunkByID(id string) *DocumentChunk {
 		}
 	}
 	return nil
+}
+
+// Search performs a hybrid search using the hybrid store
+func (r *RagSystem) Search(queryVector []float32, queryText string, limit int) ([]vector.HybridSearchResult, error) {
+	return r.HybridStore.HybridSearch(queryVector, queryText, limit)
 } 

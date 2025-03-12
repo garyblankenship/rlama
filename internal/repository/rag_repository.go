@@ -79,7 +79,7 @@ func (r *RagRepository) Save(rag *domain.RagSystem) error {
 	}
 	
 	// Save the Vector Store
-	err = rag.VectorStore.Save(r.getRagVectorStorePath(rag.Name))
+	err = rag.HybridStore.Save(r.getRagVectorStorePath(rag.Name))
 	if err != nil {
 		return fmt.Errorf("unable to save Vector Store: %w", err)
 	}
@@ -107,8 +107,9 @@ func (r *RagRepository) Load(ragName string) (*domain.RagSystem, error) {
 	}
 	
 	// Create a new Vector Store and load it from the file
-	ragInfo.VectorStore = vector.NewStore()
-	err = ragInfo.VectorStore.Load(r.getRagVectorStorePath(ragName))
+	hybridStore, _ := vector.NewEnhancedHybridStore(":memory:", 1536)
+	ragInfo.HybridStore = hybridStore
+	err = ragInfo.HybridStore.Load(r.getRagVectorStorePath(ragName))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load Vector Store: %w", err)
 	}
