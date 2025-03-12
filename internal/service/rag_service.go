@@ -152,7 +152,7 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 	}
 	
 	// Search for the most relevant chunks
-	results := rag.VectorStore.Search(queryEmbedding, contextSize)
+	results := rag.HybridStore.Search(queryEmbedding, contextSize)
 	
 	// Build the context
 	var context strings.Builder

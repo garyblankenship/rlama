@@ -8,6 +8,15 @@ import (
 	"sort"
 )
 
+// VectorStoreInterface defines the common interface for vector stores
+type VectorStoreInterface interface {
+	Add(id string, vector []float32)
+	Search(query []float32, limit int) []SearchResult
+	Remove(id string)
+	Save(path string) error
+	Load(path string) error
+}
+
 // VectorItem represents an item in the vector storage
 type VectorItem struct {
 	ID      string    `json:"id"`
@@ -24,6 +33,9 @@ type SearchResult struct {
 type Store struct {
 	Items []VectorItem `json:"items"`
 }
+
+// Ensure Store implements VectorStoreInterface
+var _ VectorStoreInterface = (*Store)(nil)
 
 // NewStore creates a new vector storage
 func NewStore() *Store {

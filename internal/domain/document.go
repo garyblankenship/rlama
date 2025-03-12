@@ -13,6 +13,7 @@ type Document struct {
 	Path        string    `json:"path"`
 	Name        string    `json:"name"`
 	Content     string    `json:"content"`
+	Metadata    string    `json:"metadata"`
 	Embedding   []float32 `json:"-"` // Ne pas sérialiser en JSON
 	CreatedAt   time.Time `json:"created_at"`
 	ContentType string    `json:"content_type"`
@@ -29,6 +30,7 @@ func NewDocument(path string, content string) *Document {
 		Path:        path,
 		Name:        filepath.Base(path),
 		Content:     cleanedContent,
+		Metadata:    "",
 		Embedding:   nil,
 		CreatedAt:   time.Now(),
 		ContentType: guessContentType(path),
