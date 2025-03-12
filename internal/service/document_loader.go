@@ -66,6 +66,7 @@ func NewDocumentLoader() *DocumentLoader {
 			".el":    true,
 			".svelte":true,
 			".ts":    true,
+			".tsx":   true,
 			// Documents
 			".pdf":   true,
 			".docx":  true,
