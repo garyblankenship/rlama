@@ -1,11 +1,9 @@
 package service
 
 import (
-	// Suppression des imports non utilisés
-	// "bytes"
-	// "encoding/json"
+	"bytes"
+	"encoding/csv"
 	"fmt"
-	// "io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -600,4 +598,89 @@ func (dl *DocumentLoader) processContent(path string, content string, options Do
 		}
 	}
 	return chunks
+}
+
+// extractCSVContent extracts content from a CSV file
+func (dl *DocumentLoader) extractCSVContent(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open CSV file: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return "", fmt.Errorf("failed to read CSV: %w", err)
+	}
+
+	var content strings.Builder
+	// Add headers as first line if present
+	if len(records) > 0 {
+		content.WriteString(strings.Join(records[0], " | "))
+		content.WriteString("\n")
+	}
+
+	// Add remaining rows
+	for _, row := range records[1:] {
+		content.WriteString(strings.Join(row, " | "))
+		content.WriteString("\n")
+	}
+
+	return content.String(), nil
+}
+
+// extractExcelContent extracts content from an Excel file
+func (dl *DocumentLoader) extractExcelContent(path string) (string, error) {
+	// First try using xlsx2csv if available
+	xlsx2csvPath, err := exec.LookPath("xlsx2csv")
+	if err == nil {
+		var output bytes.Buffer
+		cmd := exec.Command(xlsx2csvPath, path)
+		cmd.Stdout = &output
+		if err := cmd.Run(); err == nil {
+			return output.String(), nil
+		}
+	}
+
+	// Fallback to Python xlsx2csv package if installed
+	cmd := exec.Command("python3", "-c", `
+import xlsx2csv
+import sys
+converter = xlsx2csv.Xlsx2csv(sys.argv[1], skip_empty_lines=True)
+converter.convert(sys.stdout)
+	`, path)
+	
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	if err := cmd.Run(); err == nil {
+		return output.String(), nil
+	}
+
+	return "", fmt.Errorf("failed to extract Excel content: no suitable extractor found")
+}
+
+// extractContent extracts content from a file based on its type
+func (dl *DocumentLoader) extractContent(path string) (string, error) {
+	ext := strings.ToLower(filepath.Ext(path))
+	
+	switch ext {
+	case ".csv":
+		return dl.extractCSVContent(path)
+	case ".xlsx", ".xls":
+		return dl.extractExcelContent(path)
+	case ".pdf":
+		return dl.extractFromPDF(path)
+	case ".docx", ".doc", ".rtf", ".odt":
+		return dl.extractFromDocument(path, ext)
+	case ".pptx", ".ppt":
+		return dl.extractFromPresentation(path, ext)
+	default:
+		// Treat as a text file
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
 } 

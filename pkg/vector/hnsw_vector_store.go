@@ -42,6 +42,18 @@ func (s *HNSWStore) Remove(id string) {
 
 // computeCosineSimilarity calculates cosine similarity between two vectors
 func computeCosineSimilarity(a, b []float32) float64 {
+	// Check for empty vectors to prevent index out of range errors
+	if len(a) == 0 || len(b) == 0 {
+		return 0.0
+	}
+	
+	// Check for length mismatch
+	if len(a) != len(b) {
+		// Log the error but return a default value instead of panicking
+		fmt.Printf("Warning: Vector length mismatch (%d vs %d), cannot compute similarity\n", len(a), len(b))
+		return 0.0
+	}
+
 	var dotProduct float64
 	var normA float64
 	var normB float64
@@ -52,8 +64,9 @@ func computeCosineSimilarity(a, b []float32) float64 {
 		normB += float64(b[i] * b[i])
 	}
 
+	// Handle the case where one of the norms is zero
 	if normA == 0 || normB == 0 {
-		return 0
+		return 0.0
 	}
 
 	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
