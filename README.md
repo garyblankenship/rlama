@@ -24,6 +24,9 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 - [Installation](#installation)
 - [Available Commands](#available-commands)
   - [rag - Create a RAG system](#rag---create-a-rag-system)
+  - [watch - Set up directory watching for a RAG system](#watch---set-up-directory-watching-for-a-rag-system)
+  - [watch-off - Disable directory watching for a RAG system](#watch-off---disable-directory-watching-for-a-rag-system)
+  - [check-watched - Check a RAG's watched directory for new files](#check-watched---check-a-rag's-watched-directory-for-new-files)
   - [run - Use a RAG system](#run---use-a-rag-system)
   - [api - Start API server](#api---start-api-server)
   - [list - List RAG systems](#list---list-rag-systems)
@@ -200,6 +203,66 @@ rlama rag [model] [rag-name] [folder-path]
 
 ```bash
 rlama rag llama3 documentation ./docs
+```
+
+### watch - Set up directory watching for a RAG system
+
+Configure a RAG system to automatically watch a directory for new files and add them to the RAG.
+
+```bash
+rlama watch [rag-name] [directory-path] [interval]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system to watch.
+- `directory-path`: Path to the directory to watch for new files.
+- `interval`: Time in minutes to check for new files (use 0 to check only when the RAG is used).
+
+**Example:**
+
+```bash
+# Set up directory watching to check every 60 minutes
+rlama watch my-docs ./watched-folder 60
+
+# Set up directory watching to only check when the RAG is used
+rlama watch my-docs ./watched-folder 0
+
+# Customize what files to watch
+rlama watch my-docs ./watched-folder 30 --exclude-dir=node_modules,tmp --process-ext=.md,.txt
+```
+
+### watch-off - Disable directory watching for a RAG system
+
+Disable automatic directory watching for a RAG system.
+
+```bash
+rlama watch-off [rag-name]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system to disable watching.
+
+**Example:**
+
+```bash
+rlama watch-off my-docs
+```
+
+### check-watched - Check a RAG's watched directory for new files
+
+Manually check a RAG's watched directory for new files and add them to the RAG.
+
+```bash
+rlama check-watched [rag-name]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system to check.
+
+**Example:**
+
+```bash
+rlama check-watched my-docs
 ```
 
 ### run - Use a RAG system

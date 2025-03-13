@@ -8,14 +8,29 @@ import (
 
 // RagSystem represents a complete RAG system
 type RagSystem struct {
-	Name        string        `json:"name"`
-	ModelName   string        `json:"model_name"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
-	Description string        `json:"description"`
-	HybridStore *vector.EnhancedHybridStore // Use the hybrid store
-	Documents   []*Document     `json:"documents"`
-	Chunks      []*DocumentChunk `json:"chunks"`
+	Name            string               `json:"name"`
+	ModelName       string               `json:"model_name"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
+	Description     string               `json:"description"`
+	HybridStore     *vector.EnhancedHybridStore // Use the hybrid store
+	Documents       []*Document          `json:"documents"`
+	Chunks          []*DocumentChunk     `json:"chunks"`
+	// Add directory watching settings
+	WatchedDir      string               `json:"watched_dir,omitempty"`
+	WatchInterval   int                  `json:"watch_interval,omitempty"` // In minutes, 0 means only check on use
+	LastWatchedAt   time.Time            `json:"last_watched_at,omitempty"`
+	WatchEnabled    bool                 `json:"watch_enabled"`
+	WatchOptions    DocumentWatchOptions `json:"watch_options,omitempty"`
+}
+
+// DocumentWatchOptions stores settings for directory watching
+type DocumentWatchOptions struct {
+	ExcludeDirs   []string `json:"exclude_dirs,omitempty"`
+	ExcludeExts   []string `json:"exclude_exts,omitempty"`
+	ProcessExts   []string `json:"process_exts,omitempty"`
+	ChunkSize     int      `json:"chunk_size,omitempty"`
+	ChunkOverlap  int      `json:"chunk_overlap,omitempty"`
 }
 
 // NewRagSystem creates a new instance of RagSystem
