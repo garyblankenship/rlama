@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/service"
+	"github.com/dontizi/rlama/internal/domain"
 )
 
 var (
@@ -57,6 +58,8 @@ Example: rlama run rag1`,
 
 			fmt.Println("\nSearching documents for relevant information...")
 
+			checkWatchedDirectory(rag, ragService)
+
 			answer, err := ragService.Query(rag, question, contextSize)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
@@ -77,4 +80,17 @@ func init() {
 	
 	// Add context size flag
 	runCmd.Flags().IntVar(&contextSize, "context-size", 20, "Number of context chunks to retrieve (default: 20)")
+}
+
+func checkWatchedDirectory(rag *domain.RagSystem, ragService service.RagService) {
+	if rag.WatchEnabled && rag.WatchInterval == 0 {
+		// For RAGs that are set to check on use
+		fileWatcher := service.NewFileWatcher(ragService)
+		docsAdded, err := fileWatcher.CheckAndUpdateRag(rag)
+		if err != nil {
+			fmt.Printf("Error checking watched directory: %v\n", err)
+		} else if docsAdded > 0 {
+			fmt.Printf("Added %d new documents from watched directory.\n", docsAdded)
+		}
+	}
 }

@@ -2,7 +2,9 @@ package service
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/domain"
@@ -18,6 +20,12 @@ type RagService interface {
 	AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error
 	UpdateModel(ragName string, newModel string) error
 	UpdateRag(rag *domain.RagSystem) error
+	ListAllRags() ([]string, error)
+	GetOllamaClient() *client.OllamaClient
+	// Add new methods for watching
+	SetupDirectoryWatching(ragName string, dirPath string, watchInterval int, options DocumentLoaderOptions) error
+	DisableDirectoryWatching(ragName string) error
+	CheckWatchedDirectory(ragName string) (int, error)
 	// Add any other required methods here
 }
 
@@ -303,4 +311,86 @@ func (rs *RagServiceImpl) UpdateModel(ragName string, newModel string) error {
 
 	rag.ModelName = newModel
 	return rs.UpdateRag(rag)
+}
+
+// Add method to list all RAGs
+func (rs *RagServiceImpl) ListAllRags() ([]string, error) {
+	return rs.ragRepository.ListAll()
+}
+
+// GetOllamaClient returns the Ollama client
+func (rs *RagServiceImpl) GetOllamaClient() *client.OllamaClient {
+	return rs.ollamaClient
+}
+
+// SetupDirectoryWatching configures a RAG to watch a directory for changes
+func (rs *RagServiceImpl) SetupDirectoryWatching(ragName string, dirPath string, watchInterval int, options DocumentLoaderOptions) error {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return fmt.Errorf("error loading RAG: %w", err)
+	}
+	
+	// Check if the directory exists
+	dirInfo, err := os.Stat(dirPath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("directory '%s' does not exist", dirPath)
+	} else if err != nil {
+		return fmt.Errorf("error accessing directory: %w", err)
+	}
+	
+	if !dirInfo.IsDir() {
+		return fmt.Errorf("'%s' is not a directory", dirPath)
+	}
+	
+	// Set up watching configuration
+	rag.WatchedDir = dirPath
+	rag.WatchInterval = watchInterval
+	rag.WatchEnabled = true
+	rag.LastWatchedAt = time.Time{} // Zero time to force first check
+	
+	// Save watch options
+	rag.WatchOptions = domain.DocumentWatchOptions{
+		ExcludeDirs:  options.ExcludeDirs,
+		ExcludeExts:  options.ExcludeExts,
+		ProcessExts:  options.ProcessExts,
+		ChunkSize:    options.ChunkSize,
+		ChunkOverlap: options.ChunkOverlap,
+	}
+	
+	// Update the RAG
+	return rs.UpdateRag(rag)
+}
+
+// DisableDirectoryWatching disables directory watching for a RAG
+func (rs *RagServiceImpl) DisableDirectoryWatching(ragName string) error {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return fmt.Errorf("error loading RAG: %w", err)
+	}
+	
+	// Disable watching
+	rag.WatchEnabled = false
+	
+	// Update the RAG
+	return rs.UpdateRag(rag)
+}
+
+// CheckWatchedDirectory manually checks a RAG's watched directory
+func (rs *RagServiceImpl) CheckWatchedDirectory(ragName string) (int, error) {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return 0, fmt.Errorf("error loading RAG: %w", err)
+	}
+	
+	// Check if watching is enabled
+	if !rag.WatchEnabled || rag.WatchedDir == "" {
+		return 0, fmt.Errorf("directory watching is not enabled for RAG '%s'", ragName)
+	}
+	
+	// Create a file watcher and check for updates
+	fileWatcher := NewFileWatcher(rs)
+	return fileWatcher.CheckAndUpdateRag(rag)
 } 

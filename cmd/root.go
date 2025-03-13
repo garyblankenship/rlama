@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/spf13/cobra"
 	
 	"github.com/dontizi/rlama/internal/client"
+	"github.com/dontizi/rlama/internal/service"
 )
 
 const (
@@ -79,4 +81,22 @@ func init() {
 			cmd.Help()
 		}
 	}
+	
+	// Start the watcher daemon
+	go startFileWatcherDaemon()
+}
+
+// Add this function to start the watcher daemon
+func startFileWatcherDaemon() {
+	// Wait a bit for application initialization
+	time.Sleep(2 * time.Second)
+	
+	// Create the services
+	ollamaClient := GetOllamaClient()
+	ragService := service.NewRagService(ollamaClient)
+	fileWatcher := service.NewFileWatcher(ragService)
+	
+	// Start the daemon with a 1-minute check interval for its internal operations
+	// Actual RAG check intervals are controlled by each RAG's configuration
+	fileWatcher.StartWatcherDaemon(1 * time.Minute)
 } 
