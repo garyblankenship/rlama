@@ -77,7 +77,11 @@ You can exclude certain paths and control other crawling parameters:
 		// Create temporary directory to store crawled content
 		tempDir := createTempDirForDocuments(documents)
 		if tempDir != "" {
-			defer cleanupTempDir(tempDir)
+			// Commentez cette ligne pour empêcher la suppression
+			// defer cleanupTempDir(tempDir)
+			
+			// Ajoutez ceci pour afficher clairement le chemin
+			fmt.Printf("\n📁 Les fichiers markdown se trouvent dans: %s\n", tempDir)
 		}
 
 		// Create RAG system
