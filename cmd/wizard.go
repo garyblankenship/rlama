@@ -10,6 +10,7 @@ import (
 	
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/service"
+	"github.com/dontizi/rlama/internal/crawler"
 )
 
 // Structure pour parser la sortie JSON d'Ollama list
@@ -153,13 +154,70 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			}
 		}
 		
-		// Étape 3: Chemin des documents
-		fmt.Println("\nStep 3: Specify documents path")
-		fmt.Print("Enter path to document folder: ")
-		folderPath, _ := reader.ReadString('\n')
-		folderPath = strings.TrimSpace(folderPath)
-		if folderPath == "" {
-			return fmt.Errorf("folder path cannot be empty")
+		// Nouvelle Étape 3: Choisir entre documents locaux ou site web
+		fmt.Println("\nStep 3: Choose document source")
+		fmt.Println("1. Local document folder")
+		fmt.Println("2. Crawl a website")
+		fmt.Print("\nSelect option (1/2): ")
+		sourceChoice, _ := reader.ReadString('\n')
+		sourceChoice = strings.TrimSpace(sourceChoice)
+		
+		var folderPath string
+		var websiteURL string
+		var maxDepth, concurrency int
+		var excludePaths []string
+		var useWebCrawler bool
+		
+		if sourceChoice == "2" {
+			// Option crawler de site web
+			useWebCrawler = true
+			
+			// Demander l'URL du site
+			fmt.Print("\nEnter website URL to crawl: ")
+			websiteURL, _ = reader.ReadString('\n')
+			websiteURL = strings.TrimSpace(websiteURL)
+			if websiteURL == "" {
+				return fmt.Errorf("website URL cannot be empty")
+			}
+			
+			// Profondeur de crawling
+			fmt.Print("Maximum crawl depth [2]: ")
+			depthStr, _ := reader.ReadString('\n')
+			depthStr = strings.TrimSpace(depthStr)
+			maxDepth = 2 // valeur par défaut
+			if depthStr != "" {
+				fmt.Sscanf(depthStr, "%d", &maxDepth)
+			}
+			
+			// Concurrence
+			fmt.Print("Number of concurrent crawlers [5]: ")
+			concurrencyStr, _ := reader.ReadString('\n')
+			concurrencyStr = strings.TrimSpace(concurrencyStr)
+			concurrency = 5 // valeur par défaut
+			if concurrencyStr != "" {
+				fmt.Sscanf(concurrencyStr, "%d", &concurrency)
+			}
+			
+			// Chemins à exclure
+			fmt.Print("Paths to exclude (comma-separated): ")
+			excludePathsStr, _ := reader.ReadString('\n')
+			excludePathsStr = strings.TrimSpace(excludePathsStr)
+			if excludePathsStr != "" {
+				excludePaths = strings.Split(excludePathsStr, ",")
+				for i := range excludePaths {
+					excludePaths[i] = strings.TrimSpace(excludePaths[i])
+				}
+			}
+		} else {
+			// Option dossier local (code existant)
+			useWebCrawler = false
+			
+			fmt.Print("\nEnter path to document folder: ")
+			folderPath, _ = reader.ReadString('\n')
+			folderPath = strings.TrimSpace(folderPath)
+			if folderPath == "" {
+				return fmt.Errorf("folder path cannot be empty")
+			}
 		}
 		
 		// Étape 4: Options de chunking
@@ -222,19 +280,29 @@ This makes it easy to set up a new RAG without remembering all command options.`
 		fmt.Println("RAG configuration:")
 		fmt.Printf("- Name: %s\n", ragName)
 		fmt.Printf("- Model: %s\n", modelName)
-		fmt.Printf("- Documents: %s\n", folderPath)
+		
+		if useWebCrawler {
+			fmt.Printf("- Source: Website - %s\n", websiteURL)
+			fmt.Printf("- Crawl depth: %d\n", maxDepth)
+			fmt.Printf("- Concurrency: %d\n", concurrency)
+			if len(excludePaths) > 0 {
+				fmt.Printf("- Exclude paths: %s\n", strings.Join(excludePaths, ", "))
+			}
+		} else {
+			fmt.Printf("- Source: Local folder - %s\n", folderPath)
+			if len(excludeDirs) > 0 {
+				fmt.Printf("- Exclude directories: %s\n", strings.Join(excludeDirs, ", "))
+			}
+			if len(excludeExts) > 0 {
+				fmt.Printf("- Exclude extensions: %s\n", strings.Join(excludeExts, ", "))
+			}
+			if len(processExts) > 0 {
+				fmt.Printf("- Process only: %s\n", strings.Join(processExts, ", "))
+			}
+		}
+		
 		fmt.Printf("- Chunk size: %d\n", chunkSize)
 		fmt.Printf("- Chunk overlap: %d\n", overlap)
-		
-		if len(excludeDirs) > 0 {
-			fmt.Printf("- Exclude directories: %s\n", strings.Join(excludeDirs, ", "))
-		}
-		if len(excludeExts) > 0 {
-			fmt.Printf("- Exclude extensions: %s\n", strings.Join(excludeExts, ", "))
-		}
-		if len(processExts) > 0 {
-			fmt.Printf("- Process only: %s\n", strings.Join(processExts, ", "))
-		}
 		
 		fmt.Print("\nCreate RAG with these settings? (y/n): ")
 		confirm, _ := reader.ReadString('\n')
@@ -262,18 +330,59 @@ This makes it easy to set up a new RAG without remembering all command options.`
 		// Utiliser RagService pour créer le RAG
 		ragService := service.NewRagService(ollamaClient)
 		
-		// Préparation des options
-		loaderOptions := service.DocumentLoaderOptions{
-			ExcludeDirs:  excludeDirs,
-			ExcludeExts:  excludeExts,
-			ProcessExts:  processExts,
-			ChunkSize:    chunkSize,
-			ChunkOverlap: overlap,
-		}
-		
-		err = ragService.CreateRagWithOptions(modelName, ragName, folderPath, loaderOptions)
-		if err != nil {
-			return fmt.Errorf("error creating RAG: %w", err)
+		if useWebCrawler {
+			// Utiliser le crawler
+			fmt.Printf("\nCrawling website '%s'...\n", websiteURL)
+			
+			// Créer le crawler
+			webCrawler, err := crawler.NewWebCrawler(websiteURL, maxDepth, concurrency, excludePaths)
+			if err != nil {
+				return fmt.Errorf("error initializing web crawler: %w", err)
+			}
+			
+			// Démarrer le crawling
+			documents, err := webCrawler.CrawlWebsite()
+			if err != nil {
+				return fmt.Errorf("error crawling website: %w", err)
+			}
+			
+			if len(documents) == 0 {
+				return fmt.Errorf("no content found when crawling %s", websiteURL)
+			}
+			
+			fmt.Printf("Retrieved %d pages from website. Processing content...\n", len(documents))
+			
+			// Créer un répertoire temporaire pour les documents
+			tempDir := createTempDirForDocuments(documents)
+			if tempDir != "" {
+				defer cleanupTempDir(tempDir)
+			}
+			
+			// Options pour le chargeur de documents
+			loaderOptions := service.DocumentLoaderOptions{
+				ChunkSize:    chunkSize,
+				ChunkOverlap: overlap,
+			}
+			
+			// Créer le RAG
+			err = ragService.CreateRagWithOptions(modelName, ragName, tempDir, loaderOptions)
+			if err != nil {
+				return err
+			}
+		} else {
+			// Utiliser le dossier local (code existant)
+			loaderOptions := service.DocumentLoaderOptions{
+				ExcludeDirs:  excludeDirs,
+				ExcludeExts:  excludeExts,
+				ProcessExts:  processExts,
+				ChunkSize:    chunkSize,
+				ChunkOverlap: overlap,
+			}
+			
+			err = ragService.CreateRagWithOptions(modelName, ragName, folderPath, loaderOptions)
+			if err != nil {
+				return err
+			}
 		}
 		
 		fmt.Println("\n🎉 RAG created successfully! 🎉")
@@ -284,5 +393,5 @@ This makes it easy to set up a new RAG without remembering all command options.`
 }
 
 func init() {
-	rootCmd.AddCommand(localWizardCmd)
+	rootCmd.AddCommand(localWizardCmd) 
 } 
