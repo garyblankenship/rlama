@@ -24,9 +24,11 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 - [Installation](#installation)
 - [Available Commands](#available-commands)
   - [rag - Create a RAG system](#rag---create-a-rag-system)
+  - [crawl-rag - Create a RAG system from a website](#crawl-rag---create-a-rag-system-from-a-website)
+  - [wizard - Create a RAG system with interactive setup](#wizard---create-a-rag-system-with-interactive-setup)
   - [watch - Set up directory watching for a RAG system](#watch---set-up-directory-watching-for-a-rag-system)
   - [watch-off - Disable directory watching for a RAG system](#watch-off---disable-directory-watching-for-a-rag-system)
-  - [check-watched - Check a RAG's watched directory for new files](#check-watched---check-a-rag's-watched-directory-for-new-files)
+  - [check-watched - Check a RAG's watched directory for new files](#check-watched---check-a-rags-watched-directory-for-new-files)
   - [run - Use a RAG system](#run---use-a-rag-system)
   - [api - Start API server](#api---start-api-server)
   - [list - List RAG systems](#list---list-rag-systems)
@@ -35,6 +37,7 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
   - [list-chunks - Inspect document chunks](#list-chunks---inspect-document-chunks)
   - [view-chunk - View chunk details](#view-chunk---view-chunk-details)
   - [add-docs - Add documents to RAG](#add-docs---add-documents-to-rag)
+  - [crawl-add-docs - Add website content to RAG](#crawl-add-docs---add-website-content-to-rag)
   - [update-model - Change LLM model](#update-model---change-llm-model)
   - [update - Update RLAMA](#update---update-rlama)
   - [version - Display version](#version---display-version)
@@ -56,6 +59,8 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 - ✅ **Cross-Platform Support**: Works on Linux, macOS, and Windows
 - ✅ **Easy Installation**: One-line installation script
 - ✅ **API Server**: HTTP endpoints for integrating RAG capabilities in other applications
+- ✅ **Web Crawling**: Create RAGs directly from websites
+- ✅ **Guided RAG Setup Wizard**: Interactive interface for easy RAG creation
 
 ### Small LLM Optimization (Q2 2025)
 - [ ] **Prompt Compression**: Smart context summarization for limited context windows
@@ -72,7 +77,6 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 ### User Experience Enhancements (Q3 2025)
 - [ ] **Lightweight Web Interface**: Simple browser-based UI for the existing CLI backend
 - [ ] **Knowledge Graph Visualization**: Interactive exploration of document connections
-- [ ] **Guided RAG Setup Wizard**: Step-by-step interface for non-technical users
 - [ ] **Domain-Specific Templates**: Pre-configured settings for different domains
 
 ### Enterprise Features (Q4 2025)
@@ -203,6 +207,58 @@ rlama rag [model] [rag-name] [folder-path]
 
 ```bash
 rlama rag llama3 documentation ./docs
+```
+
+### crawl-rag - Create a RAG system from a website
+
+Creates a new RAG system by crawling a website and indexing its content.
+
+```bash
+rlama crawl-rag [model] [rag-name] [website-url]
+```
+
+**Parameters:**
+- `model`: Name of the Ollama model to use (e.g., llama3, mistral, gemma).
+- `rag-name`: Unique name to identify your RAG system.
+- `website-url`: URL of the website to crawl and index.
+
+**Options:**
+- `--max-depth`: Maximum crawl depth (default: 2)
+- `--concurrency`: Number of concurrent crawlers (default: 5)
+- `--exclude-path`: Paths to exclude from crawling (comma-separated)
+- `--chunk-size`: Character count per chunk (default: 1000)
+- `--chunk-overlap`: Overlap between chunks in characters (default: 200)
+
+**Example:**
+
+```bash
+# Create a new RAG from a documentation website
+rlama crawl-rag llama3 docs-rag https://docs.example.com
+
+# Customize crawling behavior
+rlama crawl-rag llama3 blog-rag https://blog.example.com --max-depth=3 --exclude-path=/archive,/tags
+```
+
+### wizard - Create a RAG system with interactive setup
+
+Provides an interactive step-by-step wizard for creating a new RAG system.
+
+```bash
+rlama wizard
+```
+
+The wizard guides you through:
+- Naming your RAG
+- Choosing an Ollama model
+- Selecting document sources (local folder or website)
+- Configuring chunking parameters
+- Setting up file filtering
+
+**Example:**
+
+```bash
+rlama wizard
+# Follow the prompts to create your customized RAG
 ```
 
 ### watch - Set up directory watching for a RAG system
@@ -464,6 +520,35 @@ rlama add-docs [rag-name] [folder-path] [flags]
 
 ```bash
 rlama add-docs documentation ./new-docs --exclude-ext=.tmp
+```
+
+### crawl-add-docs - Add website content to RAG
+
+Add content from a website to an existing RAG system.
+
+```bash
+rlama crawl-add-docs [rag-name] [website-url]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system
+- `website-url`: URL of the website to crawl and add to the RAG
+
+**Options:**
+- `--max-depth`: Maximum crawl depth (default: 2)
+- `--concurrency`: Number of concurrent crawlers (default: 5)
+- `--exclude-path`: Paths to exclude from crawling (comma-separated)
+- `--chunk-size`: Character count per chunk (default: 1000)
+- `--chunk-overlap`: Overlap between chunks in characters (default: 200)
+
+**Example:**
+
+```bash
+# Add blog content to an existing RAG
+rlama crawl-add-docs my-docs https://blog.example.com
+
+# Customize crawling behavior
+rlama crawl-add-docs knowledge-base https://docs.example.com --max-depth=1 --exclude-path=/api
 ```
 
 ### update-model - Change LLM model
