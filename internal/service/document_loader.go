@@ -109,7 +109,6 @@ func findExternalExtractor() string {
 	for _, extractor := range extractors {
 		path, err := exec.LookPath(extractor)
 		if err == nil {
-			fmt.Printf("External extractor found: %s\n", path)
 			return path
 		}
 	}
@@ -334,19 +333,16 @@ func (dl *DocumentLoader) extractText(path string, ext string) (string, error) {
 func (dl *DocumentLoader) extractFromPDF(path string) (string, error) {
 	// Method 1: Use pdftotext if available
 	if strings.Contains(dl.extractorPath, "pdftotext") {
-		fmt.Printf("Extracting PDF with pdftotext: %s\n", filepath.Base(path))
 		out, err := exec.Command(dl.extractorPath, "-layout", path, "-").Output()
 		if err == nil && len(out) > 0 {
 			return string(out), nil
 		}
-		fmt.Printf("pdftotext failed: %v\n", err)
 	}
 	
 	// Method 2: Try with other tools (pdfinfo, pdftk)
 	for _, tool := range []string{"pdfinfo", "pdftk"} {
 		toolPath, err := exec.LookPath(tool)
 		if err == nil {
-			fmt.Printf("Attempting extraction with %s\n", tool)
 			var out []byte
 			if tool == "pdfinfo" {
 				out, err = exec.Command(toolPath, path).Output()
@@ -368,7 +364,6 @@ func (dl *DocumentLoader) extractFromPDF(path string) (string, error) {
 func (dl *DocumentLoader) extractFromDocument(path string, ext string) (string, error) {
 	// Method 1: Use textutil on macOS
 	if strings.Contains(dl.extractorPath, "textutil") && (ext == ".docx" || ext == ".doc" || ext == ".rtf") {
-		fmt.Printf("Extracting document with textutil: %s\n", filepath.Base(path))
 		out, err := exec.Command(dl.extractorPath, "-convert", "txt", "-stdout", path).Output()
 		if err == nil && len(out) > 0 {
 			return string(out), nil

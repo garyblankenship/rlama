@@ -39,6 +39,7 @@ var (
 	versionFlag bool
 	ollamaHost  string
 	ollamaPort  string
+	verbose     bool
 )
 
 // Execute executes the root command
@@ -68,6 +69,7 @@ func init() {
 	// Add Ollama configuration flags
 	rootCmd.PersistentFlags().StringVar(&ollamaHost, "host", "", "Ollama host (overrides OLLAMA_HOST env var, default: localhost)")
 	rootCmd.PersistentFlags().StringVar(&ollamaPort, "port", "", "Ollama port (overrides port in OLLAMA_HOST env var, default: 11434)")
+	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose output")
 	
 	// Override the Run function to handle the --version flag
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
