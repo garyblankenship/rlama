@@ -268,4 +268,53 @@ exit
 	fmt.Println("Please close this window and run 'rlama --version' to verify the update.")
 	
 	return nil
+}
+
+// getLatestVersion récupère la dernière version disponible depuis GitHub
+func getLatestVersion() (string, error) {
+	// Query the GitHub API to get the latest release
+	resp, err := http.Get("https://api.github.com/repos/dontizi/rlama/releases/latest")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	
+	// Parse the JSON response
+	var release GitHubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return "", err
+	}
+	
+	// Return the version without the 'v' prefix
+	return strings.TrimPrefix(release.TagName, "v"), nil
+}
+
+// downloadFile télécharge un fichier depuis une URL vers un chemin local
+func downloadFile(url string, filepath string) error {
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 } 
