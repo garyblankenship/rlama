@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync"
 
 	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/domain"
@@ -12,6 +13,7 @@ import (
 // EmbeddingService manages the generation of embeddings for documents
 type EmbeddingService struct {
 	ollamaClient *client.OllamaClient
+	maxWorkers   int // Number of parallel workers for embedding generation
 }
 
 // NewEmbeddingService creates a new instance of EmbeddingService
@@ -21,7 +23,18 @@ func NewEmbeddingService(ollamaClient *client.OllamaClient) *EmbeddingService {
 	}
 	return &EmbeddingService{
 		ollamaClient: ollamaClient,
+		maxWorkers:   3, // Default to 3 workers
 	}
+}
+
+// SetMaxWorkers sets the maximum number of parallel workers for embedding generation
+func (es *EmbeddingService) SetMaxWorkers(workers int) {
+	if workers < 1 {
+		workers = 1
+	} else if workers > 5 {
+		workers = 5
+	}
+	es.maxWorkers = workers
 }
 
 // GenerateEmbeddings generates embeddings for a list of documents
@@ -94,50 +107,102 @@ func (es *EmbeddingService) GenerateQueryEmbedding(query string, modelName strin
 	return embedding, nil
 }
 
-// GenerateChunkEmbeddings generates embeddings for document chunks
+// GenerateChunkEmbeddings generates embeddings for document chunks in parallel
 func (es *EmbeddingService) GenerateChunkEmbeddings(chunks []*domain.DocumentChunk, modelName string) error {
 	// Try to use snowflake-arctic-embed2 for embeddings first
 	embeddingModel := "snowflake-arctic-embed2"
 	
-	// Process all chunks
+	// Create a wait group to synchronize goroutines
+	var wg sync.WaitGroup
+	
+	// Create a channel to limit concurrency
+	semaphore := make(chan struct{}, es.maxWorkers)
+	
+	// Create a channel for errors
+	errorChan := make(chan error, len(chunks))
+	
+	// Create a mutex for printing progress
+	var progressMutex sync.Mutex
+	var completedChunks int
+	
+	// Check if we need to pull the model (attempt only once)
+	modelChecked := false
+	var modelCheckMutex sync.Mutex
+	
+	// Process chunks in parallel
 	for i, chunk := range chunks {
-		fmt.Printf("Generating embedding for chunk %d/%d\r", i+1, len(chunks))
+		// Add to wait group before starting goroutine
+		wg.Add(1)
 		
-		// Generate embedding with snowflake-arctic-embed2 first
-		embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, chunk.Content)
-		
-		// If snowflake-arctic-embed2 fails and this is the first chunk, try to pull it
-		if err != nil {
-			if i == 0 {
-				fmt.Printf("\n⚠️ Could not use %s for embeddings: %v\n", embeddingModel, err)
+		// Start a goroutine to process this chunk
+		go func(index int, ch *domain.DocumentChunk) {
+			defer wg.Done()
+			
+			// Acquire semaphore slot (this limits concurrency)
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+			
+			// Generate embedding
+			embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, ch.Content)
+			
+			// If the model fails and we haven't checked it yet
+			if err != nil {
+				modelCheckMutex.Lock()
+				shouldCheck := !modelChecked
+				modelChecked = true
+				modelCheckMutex.Unlock()
 				
-				// Attempt to pull the embedding model automatically
-				fmt.Printf("Attempting to pull %s automatically...\n", embeddingModel)
-				pullErr := es.pullEmbeddingModel(embeddingModel)
-				
-				if pullErr == nil {
-					// Try again with the pulled model
-					embedding, err = es.ollamaClient.GenerateEmbedding(embeddingModel, chunk.Content)
+				if shouldCheck {
+					// Only print the warning and attempt to pull once
+					fmt.Printf("\n⚠️ Could not use %s for embeddings: %v\n", embeddingModel, err)
+					fmt.Printf("Attempting to pull %s automatically...\n", embeddingModel)
+					pullErr := es.pullEmbeddingModel(embeddingModel)
+					
+					if pullErr == nil {
+						// Try again with the pulled model
+						embedding, err = es.ollamaClient.GenerateEmbedding(embeddingModel, ch.Content)
+					}
+					
+					if pullErr != nil || err != nil {
+						fmt.Printf("Falling back to %s for embeddings.\n", modelName)
+					}
 				}
 				
-				// If pulling failed or embedding still fails, fallback to the specified model
-				if pullErr != nil || err != nil {
-					fmt.Printf("Falling back to %s for embeddings.\n", modelName)
+				// Use the specified model instead if the embedding model failed
+				if err != nil {
+					embedding, err = es.ollamaClient.GenerateEmbedding(modelName, ch.Content)
+					if err != nil {
+						errorChan <- fmt.Errorf("error generating embedding for chunk %s: %w", ch.ID, err)
+						return
+					}
 				}
 			}
 			
-			// Use the specified model instead if the embedding model failed
-			if err != nil {
-				embedding, err = es.ollamaClient.GenerateEmbedding(modelName, chunk.Content)
-				if err != nil {
-					return fmt.Errorf("error generating embedding for chunk %s: %w", chunk.ID, err)
-				}
-			}
-		}
-
-		chunk.Embedding = embedding
+			// Update the chunk with the embedding
+			ch.Embedding = embedding
+			
+			// Update progress
+			progressMutex.Lock()
+			completedChunks++
+			fmt.Printf("Generating embeddings: %d/%d chunks processed (%d%%)   \r", 
+				completedChunks, len(chunks), (completedChunks * 100 / len(chunks)))
+			progressMutex.Unlock()
+			
+		}(i, chunk)
 	}
+	
+	// Wait for all goroutines to complete
+	wg.Wait()
+	close(errorChan)
+	
+	// Check if any errors occurred
+	for err := range errorChan {
+		return err // Return the first error encountered
+	}
+	
 	fmt.Println() // Add a newline after progress indicator
+	fmt.Printf("Successfully generated embeddings for %d chunks using %d parallel workers\n", 
+		len(chunks), es.maxWorkers)
 	return nil
 }
 
