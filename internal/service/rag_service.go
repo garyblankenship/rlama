@@ -51,6 +51,20 @@ func NewRagService(ollamaClient *client.OllamaClient) RagService {
 	}
 }
 
+// NewRagServiceWithEmbedding creates a new RagService with a specific embedding service
+func NewRagServiceWithEmbedding(ollamaClient *client.OllamaClient, embeddingService *EmbeddingService) RagService {
+	if ollamaClient == nil {
+		ollamaClient = client.NewDefaultOllamaClient()
+	}
+	
+	return &RagServiceImpl{
+		documentLoader:   NewDocumentLoader(),
+		embeddingService: embeddingService,
+		ragRepository:    repository.NewRagRepository(),
+		ollamaClient:     ollamaClient,
+	}
+}
+
 // CreateRagWithOptions creates a new RAG system with the specified options
 func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath string, options DocumentLoaderOptions) error {
 	// Check if Ollama is available

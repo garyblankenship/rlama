@@ -53,10 +53,11 @@ func (s *Server) Start() error {
 
 // RagQueryRequest represents the request body for RAG queries
 type RagQueryRequest struct {
-	RagName     string `json:"rag_name"`
-	Model       string `json:"model,omitempty"`
-	Prompt      string `json:"prompt"`
-	ContextSize int    `json:"context_size,omitempty"`
+	RagName       string `json:"rag_name"`
+	Model         string `json:"model,omitempty"`
+	Prompt        string `json:"prompt"`
+	ContextSize   int    `json:"context_size,omitempty"`
+	MaxWorkers    int    `json:"max_workers,omitempty"` // Added for parallel processing
 }
 
 // RagQueryResponse represents the response for RAG queries
@@ -130,6 +131,14 @@ func (s *Server) handleRagQuery(w http.ResponseWriter, r *http.Request) {
 	// Temporarily update the model if needed
 	if req.Model != "" && req.Model != originalModel {
 		rag.ModelName = req.Model
+	}
+	
+	// Set parallel workers if specified
+	if req.MaxWorkers > 0 {
+		embeddingService := service.NewEmbeddingService(s.ollamaClient)
+		embeddingService.SetMaxWorkers(req.MaxWorkers)
+		// Update the RAG service with the new embedding service
+		s.ragService = service.NewRagServiceWithEmbedding(s.ollamaClient, embeddingService)
 	}
 	
 	// Query the RAG system

@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/repository"
+	"github.com/dontizi/rlama/internal/client"
 )
 
 var updateModelCmd = &cobra.Command{
@@ -23,9 +24,29 @@ recreate the RAG with the new model instead.`,
 		// Get Ollama client from root command
 		ollamaClient := GetOllamaClient()
 		
-		// Check if Ollama is installed and the new model is available
-		if err := ollamaClient.CheckOllamaAndModel(newModel); err != nil {
-			return err
+		// Check if this is a Hugging Face model
+		if client.IsHuggingFaceModel(newModel) {
+			// Extract model name and quantization
+			hfModelName := client.GetHuggingFaceModelName(newModel)
+			quantization := client.GetQuantizationFromModelRef(newModel)
+			
+			fmt.Printf("Detected Hugging Face model. Pulling %s", hfModelName)
+			if quantization != "" {
+				fmt.Printf(" with quantization %s", quantization)
+			}
+			fmt.Println("...")
+			
+			// Pull the model from Hugging Face
+			if err := ollamaClient.PullHuggingFaceModel(hfModelName, quantization); err != nil {
+				return fmt.Errorf("error pulling Hugging Face model: %w", err)
+			}
+			
+			fmt.Println("Successfully pulled Hugging Face model.")
+		} else {
+			// For regular Ollama models
+			if err := ollamaClient.CheckOllamaAndModel(newModel); err != nil {
+				return err
+			}
 		}
 
 		// Load the RAG
