@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -217,4 +218,65 @@ func (c *OllamaClient) CheckOllamaAndModel(modelName string) error {
 	// This check could be added here
 	
 	return nil
+}
+
+// RunHuggingFaceModel prepares a Hugging Face model for use with Ollama
+func (c *OllamaClient) RunHuggingFaceModel(hfModelPath string, quantization string) error {
+	modelRef := "hf.co/" + hfModelPath
+	if quantization != "" {
+		modelRef += ":" + quantization
+	}
+	
+	cmd := exec.Command("ollama", "run", modelRef)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	
+	return cmd.Run()
+}
+
+// PullHuggingFaceModel pulls a Hugging Face model into Ollama without running it
+func (c *OllamaClient) PullHuggingFaceModel(hfModelPath string, quantization string) error {
+	modelRef := "hf.co/" + hfModelPath
+	if quantization != "" {
+		modelRef += ":" + quantization
+	}
+	
+	cmd := exec.Command("ollama", "pull", modelRef)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	return cmd.Run()
+}
+
+// IsHuggingFaceModel checks if a model name is a Hugging Face model reference
+func IsHuggingFaceModel(modelName string) bool {
+	return strings.HasPrefix(modelName, "hf.co/") || 
+		   strings.HasPrefix(modelName, "huggingface.co/")
+}
+
+// GetHuggingFaceModelName extracts the repository name from a Hugging Face model reference
+func GetHuggingFaceModelName(modelRef string) string {
+	// Strip any prefix
+	modelName := modelRef
+	if strings.HasPrefix(modelRef, "hf.co/") {
+		modelName = strings.TrimPrefix(modelRef, "hf.co/")
+	} else if strings.HasPrefix(modelRef, "huggingface.co/") {
+		modelName = strings.TrimPrefix(modelRef, "huggingface.co/")
+	}
+	
+	// Strip any quantization suffix
+	if colonIdx := strings.Index(modelName, ":"); colonIdx != -1 {
+		modelName = modelName[:colonIdx]
+	}
+	
+	return modelName
+}
+
+// GetQuantizationFromModelRef extracts the quantization suffix from a model reference
+func GetQuantizationFromModelRef(modelRef string) string {
+	if colonIdx := strings.Index(modelRef, ":"); colonIdx != -1 {
+		return modelRef[colonIdx+1:]
+	}
+	return ""
 } 
