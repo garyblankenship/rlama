@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -151,4 +153,168 @@ func checkForUpdates() (*GitHubRelease, bool, error) {
 func init() {
 	rootCmd.AddCommand(updateCmd)
 	updateCmd.Flags().BoolVarP(&forceUpdate, "force", "f", false, "Update without asking for confirmation")
+}
+
+// Fonction modifiée pour gérer le cas spécifique de Windows
+func doUpdate(version string, force bool) error {
+	// Si aucune version n'est fournie, obtenir la dernière version
+	var latestVersion string
+	var err error
+	if version == "" {
+		latestVersion, err = getLatestVersion()
+		if err != nil {
+			return fmt.Errorf("error checking for updates: %w", err)
+		}
+		version = latestVersion
+	}
+
+	// Vérifier si une mise à jour est nécessaire
+	currentVersion := Version
+	if currentVersion == version && !force {
+		fmt.Printf("You are already using the latest version of RLAMA (%s)\n", currentVersion)
+		return nil
+	}
+
+	// Demander confirmation, sauf si --force est utilisé
+	if !force {
+		fmt.Printf("A new version of RLAMA is available (%s). Do you want to install it? (y/n): ", version)
+		var response string
+		_, err := fmt.Scanln(&response)
+		if err != nil || (strings.ToLower(response) != "y" && strings.ToLower(response) != "yes") {
+			fmt.Println("Update cancelled.")
+			return nil
+		}
+	}
+
+	fmt.Printf("Installing RLAMA %s...\n", version)
+
+	// Obtenir le chemin de l'exécutable actuel
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("error getting executable path: %w", err)
+	}
+
+	// Créer un répertoire pour les fichiers de mise à jour si nécessaire
+	updateDir := filepath.Dir(execPath)
+	if err := os.MkdirAll(updateDir, 0755); err != nil {
+		return fmt.Errorf("error creating update directory: %w", err)
+	}
+
+	// Télécharger la nouvelle version
+	binaryURL := fmt.Sprintf("https://github.com/dontizi/rlama/releases/download/v%s/rlama_%s_%s", version, runtime.GOOS, runtime.GOARCH)
+	if runtime.GOOS == "windows" {
+		binaryURL += ".exe"
+	}
+
+	// Chemin pour le nouveau binaire
+	newBinaryPath := execPath + ".new"
+
+	// Télécharger le nouveau binaire
+	if err := downloadFile(binaryURL, newBinaryPath); err != nil {
+		// Nettoyer en cas d'erreur
+		os.Remove(newBinaryPath)
+		return fmt.Errorf("error downloading update: %w", err)
+	}
+
+	// Rendre le nouveau binaire exécutable
+	if err := os.Chmod(newBinaryPath, 0755); err != nil {
+		os.Remove(newBinaryPath)
+		return fmt.Errorf("error setting permissions: %w", err)
+	}
+
+	// Sous Windows, nous devons utiliser une approche différente
+	if runtime.GOOS == "windows" {
+		return windowsReplaceBinary(execPath, newBinaryPath)
+	}
+
+	// Sur les autres plateformes, nous pouvons remplacer directement
+	if err := os.Rename(newBinaryPath, execPath); err != nil {
+		os.Remove(newBinaryPath)
+		return fmt.Errorf("error replacing binary: %w", err)
+	}
+
+	fmt.Printf("Successfully updated to RLAMA %s!\n", version)
+	return nil
+}
+
+// Nouvelle fonction pour gérer la mise à jour sous Windows
+func windowsReplaceBinary(originalPath, newPath string) error {
+	// Créer un script batch pour le remplacement différé
+	batchContent := `@echo off
+:wait
+timeout /t 1 >nul
+tasklist /fi "imagename eq rlama.exe" | find "rlama.exe" >nul
+if %errorlevel% equ 0 goto wait
+move /y "%s" "%s"
+echo Update successful!
+start "" "%s"
+exit
+`
+	batchScript := fmt.Sprintf(batchContent, newPath, originalPath, originalPath)
+	
+	// Créer un fichier temporaire pour le script batch
+	tempBatchFile := filepath.Join(os.TempDir(), "rlama_update.bat")
+	if err := os.WriteFile(tempBatchFile, []byte(batchScript), 0644); err != nil {
+		return fmt.Errorf("error creating update script: %w", err)
+	}
+	
+	// Exécuter le script en arrière-plan
+	cmd := exec.Command("cmd", "/c", "start", "/min", tempBatchFile)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("error starting update process: %w", err)
+	}
+	
+	fmt.Println("Update will complete after you exit the RLAMA application.")
+	fmt.Println("Please close this window and run 'rlama --version' to verify the update.")
+	
+	return nil
+}
+
+// getLatestVersion récupère la dernière version disponible depuis GitHub
+func getLatestVersion() (string, error) {
+	// Query the GitHub API to get the latest release
+	resp, err := http.Get("https://api.github.com/repos/dontizi/rlama/releases/latest")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	
+	// Parse the JSON response
+	var release GitHubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return "", err
+	}
+	
+	// Return the version without the 'v' prefix
+	return strings.TrimPrefix(release.TagName, "v"), nil
+}
+
+// downloadFile télécharge un fichier depuis une URL vers un chemin local
+func downloadFile(url string, filepath string) error {
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 } 
