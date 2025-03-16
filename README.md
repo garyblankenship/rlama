@@ -41,12 +41,13 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
   - [update-model - Change LLM model](#update-model---change-llm-model)
   - [update - Update RLAMA](#update---update-rlama)
   - [version - Display version](#version---display-version)
+  - [hf-browse - Browse GGUF models on Hugging Face](#hf-browse---browse-gguf-models-on-hugging-face)
+  - [run-hf - Run a Hugging Face GGUF model](#run-hf---run-a-hugging-face-gguf-model)
 - [Uninstallation](#uninstallation)
 - [Supported Document Formats](#supported-document-formats)
 - [Troubleshooting](#troubleshooting)
 
 ## Vision & Roadmap
-
 RLAMA aims to become the definitive tool for creating local RAG systems that work seamlessly for everyone—from individual developers to large enterprises. Here's our strategic roadmap:
 
 ### Completed Features ✅
@@ -61,6 +62,7 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 - ✅ **API Server**: HTTP endpoints for integrating RAG capabilities in other applications
 - ✅ **Web Crawling**: Create RAGs directly from websites
 - ✅ **Guided RAG Setup Wizard**: Interactive interface for easy RAG creation
+- ✅ **Hugging Face Integration**: Access to 45,000+ GGUF models from Hugging Face Hub
 
 ### Small LLM Optimization (Q2 2025)
 - [ ] **Prompt Compression**: Smart context summarization for limited context windows
@@ -199,14 +201,21 @@ rlama rag [model] [rag-name] [folder-path]
 ```
 
 **Parameters:**
-- `model`: Name of the Ollama model to use (e.g., llama3, mistral, gemma).
+- `model`: Name of the Ollama model to use (e.g., llama3, mistral, gemma) or a Hugging Face model using the format `hf.co/username/repository[:quantization]`.
 - `rag-name`: Unique name to identify your RAG system.
 - `folder-path`: Path to the folder containing your documents.
 
 **Example:**
 
 ```bash
+# Using a standard Ollama model
 rlama rag llama3 documentation ./docs
+
+# Using a Hugging Face model
+rlama rag hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF my-rag ./docs
+
+# Using a Hugging Face model with specific quantization
+rlama rag hf.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF:Q5_K_M my-rag ./docs
 ```
 
 ### crawl-rag - Create a RAG system from a website
@@ -592,6 +601,59 @@ or
 
 ```bash
 rlama -v
+```
+
+### hf-browse - Browse GGUF models on Hugging Face
+
+Search and browse GGUF models available on Hugging Face.
+
+```bash
+rlama hf-browse [search-term] [flags]
+```
+
+**Parameters:**
+- `search-term`: (Optional) Term to search for (e.g., "llama3", "mistral")
+
+**Flags:**
+- `--open`: Open the search results in your default web browser
+- `--quant`: Specify quantization type to suggest (e.g., Q4_K_M, Q5_K_M)
+- `--limit`: Limit number of results (default: 10)
+
+**Examples:**
+
+```bash
+# Search for GGUF models and show command-line help
+rlama hf-browse "llama 3"
+
+# Open browser with search results
+rlama hf-browse mistral --open
+
+# Search with specific quantization suggestion
+rlama hf-browse phi --quant Q4_K_M
+```
+
+### run-hf - Run a Hugging Face GGUF model
+
+Run a Hugging Face GGUF model directly using Ollama. This is useful for testing models before creating a RAG system with them.
+
+```bash
+rlama run-hf [huggingface-model] [flags]
+```
+
+**Parameters:**
+- `huggingface-model`: Hugging Face model path in the format `username/repository`
+
+**Flags:**
+- `--quant`: Quantization to use (e.g., Q4_K_M, Q5_K_M)
+
+**Examples:**
+
+```bash
+# Try a model in chat mode
+rlama run-hf bartowski/Llama-3.2-1B-Instruct-GGUF
+
+# Specify quantization
+rlama run-hf mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF --quant Q5_K_M
 ```
 
 ## Uninstallation
