@@ -18,6 +18,7 @@ type Document struct {
 	CreatedAt   time.Time `json:"created_at"`
 	ContentType string    `json:"content_type"`
 	Size        int64     `json:"size"`
+	URL         string    `json:"url,omitempty"` // URL source pour les documents web
 }
 
 // NewDocument crée une nouvelle instance de Document

@@ -29,6 +29,9 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
   - [watch - Set up directory watching for a RAG system](#watch---set-up-directory-watching-for-a-rag-system)
   - [watch-off - Disable directory watching for a RAG system](#watch-off---disable-directory-watching-for-a-rag-system)
   - [check-watched - Check a RAG's watched directory for new files](#check-watched---check-a-rags-watched-directory-for-new-files)
+  - [web-watch - Set up website monitoring for a RAG system](#web-watch---set-up-website-monitoring-for-a-rag-system)
+  - [web-watch-off - Disable website monitoring for a RAG system](#web-watch-off---disable-website-monitoring-for-a-rag-system)
+  - [check-web-watched - Check a RAG's monitored website for updates](#check-web-watched---check-a-rags-monitored-website-for-updates)
   - [run - Use a RAG system](#run---use-a-rag-system)
   - [api - Start API server](#api---start-api-server)
   - [list - List RAG systems](#list---list-rag-systems)
@@ -328,6 +331,66 @@ rlama check-watched [rag-name]
 
 ```bash
 rlama check-watched my-docs
+```
+
+### web-watch - Set up website monitoring for a RAG system
+
+Configure a RAG system to automatically monitor a website for updates and add new content to the RAG.
+
+```bash
+rlama web-watch [rag-name] [website-url] [interval]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system to monitor.
+- `website-url`: URL of the website to monitor.
+- `interval`: Time in minutes between checks (use 0 to check only when the RAG is used).
+
+**Example:**
+
+```bash
+# Set up website monitoring to check every 60 minutes
+rlama web-watch my-docs https://example.com 60
+
+# Set up website monitoring to only check when the RAG is used
+rlama web-watch my-docs https://example.com 0
+
+# Customize what content to monitor
+rlama web-watch my-docs https://example.com 30 --exclude-path=/archive,/tags
+```
+
+### web-watch-off - Disable website monitoring for a RAG system
+
+Disable automatic website monitoring for a RAG system.
+
+```bash
+rlama web-watch-off [rag-name]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system to disable monitoring.
+
+**Example:**
+
+```bash
+rlama web-watch-off my-docs
+```
+
+### check-web-watched - Check a RAG's monitored website for updates
+
+Manually check a RAG's monitored website for new updates and add them to the RAG.
+
+```bash
+rlama check-web-watched [rag-name]
+```
+
+**Parameters:**
+- `rag-name`: Name of the RAG system to check.
+
+**Example:**
+
+```bash
+rlama check-web-watched my-docs
 ```
 
 ### run - Use a RAG system
