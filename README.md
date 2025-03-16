@@ -731,3 +731,41 @@ rlama update-model --help
 All commands support the global `--host` and `--port` flags for custom Ollama connections.
 
 The precedence order is: command-line flags > environment variable > default values.
+
+## Hugging Face Integration
+
+RLAMA now supports using GGUF models directly from Hugging Face through Ollama's native integration:
+
+### Browsing Hugging Face Models
+
+```bash
+# Search for GGUF models on Hugging Face
+rlama hf-browse "llama 3"
+
+# Open browser with search results
+rlama hf-browse mistral --open
+```
+
+### Testing a Model
+
+Before creating a RAG, you can test a Hugging Face model directly:
+
+```bash
+# Try a model in chat mode
+rlama run-hf bartowski/Llama-3.2-1B-Instruct-GGUF
+
+# Specify quantization
+rlama run-hf mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF --quant Q5_K_M
+```
+
+### Creating a RAG with Hugging Face Models
+
+Use Hugging Face models when creating RAG systems:
+
+```bash
+# Create a RAG with a Hugging Face model
+rlama rag hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF my-rag ./docs
+
+# Use specific quantization
+rlama rag hf.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF:Q5_K_M my-rag ./docs
+```
