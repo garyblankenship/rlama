@@ -58,7 +58,7 @@ Example: rlama run rag1`,
 
 			fmt.Println("\nSearching documents for relevant information...")
 
-			checkWatchedDirectory(rag, ragService)
+			checkWatchedResources(rag, ragService)
 
 			answer, err := ragService.Query(rag, question, contextSize)
 			if err != nil {
@@ -82,15 +82,26 @@ func init() {
 	runCmd.Flags().IntVar(&contextSize, "context-size", 20, "Number of context chunks to retrieve (default: 20)")
 }
 
-func checkWatchedDirectory(rag *domain.RagSystem, ragService service.RagService) {
+func checkWatchedResources(rag *domain.RagSystem, ragService service.RagService) {
+	// Check watched directory if enabled with on-use check
 	if rag.WatchEnabled && rag.WatchInterval == 0 {
-		// For RAGs that are set to check on use
 		fileWatcher := service.NewFileWatcher(ragService)
 		docsAdded, err := fileWatcher.CheckAndUpdateRag(rag)
 		if err != nil {
 			fmt.Printf("Error checking watched directory: %v\n", err)
 		} else if docsAdded > 0 {
 			fmt.Printf("Added %d new documents from watched directory.\n", docsAdded)
+		}
+	}
+	
+	// Check watched website if enabled with on-use check
+	if rag.WebWatchEnabled && rag.WebWatchInterval == 0 {
+		webWatcher := service.NewWebWatcher(ragService)
+		pagesAdded, err := webWatcher.CheckAndUpdateRag(rag)
+		if err != nil {
+			fmt.Printf("Error checking watched website: %v\n", err)
+		} else if pagesAdded > 0 {
+			fmt.Printf("Added %d new pages from watched website.\n", pagesAdded)
 		}
 	}
 }

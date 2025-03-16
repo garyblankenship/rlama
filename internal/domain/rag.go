@@ -16,12 +16,18 @@ type RagSystem struct {
 	HybridStore     *vector.EnhancedHybridStore // Use the hybrid store
 	Documents       []*Document          `json:"documents"`
 	Chunks          []*DocumentChunk     `json:"chunks"`
-	// Add directory watching settings
+	// Directory watching settings
 	WatchedDir      string               `json:"watched_dir,omitempty"`
 	WatchInterval   int                  `json:"watch_interval,omitempty"` // In minutes, 0 means only check on use
 	LastWatchedAt   time.Time            `json:"last_watched_at,omitempty"`
 	WatchEnabled    bool                 `json:"watch_enabled"`
 	WatchOptions    DocumentWatchOptions `json:"watch_options,omitempty"`
+	// Web watching settings
+	WatchedURL      string               `json:"watched_url,omitempty"`
+	WebWatchEnabled bool                 `json:"web_watch_enabled"`
+	WebWatchInterval int                 `json:"web_watch_interval,omitempty"` // In minutes
+	LastWebWatchAt  time.Time            `json:"last_web_watched_at,omitempty"`
+	WebWatchOptions WebWatchOptions      `json:"web_watch_options,omitempty"`
 }
 
 // DocumentWatchOptions stores settings for directory watching
@@ -31,6 +37,15 @@ type DocumentWatchOptions struct {
 	ProcessExts   []string `json:"process_exts,omitempty"`
 	ChunkSize     int      `json:"chunk_size,omitempty"`
 	ChunkOverlap  int      `json:"chunk_overlap,omitempty"`
+}
+
+// WebWatchOptions stores settings for web watching
+type WebWatchOptions struct {
+	MaxDepth     int      `json:"max_depth,omitempty"`
+	Concurrency  int      `json:"concurrency,omitempty"`
+	ExcludePaths []string `json:"exclude_paths,omitempty"`
+	ChunkSize    int      `json:"chunk_size,omitempty"`
+	ChunkOverlap int      `json:"chunk_overlap,omitempty"`
 }
 
 // NewRagSystem creates a new instance of RagSystem

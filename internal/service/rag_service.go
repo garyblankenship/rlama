@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -27,6 +28,10 @@ type RagService interface {
 	DisableDirectoryWatching(ragName string) error
 	CheckWatchedDirectory(ragName string) (int, error)
 	// Add any other required methods here
+	// Web watching methods (new)
+	SetupWebWatching(ragName string, websiteURL string, watchInterval int, options domain.WebWatchOptions) error
+	DisableWebWatching(ragName string) error
+	CheckWatchedWebsite(ragName string) (int, error)
 }
 
 // Update the struct implementation to match the interface
@@ -407,4 +412,64 @@ func (rs *RagServiceImpl) CheckWatchedDirectory(ragName string) (int, error) {
 	// Create a file watcher and check for updates
 	fileWatcher := NewFileWatcher(rs)
 	return fileWatcher.CheckAndUpdateRag(rag)
+}
+
+// SetupWebWatching configures a RAG to watch a website for changes
+func (rs *RagServiceImpl) SetupWebWatching(ragName string, websiteURL string, watchInterval int, options domain.WebWatchOptions) error {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return fmt.Errorf("error loading RAG: %w", err)
+	}
+	
+	// Validate URL
+	_, err = url.Parse(websiteURL)
+	if err != nil {
+		return fmt.Errorf("invalid website URL: %w", err)
+	}
+	
+	// Set up watching configuration
+	rag.WatchedURL = websiteURL
+	rag.WebWatchInterval = watchInterval
+	rag.WebWatchEnabled = true
+	rag.LastWebWatchAt = time.Time{} // Zero time to force first check
+	
+	// Save watch options
+	rag.WebWatchOptions = options
+	
+	// Update the RAG
+	return rs.UpdateRag(rag)
+}
+
+// DisableWebWatching disables website watching for a RAG
+func (rs *RagServiceImpl) DisableWebWatching(ragName string) error {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return fmt.Errorf("error loading RAG: %w", err)
+	}
+	
+	// Disable watching
+	rag.WebWatchEnabled = false
+	
+	// Update the RAG
+	return rs.UpdateRag(rag)
+}
+
+// CheckWatchedWebsite manually checks a RAG's watched website for new content
+func (rs *RagServiceImpl) CheckWatchedWebsite(ragName string) (int, error) {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return 0, fmt.Errorf("error loading RAG: %w", err)
+	}
+	
+	// Check if watching is enabled
+	if !rag.WebWatchEnabled || rag.WatchedURL == "" {
+		return 0, fmt.Errorf("website watching is not enabled for RAG '%s'", ragName)
+	}
+	
+	// Create a web watcher and check for updates
+	webWatcher := NewWebWatcher(rs)
+	return webWatcher.CheckAndUpdateRag(rag)
 } 
