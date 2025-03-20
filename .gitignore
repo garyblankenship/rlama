@@ -3,3 +3,4 @@ rlama
 dist/
 .DS_Store
 bin/
+hook-executed.log
