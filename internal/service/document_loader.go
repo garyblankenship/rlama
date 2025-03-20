@@ -9,7 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/dontizi/rlama/internal/domain"
 )
@@ -485,59 +487,154 @@ func (dl *DocumentLoader) extractWithOCR(path string) (string, error) {
 	}
 	defer os.RemoveAll(tempDir)
 	
-	outBasePath := filepath.Join(tempDir, "out")
+	outBaseDir := filepath.Join(tempDir, "out")
+	os.MkdirAll(outBaseDir, 0755)
 	
+	// Determine optimal number of workers
+	numWorkers := runtime.NumCPU() + 1
+
 	// For PDFs, first convert to images if possible
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext == ".pdf" {
 		// Check if pdftoppm is available
 		pdftoppmPath, err := exec.LookPath("pdftoppm")
 		if err == nil {
-			// Convert PDF to images
+			// Convert PDF to images with parallel processing
 			fmt.Println("Converting PDF to images for OCR...")
-			cmd := exec.Command(pdftoppmPath, "-png", path, filepath.Join(tempDir, "page"))
-			if err := cmd.Run(); err != nil {
-				return "", fmt.Errorf("failed to convert PDF to images: %w", err)
+			
+			// First, determine the number of pages in the PDF
+			pagesCmd := exec.Command("pdfinfo", path)
+			output, err := pagesCmd.CombinedOutput()
+			pageCount := 0
+			
+			if err == nil {
+				// Parse page count from pdfinfo output
+				lines := strings.Split(string(output), "\n")
+				for _, line := range lines {
+					if strings.HasPrefix(line, "Pages:") {
+						fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(line, "Pages:")), "%d", &pageCount)
+						break
+					}
+				}
 			}
 			
-			// OCR on each image
-			var allText strings.Builder
-			imgFiles, _ := filepath.Glob(filepath.Join(tempDir, "page-*.png"))
-			for _, imgFile := range imgFiles {
-				fmt.Printf("OCR on %s...\n", filepath.Base(imgFile))
-				cmd := exec.Command(tesseractPath, imgFile, outBasePath, "-l", "eng")
+			if pageCount > 0 && pageCount > numWorkers {
+				// Process PDF in parallel batches
+				fmt.Printf("Processing %d pages with %d workers\n", pageCount, numWorkers)
+				var wg sync.WaitGroup
+				semaphore := make(chan struct{}, numWorkers)
+				
+				for i := 1; i <= pageCount; i++ {
+					wg.Add(1)
+					go func(pageNum int) {
+						defer wg.Done()
+						semaphore <- struct{}{} // Acquire
+						defer func() { <-semaphore }() // Release
+						
+						outputPath := filepath.Join(tempDir, fmt.Sprintf("page-%03d", pageNum))
+						batchCmd := exec.Command(pdftoppmPath, "-png", "-f", fmt.Sprintf("%d", pageNum), 
+							"-l", fmt.Sprintf("%d", pageNum), path, outputPath)
+						if err := batchCmd.Run(); err != nil {
+							fmt.Printf("Warning: Failed to convert page %d: %v\n", pageNum, err)
+						}
+					}(i)
+				}
+				wg.Wait()
+			} else {
+				// For smaller PDFs or when pdfinfo isn't available, use the original approach
+				cmd := exec.Command(pdftoppmPath, "-png", path, filepath.Join(tempDir, "page"))
 				if err := cmd.Run(); err != nil {
-					fmt.Printf("Warning: OCR failed for %s: %v\n", imgFile, err)
-					continue
+					return "", fmt.Errorf("failed to convert PDF to images: %w", err)
 				}
-				
-				// Read the extracted text
-				textBytes, err := ioutil.ReadFile(outBasePath + ".txt")
-				if err != nil {
-					continue
-				}
-				
-				allText.WriteString(string(textBytes))
-				allText.WriteString("\n\n")
 			}
 			
-			return allText.String(), nil
+			// OCR on each image in parallel
+			imgFiles, _ := filepath.Glob(filepath.Join(tempDir, "page-*.png"))
+			return dl.parallelOCR(imgFiles, tesseractPath, outBaseDir, numWorkers)
 		}
 	}
 	
 	// Direct OCR on the file (for images)
-	cmd := exec.Command(tesseractPath, path, outBasePath, "-l", "eng")
+	cmd := exec.Command(tesseractPath, path, filepath.Join(outBaseDir, "result"), "-l", "eng")
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("OCR failed: %w", err)
 	}
 	
 	// Read the extracted text
-	textBytes, err := ioutil.ReadFile(outBasePath + ".txt")
+	textBytes, err := ioutil.ReadFile(filepath.Join(outBaseDir, "result.txt"))
 	if err != nil {
 		return "", err
 	}
 	
 	return string(textBytes), nil
+}
+
+// parallelOCR processes multiple image files with tesseract in parallel
+func (dl *DocumentLoader) parallelOCR(imgFiles []string, tesseractPath, outBaseDir string, numWorkers int) (string, error) {
+	if len(imgFiles) == 0 {
+		return "", fmt.Errorf("no images found to process")
+	}
+	
+	fmt.Printf("Processing %d images with OCR using %d workers\n", len(imgFiles), numWorkers)
+	
+	var mutex sync.Mutex
+	results := make(map[string]string)
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, numWorkers)
+	var processingErr error
+	
+	// Process each image file in parallel
+	for _, imgFile := range imgFiles {
+		wg.Add(1)
+		go func(file string) {
+			defer wg.Done()
+			
+			semaphore <- struct{}{} // Acquire semaphore
+			defer func() { <-semaphore }() // Release semaphore
+			
+			baseFileName := filepath.Base(file)
+			outName := strings.TrimSuffix(baseFileName, filepath.Ext(baseFileName))
+			outPath := filepath.Join(outBaseDir, outName)
+			
+			fmt.Printf("OCR on %s...\n", baseFileName)
+			cmd := exec.Command(tesseractPath, file, outPath, "-l", "eng")
+			if err := cmd.Run(); err != nil {
+				fmt.Printf("Warning: OCR failed for %s: %v\n", baseFileName, err)
+				return
+			}
+			
+			// Read the extracted text
+			textBytes, err := ioutil.ReadFile(outPath + ".txt")
+			if err != nil {
+				fmt.Printf("Warning: Could not read OCR result for %s: %v\n", baseFileName, err)
+				return
+			}
+			
+			// Store the result
+			mutex.Lock()
+			results[baseFileName] = string(textBytes)
+			mutex.Unlock()
+		}(imgFile)
+	}
+	
+	wg.Wait()
+	
+	if processingErr != nil {
+		return "", processingErr
+	}
+	
+	// Combine all text in the correct order (by filename)
+	sort.Strings(imgFiles)
+	var allText strings.Builder
+	for _, file := range imgFiles {
+		baseFileName := filepath.Base(file)
+		if text, ok := results[baseFileName]; ok {
+			allText.WriteString(text)
+			allText.WriteString("\n\n")
+		}
+	}
+	
+	return allText.String(), nil
 }
 
 // tryInstallDependencies attempts to install dependencies if necessary
