@@ -2,3 +2,4 @@ documents/
 rlama
 dist/
 .DS_Store
+bin/
