@@ -47,7 +47,7 @@ func NewRagService(ollamaClient *client.OllamaClient) RagService {
 	if ollamaClient == nil {
 		ollamaClient = client.NewDefaultOllamaClient()
 	}
-	
+
 	return &RagServiceImpl{
 		documentLoader:   NewDocumentLoader(),
 		embeddingService: NewEmbeddingService(ollamaClient),
@@ -61,7 +61,7 @@ func NewRagServiceWithEmbedding(ollamaClient *client.OllamaClient, embeddingServ
 	if ollamaClient == nil {
 		ollamaClient = client.NewDefaultOllamaClient()
 	}
-	
+
 	return &RagServiceImpl{
 		documentLoader:   NewDocumentLoader(),
 		embeddingService: embeddingService,
@@ -93,43 +93,43 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 	}
 
 	fmt.Printf("Successfully loaded %d documents. Chunking documents...\n", len(docs))
-	
+
 	// Create the RAG system
 	rag := domain.NewRagSystem(ragName, modelName)
-	
+
 	// Create chunker service
 	chunkerService := NewChunkerService(ChunkingConfig{
 		ChunkSize:    options.ChunkSize,
 		ChunkOverlap: options.ChunkOverlap,
 	})
-	
+
 	// Process each document - chunk and generate embeddings
 	var allChunks []*domain.DocumentChunk
 	for _, doc := range docs {
 		// Add the document to the RAG
 		rag.AddDocument(doc)
-		
+
 		// Chunk the document
 		chunks := chunkerService.ChunkDocument(doc)
-		
+
 		// Update total chunks in metadata
 		for i, chunk := range chunks {
 			chunk.ChunkNumber = i
 			chunk.TotalChunks = len(chunks)
 		}
-		
+
 		allChunks = append(allChunks, chunks...)
 	}
-	
-	fmt.Printf("Generated %d chunks from %d documents. Generating embeddings...\n", 
+
+	fmt.Printf("Generated %d chunks from %d documents. Generating embeddings...\n",
 		len(allChunks), len(docs))
-	
+
 	// Generate embeddings for all chunks
 	err = rs.embeddingService.GenerateChunkEmbeddings(allChunks, modelName)
 	if err != nil {
 		return fmt.Errorf("error generating embeddings: %w", err)
 	}
-	
+
 	// Add all chunks to the RAG
 	for _, chunk := range allChunks {
 		rag.AddChunk(chunk)
@@ -164,7 +164,7 @@ func (rs *RagServiceImpl) LoadRag(ragName string) (*domain.RagSystem, error) {
 func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize int) (string, error) {
 	// Check if Ollama is available
 	var llmClient client.LLMClient
-	
+
 	// Déterminer quel client utiliser en fonction du modèle
 	if client.IsOpenAIModel(rag.ModelName) {
 		// Pour OpenAI, utiliser le profil spécifié ou celui par défaut
@@ -176,7 +176,7 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 	} else {
 		llmClient = rs.ollamaClient
 	}
-	
+
 	if err := llmClient.CheckLLMAndModel(rag.ModelName); err != nil {
 		return "", err
 	}
@@ -191,28 +191,28 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 	if contextSize <= 0 {
 		contextSize = 20
 	}
-	
+
 	// Search for the most relevant chunks
 	results := rag.HybridStore.Search(queryEmbedding, contextSize)
-	
+
 	// Build the context
 	var context strings.Builder
 	context.WriteString("Relevant information:\n\n")
-	
+
 	// Track which documents we've included for reference
 	includedDocs := make(map[string]bool)
-	
+
 	for _, result := range results {
 		chunk := rag.GetChunkByID(result.ID)
 		if chunk != nil {
 			// Add chunk content with its metadata
-			context.WriteString(fmt.Sprintf("--- %s ---\n%s\n\n", 
+			context.WriteString(fmt.Sprintf("--- %s ---\n%s\n\n",
 				chunk.GetMetadataString(), chunk.Content))
-				
+
 			includedDocs[chunk.DocumentID] = true
 		}
 	}
-	
+
 	// Build the prompt with better formatting and instructions for citing sources
 	systemMessage := "You are a helpful assistant that provides accurate information based on the documents you've been given. Answer the question based on the context provided. If you don't know the answer based on the context, say that you don't know rather than making up an answer. Important: Always respond in the same language as the user's query."
 	prompt := fmt.Sprintf(`System: %s
@@ -223,21 +223,20 @@ Context:
 Question: %s
 
 Answer based on the provided information. If the information doesn't contain the answer, say so clearly.
-Include references to the source documents in your answer using the format (Source: document name).`, 
+Include references to the source documents in your answer using the format (Source: document name).`,
 		systemMessage, context.String(), query)
 
-	
 	// Show search results to the user
-	fmt.Println("\nSearching documents...\n")
-	fmt.Printf("Found %d relevant sections across %d documents\n", 
+	fmt.Println()
+	fmt.Printf("Found %d relevant sections across %d documents\n",
 		len(results), len(includedDocs))
-	
+
 	// Generate the response with le client approprié
 	response, err := llmClient.GenerateCompletion(rag.ModelName, prompt)
 	if err != nil {
 		return "", fmt.Errorf("error generating response: %w", err)
 	}
-	
+
 	return response, nil
 }
 
@@ -270,7 +269,7 @@ func (rs *RagServiceImpl) AddDocsWithOptions(ragName string, folderPath string, 
 
 	// Create chunker service with default config
 	chunkerService := NewChunkerService(DefaultChunkingConfig())
-	
+
 	// Process documents
 	var allChunks []*domain.DocumentChunk
 	for _, doc := range docs {
@@ -319,14 +318,14 @@ func (rs *RagServiceImpl) GetRagChunks(ragName string, filter ChunkFilter) ([]*d
 	var filtered []*domain.DocumentChunk
 	for _, chunk := range rag.Chunks {
 		// Apply document filter
-		if filter.DocumentSubstring != "" && 
-		   !strings.Contains(strings.ToLower(chunk.DocumentID), strings.ToLower(filter.DocumentSubstring)) {
+		if filter.DocumentSubstring != "" &&
+			!strings.Contains(strings.ToLower(chunk.DocumentID), strings.ToLower(filter.DocumentSubstring)) {
 			continue
 		}
 
 		// Clone chunk to avoid modifying original
 		c := *chunk
-		
+
 		// Clear content if not requested
 		if !filter.ShowContent {
 			c.Content = ""
@@ -366,7 +365,7 @@ func (rs *RagServiceImpl) SetupDirectoryWatching(ragName string, dirPath string,
 	if err != nil {
 		return fmt.Errorf("error loading RAG: %w", err)
 	}
-	
+
 	// Check if the directory exists
 	dirInfo, err := os.Stat(dirPath)
 	if os.IsNotExist(err) {
@@ -374,17 +373,17 @@ func (rs *RagServiceImpl) SetupDirectoryWatching(ragName string, dirPath string,
 	} else if err != nil {
 		return fmt.Errorf("error accessing directory: %w", err)
 	}
-	
+
 	if !dirInfo.IsDir() {
 		return fmt.Errorf("'%s' is not a directory", dirPath)
 	}
-	
+
 	// Set up watching configuration
 	rag.WatchedDir = dirPath
 	rag.WatchInterval = watchInterval
 	rag.WatchEnabled = true
 	rag.LastWatchedAt = time.Time{} // Zero time to force first check
-	
+
 	// Save watch options
 	rag.WatchOptions = domain.DocumentWatchOptions{
 		ExcludeDirs:  options.ExcludeDirs,
@@ -393,7 +392,7 @@ func (rs *RagServiceImpl) SetupDirectoryWatching(ragName string, dirPath string,
 		ChunkSize:    options.ChunkSize,
 		ChunkOverlap: options.ChunkOverlap,
 	}
-	
+
 	// Update the RAG
 	return rs.UpdateRag(rag)
 }
@@ -405,10 +404,10 @@ func (rs *RagServiceImpl) DisableDirectoryWatching(ragName string) error {
 	if err != nil {
 		return fmt.Errorf("error loading RAG: %w", err)
 	}
-	
+
 	// Disable watching
 	rag.WatchEnabled = false
-	
+
 	// Update the RAG
 	return rs.UpdateRag(rag)
 }
@@ -420,12 +419,12 @@ func (rs *RagServiceImpl) CheckWatchedDirectory(ragName string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error loading RAG: %w", err)
 	}
-	
+
 	// Check if watching is enabled
 	if !rag.WatchEnabled || rag.WatchedDir == "" {
 		return 0, fmt.Errorf("directory watching is not enabled for RAG '%s'", ragName)
 	}
-	
+
 	// Create a file watcher and check for updates
 	fileWatcher := NewFileWatcher(rs)
 	return fileWatcher.CheckAndUpdateRag(rag)
@@ -438,22 +437,22 @@ func (rs *RagServiceImpl) SetupWebWatching(ragName string, websiteURL string, wa
 	if err != nil {
 		return fmt.Errorf("error loading RAG: %w", err)
 	}
-	
+
 	// Validate URL
 	_, err = url.Parse(websiteURL)
 	if err != nil {
 		return fmt.Errorf("invalid website URL: %w", err)
 	}
-	
+
 	// Set up watching configuration
 	rag.WatchedURL = websiteURL
 	rag.WebWatchInterval = watchInterval
 	rag.WebWatchEnabled = true
 	rag.LastWebWatchAt = time.Time{} // Zero time to force first check
-	
+
 	// Save watch options
 	rag.WebWatchOptions = options
-	
+
 	// Update the RAG
 	return rs.UpdateRag(rag)
 }
@@ -465,10 +464,10 @@ func (rs *RagServiceImpl) DisableWebWatching(ragName string) error {
 	if err != nil {
 		return fmt.Errorf("error loading RAG: %w", err)
 	}
-	
+
 	// Disable watching
 	rag.WebWatchEnabled = false
-	
+
 	// Update the RAG
 	return rs.UpdateRag(rag)
 }
@@ -480,13 +479,13 @@ func (rs *RagServiceImpl) CheckWatchedWebsite(ragName string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error loading RAG: %w", err)
 	}
-	
+
 	// Check if watching is enabled
 	if !rag.WebWatchEnabled || rag.WatchedURL == "" {
 		return 0, fmt.Errorf("website watching is not enabled for RAG '%s'", ragName)
 	}
-	
+
 	// Create a web watcher and check for updates
 	webWatcher := NewWebWatcher(rs)
 	return webWatcher.CheckAndUpdateRag(rag)
-} 
+}

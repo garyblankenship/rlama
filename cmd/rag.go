@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/dontizi/rlama/internal/service"
 	"github.com/dontizi/rlama/internal/client"
+	"github.com/dontizi/rlama/internal/service"
+	"github.com/spf13/cobra"
 )
 
 var (
-	excludeDirs   []string
-	excludeExts   []string
-	processExts   []string
-	chunkSize     int
-	chunkOverlap  int
-	profileName   string
+	excludeDirs  []string
+	excludeExts  []string
+	processExts  []string
+	chunkSize    int
+	chunkOverlap int
+	profileName  string
+	testService  interface{} // Pour les tests
 )
 
 var ragCmd = &cobra.Command{
@@ -54,39 +55,39 @@ OpenAI Models:
 
 		// Get Ollama client with configured host and port
 		ollamaClient := GetOllamaClient()
-		
+
 		// Vérifier si c'est un modèle OpenAI
 		isOpenAIModel := client.IsOpenAIModel(modelName)
-		
+
 		if isOpenAIModel {
 			// Pour les modèles OpenAI, vérifier le profil spécifié ou la clé API
 			var openaiClient *client.OpenAIClient
 			var err error
-			
+
 			if profileName != "" {
 				openaiClient, err = client.NewOpenAIClientWithProfile(profileName)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("Using OpenAI model '%s' with profile '%s' for inference.\n", 
+				fmt.Printf("Using OpenAI model '%s' with profile '%s' for inference.\n",
 					modelName, profileName)
 			} else {
 				openaiClient = client.NewOpenAIClient()
 				if err := openaiClient.CheckOpenAIAndModel(modelName); err != nil {
 					return err
 				}
-				fmt.Printf("Using OpenAI model '%s' for inference. No profile specified, using environment variable.\n", 
+				fmt.Printf("Using OpenAI model '%s' for inference. No profile specified, using environment variable.\n",
 					modelName)
 			}
 		} else if client.IsHuggingFaceModel(modelName) {
 			// Check if this is a Hugging Face model
 			isHfModel := client.IsHuggingFaceModel(modelName)
-			
+
 			if isHfModel {
 				// Extract quantization if specified
 				hfModelName := client.GetHuggingFaceModelName(modelName)
 				quantization := client.GetQuantizationFromModelRef(modelName)
-				
+
 				// Pull the model from Hugging Face
 				fmt.Printf("Pulling Hugging Face model %s...\n", hfModelName)
 				if err := ollamaClient.PullHuggingFaceModel(hfModelName, quantization); err != nil {
@@ -106,16 +107,16 @@ OpenAI Models:
 		}
 
 		// Display a message to indicate that the process has started
-		fmt.Printf("Creating RAG '%s' with model '%s' from folder '%s'...\n", 
+		fmt.Printf("Creating RAG '%s' with model '%s' from folder '%s'...\n",
 			ragName, modelName, folderPath)
 
 		// Set up loader options based on flags
 		loaderOptions := service.DocumentLoaderOptions{
-			ExcludeDirs:   excludeDirs,
-			ExcludeExts:   excludeExts,
-			ProcessExts:   processExts,
-			ChunkSize:     chunkSize,
-			ChunkOverlap:  chunkOverlap,
+			ExcludeDirs:    excludeDirs,
+			ExcludeExts:    excludeExts,
+			ProcessExts:    processExts,
+			ChunkSize:      chunkSize,
+			ChunkOverlap:   chunkOverlap,
 			APIProfileName: profileName,
 		}
 
@@ -124,7 +125,7 @@ OpenAI Models:
 		if err != nil {
 			// Improve error messages related to Ollama
 			if strings.Contains(err.Error(), "connection refused") {
-				return fmt.Errorf("⚠️ Unable to connect to Ollama.\n"+
+				return fmt.Errorf("⚠️ Unable to connect to Ollama.\n" +
 					"Make sure Ollama is installed and running.\n")
 			}
 			return err
@@ -137,7 +138,7 @@ OpenAI Models:
 
 func init() {
 	rootCmd.AddCommand(ragCmd)
-	
+
 	// Add exclusion and processing flags
 	ragCmd.Flags().StringSliceVar(&excludeDirs, "exclude-dir", nil, "Directories to exclude (comma-separated)")
 	ragCmd.Flags().StringSliceVar(&excludeExts, "exclude-ext", nil, "File extensions to exclude (comma-separated)")
@@ -145,4 +146,20 @@ func init() {
 	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
 	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
 	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile to use for this RAG")
+
+	// Ajoutez la logique pour utiliser le service de test si disponible
+	if testService != nil {
+		// Utilisez le service de test
+		// Vous devrez adapter cela selon vos besoins
+	}
+}
+
+// NewRagCommand retourne la commande rag
+func NewRagCommand() *cobra.Command {
+	return ragCmd
+}
+
+// InjectTestService injects a test service
+func InjectTestService(service interface{}) {
+	testService = service
 }
