@@ -21,6 +21,7 @@ type DocumentLoaderOptions struct {
 	ProcessExts    []string 
 	ChunkSize      int      
 	ChunkOverlap   int      // Add this
+	APIProfileName string // Nom du profil API à utiliser
 }
 
 // DocumentLoader is responsible for loading documents from the file system
@@ -678,4 +679,22 @@ func (dl *DocumentLoader) extractContent(path string) (string, error) {
 		}
 		return string(data), nil
 	}
+}
+
+// CreateRagWithOptions creates a new RAG with the specified options
+func (dl *DocumentLoader) CreateRagWithOptions(options DocumentLoaderOptions) (*domain.RagSystem, error) {
+	documents, err := dl.LoadDocumentsFromFolderWithOptions("", options)
+	if err != nil {
+		return nil, err
+	}
+
+	rag := &domain.RagSystem{
+		Documents: documents,
+	}
+
+	if options.APIProfileName != "" {
+		rag.APIProfileName = options.APIProfileName
+	}
+
+	return rag, nil
 } 

@@ -28,6 +28,7 @@ type RagSystem struct {
 	WebWatchInterval int                 `json:"web_watch_interval,omitempty"` // In minutes
 	LastWebWatchAt  time.Time            `json:"last_web_watched_at,omitempty"`
 	WebWatchOptions WebWatchOptions      `json:"web_watch_options,omitempty"`
+	APIProfileName  string               `json:"api_profile_name,omitempty"` // Nom du profil API à utiliser
 }
 
 // DocumentWatchOptions stores settings for directory watching
