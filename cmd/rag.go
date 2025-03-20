@@ -15,6 +15,7 @@ var (
 	processExts   []string
 	chunkSize     int
 	chunkOverlap  int
+	profileName   string
 )
 
 var ragCmd = &cobra.Command{
@@ -36,7 +37,15 @@ Hugging Face Models:
   rlama rag hf.co/username/repository my-rag ./docs
   
   Specify quantization with:
-  rlama rag hf.co/username/repository:Q4_K_M my-rag ./docs`,
+  rlama rag hf.co/username/repository:Q4_K_M my-rag ./docs
+  
+OpenAI Models:
+  You can use OpenAI models by setting the OPENAI_API_KEY environment variable:
+  export OPENAI_API_KEY="your-api-key"
+  
+  Then use any OpenAI model:
+  rlama rag gpt-4-turbo my-openai-rag ./docs
+  rlama rag gpt-3.5-turbo my-openai-rag ./docs`,
 	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		modelName := args[0]
@@ -46,18 +55,48 @@ Hugging Face Models:
 		// Get Ollama client with configured host and port
 		ollamaClient := GetOllamaClient()
 		
-		// Check if this is a Hugging Face model
-		isHfModel := client.IsHuggingFaceModel(modelName)
+		// Vérifier si c'est un modèle OpenAI
+		isOpenAIModel := client.IsOpenAIModel(modelName)
 		
-		if isHfModel {
-			// Extract quantization if specified
-			hfModelName := client.GetHuggingFaceModelName(modelName)
-			quantization := client.GetQuantizationFromModelRef(modelName)
+		if isOpenAIModel {
+			// Pour les modèles OpenAI, vérifier le profil spécifié ou la clé API
+			var openaiClient *client.OpenAIClient
+			var err error
 			
-			// Pull the model from Hugging Face
-			fmt.Printf("Pulling Hugging Face model %s...\n", hfModelName)
-			if err := ollamaClient.PullHuggingFaceModel(hfModelName, quantization); err != nil {
-				return fmt.Errorf("error pulling Hugging Face model: %w", err)
+			if profileName != "" {
+				openaiClient, err = client.NewOpenAIClientWithProfile(profileName)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Using OpenAI model '%s' with profile '%s' for inference.\n", 
+					modelName, profileName)
+			} else {
+				openaiClient = client.NewOpenAIClient()
+				if err := openaiClient.CheckOpenAIAndModel(modelName); err != nil {
+					return err
+				}
+				fmt.Printf("Using OpenAI model '%s' for inference. No profile specified, using environment variable.\n", 
+					modelName)
+			}
+		} else if client.IsHuggingFaceModel(modelName) {
+			// Check if this is a Hugging Face model
+			isHfModel := client.IsHuggingFaceModel(modelName)
+			
+			if isHfModel {
+				// Extract quantization if specified
+				hfModelName := client.GetHuggingFaceModelName(modelName)
+				quantization := client.GetQuantizationFromModelRef(modelName)
+				
+				// Pull the model from Hugging Face
+				fmt.Printf("Pulling Hugging Face model %s...\n", hfModelName)
+				if err := ollamaClient.PullHuggingFaceModel(hfModelName, quantization); err != nil {
+					return fmt.Errorf("error pulling Hugging Face model: %w", err)
+				}
+			} else {
+				// Regular Ollama model check
+				if err := ollamaClient.CheckOllamaAndModel(modelName); err != nil {
+					return err
+				}
 			}
 		} else {
 			// Regular Ollama model check
@@ -72,11 +111,12 @@ Hugging Face Models:
 
 		// Set up loader options based on flags
 		loaderOptions := service.DocumentLoaderOptions{
-			ExcludeDirs:  excludeDirs,
-			ExcludeExts:  excludeExts,
-			ProcessExts:  processExts,
-			ChunkSize:    chunkSize,
-			ChunkOverlap: chunkOverlap,
+			ExcludeDirs:   excludeDirs,
+			ExcludeExts:   excludeExts,
+			ProcessExts:   processExts,
+			ChunkSize:     chunkSize,
+			ChunkOverlap:  chunkOverlap,
+			APIProfileName: profileName,
 		}
 
 		ragService := service.NewRagService(ollamaClient)
@@ -104,4 +144,5 @@ func init() {
 	ragCmd.Flags().StringSliceVar(&processExts, "process-ext", nil, "Only process these file extensions (comma-separated)")
 	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
 	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
+	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile to use for this RAG")
 }

@@ -163,11 +163,25 @@ func (rs *RagServiceImpl) LoadRag(ragName string) (*domain.RagSystem, error) {
 // Query performs a query on a RAG system
 func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize int) (string, error) {
 	// Check if Ollama is available
-	if err := rs.ollamaClient.CheckOllamaAndModel(rag.ModelName); err != nil {
+	var llmClient client.LLMClient
+	
+	// Déterminer quel client utiliser en fonction du modèle
+	if client.IsOpenAIModel(rag.ModelName) {
+		// Pour OpenAI, utiliser le profil spécifié ou celui par défaut
+		openAIClient, err := client.NewOpenAIClientWithProfile(rag.APIProfileName)
+		if err != nil {
+			return "", err
+		}
+		llmClient = openAIClient
+	} else {
+		llmClient = rs.ollamaClient
+	}
+	
+	if err := llmClient.CheckLLMAndModel(rag.ModelName); err != nil {
 		return "", err
 	}
 
-	// Generate embedding for the query
+	// Generate embedding for the query (toujours avec Ollama)
 	queryEmbedding, err := rs.embeddingService.GenerateQueryEmbedding(query, rag.ModelName)
 	if err != nil {
 		return "", fmt.Errorf("error generating embedding for query: %w", err)
@@ -208,15 +222,15 @@ Question: %s
 
 Answer based on the provided information. If the information doesn't contain the answer, say so clearly.
 Include references to the source documents in your answer using the format (Source: document name).`, 
-	context.String(), query)
+		context.String(), query)
 	
 	// Show search results to the user
 	fmt.Println("\nSearching documents...\n")
 	fmt.Printf("Found %d relevant sections across %d documents\n", 
 		len(results), len(includedDocs))
 	
-	// Generate the response
-	response, err := rs.ollamaClient.GenerateCompletion(rag.ModelName, prompt)
+	// Generate the response with le client approprié
+	response, err := llmClient.GenerateCompletion(rag.ModelName, prompt)
 	if err != nil {
 		return "", fmt.Errorf("error generating response: %w", err)
 	}

@@ -69,10 +69,25 @@ recreate the RAG with the new model instead.`,
 			ragName, oldModel, newModel)
 		fmt.Println("Note: Embeddings have not been regenerated. For optimal results, consider recreating the RAG.")
 		
+		// Vérifier si le profil existe si spécifié
+		if updateModelProfileName != "" {
+			profileRepo := repository.NewProfileRepository()
+			if !profileRepo.Exists(updateModelProfileName) {
+				return fmt.Errorf("profile '%s' does not exist", updateModelProfileName)
+			}
+			
+			// Mettre à jour le profil dans le RAG
+			rag.APIProfileName = updateModelProfileName
+			fmt.Printf("Using profile '%s' for model '%s'\n", updateModelProfileName, newModel)
+		}
+		
 		return nil
 	},
 }
 
+var updateModelProfileName string
+
 func init() {
 	rootCmd.AddCommand(updateModelCmd)
+	updateModelCmd.Flags().StringVar(&updateModelProfileName, "profile", "", "API profile to use for this model")
 }

@@ -49,6 +49,7 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 - [Uninstallation](#uninstallation)
 - [Supported Document Formats](#supported-document-formats)
 - [Troubleshooting](#troubleshooting)
+- [Using OpenAI Models](#using-openai-models)
 
 ## Vision & Roadmap
 RLAMA aims to become the definitive tool for creating local RAG systems that work seamlessly for everyone—from individual developers to large enterprises. Here's our strategic roadmap:
@@ -894,3 +895,78 @@ rlama rag hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF my-rag ./docs
 # Use specific quantization
 rlama rag hf.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF:Q5_K_M my-rag ./docs
 ```
+
+## Using OpenAI Models
+
+RLAMA now supports using OpenAI models for inference while keeping Ollama for embeddings:
+
+1. Set your OpenAI API key:
+   ```bash
+   export OPENAI_API_KEY="your-api-key"
+   ```
+
+2. Create a RAG system with an OpenAI model:
+   ```bash
+   rlama rag gpt-4-turbo my-rag ./documents
+   ```
+
+3. Run your RAG as usual:
+   ```bash
+   rlama run my-rag
+   ```
+
+Supported OpenAI models include:
+- o3-mini
+- gpt-4o and more...
+
+Note: Only inference uses OpenAI API. Document embeddings still use Ollama for processing.
+
+## Managing API Profiles
+
+RLAMA allows you to create API profiles to manage multiple API keys for different providers:
+
+### Creating a Profile
+
+```bash
+# Create a profile for your OpenAI account
+rlama profile add openai-work openai "sk-your-api-key"
+
+# Create another profile for a different account
+rlama profile add openai-personal openai "sk-your-personal-api-key" 
+```
+
+### Listing Profiles
+
+```bash
+# View all available profiles
+rlama profile list
+```
+
+### Deleting a Profile
+
+```bash
+# Delete a profile
+rlama profile delete openai-old
+```
+
+### Using Profiles with RAGs
+
+When creating a new RAG:
+
+```bash
+# Create a RAG with a specific profile
+rlama rag gpt-4 my-rag ./documents --profile openai-work
+```
+
+When updating an existing RAG:
+
+```bash
+# Update a RAG to use a different model and profile
+rlama update-model my-rag gpt-4-turbo --profile openai-personal
+```
+
+Benefits of using profiles:
+- Manage multiple API keys for different projects
+- Easily switch between different accounts
+- Keep API keys secure (stored in ~/.rlama/profiles)
+- Track which profile was used last and when
