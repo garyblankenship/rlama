@@ -196,6 +196,25 @@ These flags can be used with any command:
 --port string   Ollama port (default: 11434)
 ```
 
+### Custom Data Directory
+
+RLAMA stores data in `~/.rlama` by default. To use a different location:
+
+1. **Command-line flag** (highest priority):
+   ```bash
+   # Use with any command
+   rlama --data-dir /path/to/custom/directory run my-rag
+   ```
+
+2. **Environment variable**:
+   ```bash
+   # Set the environment variable
+   export RLAMA_DATA_DIR=/path/to/custom/directory
+   rlama run my-rag
+   ```
+
+The precedence order is: command-line flag > environment variable > default location.
+
 ### rag - Create a RAG system
 
 Creates a new RAG system by indexing all documents in the specified folder.
