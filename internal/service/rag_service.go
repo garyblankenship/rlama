@@ -214,7 +214,8 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 	}
 	
 	// Build the prompt with better formatting and instructions for citing sources
-	prompt := fmt.Sprintf(`You are a helpful AI assistant. Use the information below to answer the question.
+	systemMessage := "You are a helpful assistant that provides accurate information based on the documents you've been given. Answer the question based on the context provided. If you don't know the answer based on the context, say that you don't know rather than making up an answer. Important: Always respond in the same language as the user's query."
+	prompt := fmt.Sprintf(`%s
 
 %s
 
@@ -223,6 +224,7 @@ Question: %s
 Answer based on the provided information. If the information doesn't contain the answer, say so clearly.
 Include references to the source documents in your answer using the format (Source: document name).`, 
 		context.String(), query)
+
 	
 	// Show search results to the user
 	fmt.Println("\nSearching documents...\n")

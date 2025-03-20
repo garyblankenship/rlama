@@ -69,31 +69,55 @@ func NewOllamaClient(host, port string) *OllamaClient {
 	// Check for OLLAMA_HOST environment variable
 	ollamaHostEnv := os.Getenv("OLLAMA_HOST")
 	
-	// Default values
+	// Default values and protocol
 	defaultHost := DefaultOllamaHost
 	defaultPort := DefaultOllamaPort
+	protocol := "http://"
 	
 	// If OLLAMA_HOST is set, parse it
 	if ollamaHostEnv != "" {
-		// OLLAMA_HOST could be in the form "host:port" or just "host"
-		parts := strings.Split(ollamaHostEnv, ":")
-		if len(parts) >= 1 {
-			defaultHost = parts[0]
-		}
-		if len(parts) >= 2 {
-			defaultPort = parts[1]
+		// Handle if OLLAMA_HOST includes protocol
+		if strings.HasPrefix(ollamaHostEnv, "http://") || strings.HasPrefix(ollamaHostEnv, "https://") {
+			// Extract protocol and host
+			parts := strings.SplitN(ollamaHostEnv, "://", 2)
+			protocol = parts[0] + "://"
+			hostParts := strings.Split(parts[1], ":")
+			if len(hostParts) >= 1 {
+				defaultHost = hostParts[0]
+			}
+			if len(hostParts) >= 2 {
+				defaultPort = hostParts[1]
+			}
+		} else {
+			// No protocol specified, use standard pattern
+			parts := strings.Split(ollamaHostEnv, ":")
+			if len(parts) >= 1 {
+				defaultHost = parts[0]
+			}
+			if len(parts) >= 2 {
+				defaultPort = parts[1]
+			}
 		}
 	}
 	
 	// Command flags override environment variables
-	if host == "" {
+	if host != "" {
+		// Check if host includes protocol
+		if strings.HasPrefix(host, "http://") || strings.HasPrefix(host, "https://") {
+			parts := strings.SplitN(host, "://", 2)
+			protocol = parts[0] + "://"
+			host = strings.Split(parts[1], ":")[0]
+		}
+		defaultHost = host
+	} else {
 		host = defaultHost
 	}
-	if port == "" {
-		port = defaultPort
+	
+	if port != "" {
+		defaultPort = port
 	}
 	
-	baseURL := fmt.Sprintf("http://%s:%s", host, port)
+	baseURL := fmt.Sprintf("%s%s:%s", protocol, host, defaultPort)
 	
 	return &OllamaClient{
 		BaseURL: baseURL,
