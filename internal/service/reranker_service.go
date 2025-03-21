@@ -29,16 +29,21 @@ type RerankerOptions struct {
 	// RerankerWeight defines the weight of the reranker score vs vector similarity
 	// 0.0 = use only vector similarity, 1.0 = use only reranker scores
 	RerankerWeight float64
+
+	// AdaptiveFiltering when true, uses content relevance to select chunks
+	// rather than a fixed top-k approach
+	AdaptiveFiltering bool
 }
 
 // DefaultRerankerOptions returns the default options for reranking
 func DefaultRerankerOptions() RerankerOptions {
 	return RerankerOptions{
-		TopK:           5,
-		InitialK:       20,
-		RerankerModel:  "",
-		ScoreThreshold: 0.0,
-		RerankerWeight: 0.7, // 70% reranker score, 30% vector similarity
+		TopK:              5,
+		InitialK:          20,
+		RerankerModel:     "",
+		ScoreThreshold:    0.0,
+		RerankerWeight:    0.7, // 70% reranker score, 30% vector similarity
+		AdaptiveFiltering: false,
 	}
 }
 
@@ -87,7 +92,27 @@ func (rs *RerankerService) Rerank(
 	fmt.Printf("Using reranker model: %s\n", modelName)
 
 	// Prepare the cross-encoder prompt template
-	promptTemplate := `You are a document relevance scoring system. Rate how relevant a document is to a query on a scale from 0 to 1, where 0 is completely irrelevant and 1 is highly relevant.
+	var promptTemplate string
+	if options.AdaptiveFiltering {
+		// Enhanced prompt for adaptive content filtering
+		promptTemplate = `You are an advanced document relevance scoring system. Your task is to determine if a document contains useful information to answer a specific query.
+
+Query: %s
+
+Document Content:
+%s
+
+Score guidelines:
+- Score 0.0-0.2: Document is completely irrelevant to the query
+- Score 0.3-0.5: Document has minimal relevance but doesn't directly answer the query
+- Score 0.6-0.8: Document contains partial information that's useful for answering the query
+- Score 0.9-1.0: Document contains highly relevant information that directly answers the query
+
+Only output a single number between 0 and 1 representing your relevance assessment:
+`
+	} else {
+		// Original prompt for standard reranking
+		promptTemplate = `You are a document relevance scoring system. Rate how relevant a document is to a query on a scale from 0 to 1, where 0 is completely irrelevant and 1 is highly relevant.
 
 Query: %s
 
@@ -96,6 +121,7 @@ Document:
 
 Relevance score (output only a single number between 0 and 1):
 `
+	}
 
 	// Get chunks and score them
 	var rankedResults []RankedResult
@@ -148,8 +174,8 @@ Relevance score (output only a single number between 0 and 1):
 		return rankedResults[i].FinalScore > rankedResults[j].FinalScore
 	})
 
-	// Apply top-k limit
-	if options.TopK > 0 && len(rankedResults) > options.TopK {
+	// Only apply Top-K limit if we're not using adaptive filtering
+	if !options.AdaptiveFiltering && options.TopK > 0 && len(rankedResults) > options.TopK {
 		fmt.Printf("Limiting reranked results from %d to top %d\n", len(rankedResults), options.TopK)
 		rankedResults = rankedResults[:options.TopK]
 	}
