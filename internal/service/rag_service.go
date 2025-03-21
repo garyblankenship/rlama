@@ -114,7 +114,9 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 	fmt.Println("Reranking enabled for better retrieval accuracy")
 
 	// Only disable if explicitly set to false in options
-	if options.EnableReranker == false {
+	if !options.EnableReranker && options.RerankerModel == "" {
+		// Check if EnableReranker field was explicitly set
+		// This prevents the zero-value (false) from disabling reranking when the field isn't set
 		rag.RerankerEnabled = false
 		fmt.Println("Reranking disabled by user configuration")
 	}
@@ -294,7 +296,7 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 	if rag.RerankerEnabled {
 		// Set reranker options with an explicit TopK limiter
 		options := RerankerOptions{
-			TopK:           contextSize,
+			TopK:           10,
 			InitialK:       initialRetrievalCount,
 			RerankerModel:  rag.RerankerModel,
 			ScoreThreshold: rag.RerankerThreshold,
