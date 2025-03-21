@@ -3,14 +3,17 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/service"
+	"github.com/spf13/cobra"
 )
 
 var (
-	addDocsExcludeDirs  []string
-	addDocsExcludeExts  []string
-	addDocsProcessExts  []string
+	addDocsExcludeDirs      []string
+	addDocsExcludeExts      []string
+	addDocsProcessExts      []string
+	addDocsChunkSize        int
+	addDocsChunkOverlap     int
+	addDocsChunkingStrategy string
 )
 
 var addDocsCmd = &cobra.Command{
@@ -28,15 +31,18 @@ and add them to the existing RAG system.`,
 
 		// Get Ollama client from root command
 		ollamaClient := GetOllamaClient()
-		
+
 		// Create necessary services
 		ragService := service.NewRagService(ollamaClient)
 
 		// Set up loader options based on flags
 		loaderOptions := service.DocumentLoaderOptions{
-			ExcludeDirs: addDocsExcludeDirs,
-			ExcludeExts: addDocsExcludeExts,
-			ProcessExts: addDocsProcessExts,
+			ExcludeDirs:      addDocsExcludeDirs,
+			ExcludeExts:      addDocsExcludeExts,
+			ProcessExts:      addDocsProcessExts,
+			ChunkSize:        addDocsChunkSize,
+			ChunkOverlap:     addDocsChunkOverlap,
+			ChunkingStrategy: addDocsChunkingStrategy,
 		}
 
 		// Pass the options to the service
@@ -54,7 +60,14 @@ func init() {
 	rootCmd.AddCommand(addDocsCmd)
 
 	// Add exclusion and processing flags
-	addDocsCmd.Flags().StringSliceVar(&addDocsExcludeDirs, "excludedir", nil, "Directories to exclude (comma-separated)")
-	addDocsCmd.Flags().StringSliceVar(&addDocsExcludeExts, "excludeext", nil, "File extensions to exclude (comma-separated)")
-	addDocsCmd.Flags().StringSliceVar(&addDocsProcessExts, "processext", nil, "Only process these file extensions (comma-separated)")
+	addDocsCmd.Flags().StringSliceVar(&addDocsExcludeDirs, "exclude-dir", []string{}, "Directories to exclude (comma-separated)")
+	addDocsCmd.Flags().StringSliceVar(&addDocsExcludeExts, "exclude-ext", []string{}, "File extensions to exclude (comma-separated)")
+	addDocsCmd.Flags().StringSliceVar(&addDocsProcessExts, "process-ext", []string{}, "Only process these file extensions (comma-separated)")
+
+	// Add chunking options
+	addDocsCmd.Flags().IntVar(&addDocsChunkSize, "chunk-size", 1000, "Character count per chunk")
+	addDocsCmd.Flags().IntVar(&addDocsChunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters")
+	addDocsCmd.Flags().StringVar(&addDocsChunkingStrategy, "chunking-strategy", "hybrid",
+		"Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). "+
+			"The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
 }

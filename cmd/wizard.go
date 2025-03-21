@@ -224,6 +224,22 @@ This makes it easy to set up a new RAG without remembering all command options.`
 		// Étape 4: Options de chunking
 		fmt.Println("\nStep 4: Chunking options")
 
+		// Ajout de la sélection de stratégie de chunking
+		fmt.Println("\nChunking strategies:")
+		fmt.Println("  auto     - Automatically selects the best strategy for each document")
+		fmt.Println("  fixed    - Splits text into fixed-size chunks")
+		fmt.Println("  semantic - Respects natural boundaries like paragraphs")
+		fmt.Println("  hybrid   - Adapts strategy based on document type")
+		fmt.Println("  hierarchical - Creates two-level structure for long documents")
+
+		fmt.Print("Chunking strategy [auto]: ")
+		chunkingStrategyStr, _ := reader.ReadString('\n')
+		chunkingStrategyStr = strings.TrimSpace(chunkingStrategyStr)
+		chunkingStrategy := "auto"
+		if chunkingStrategyStr != "" {
+			chunkingStrategy = chunkingStrategyStr
+		}
+
 		fmt.Print("Chunk size [1000]: ")
 		chunkSizeStr, _ := reader.ReadString('\n')
 		chunkSizeStr = strings.TrimSpace(chunkSizeStr)
@@ -304,6 +320,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 
 		fmt.Printf("- Chunk size: %d\n", chunkSize)
 		fmt.Printf("- Chunk overlap: %d\n", overlap)
+		fmt.Printf("- Chunking strategy: %s\n", chunkingStrategy)
 
 		fmt.Print("\nCreate RAG with these settings? (y/n): ")
 		confirm, _ := reader.ReadString('\n')
@@ -361,8 +378,9 @@ This makes it easy to set up a new RAG without remembering all command options.`
 
 			// Options pour le chargeur de documents
 			loaderOptions := service.DocumentLoaderOptions{
-				ChunkSize:    chunkSize,
-				ChunkOverlap: overlap,
+				ChunkSize:        chunkSize,
+				ChunkOverlap:     overlap,
+				ChunkingStrategy: chunkingStrategy,
 			}
 
 			// Créer le RAG
@@ -373,11 +391,12 @@ This makes it easy to set up a new RAG without remembering all command options.`
 		} else {
 			// Utiliser le dossier local (code existant)
 			loaderOptions := service.DocumentLoaderOptions{
-				ExcludeDirs:  excludeDirs,
-				ExcludeExts:  excludeExts,
-				ProcessExts:  processExts,
-				ChunkSize:    chunkSize,
-				ChunkOverlap: overlap,
+				ExcludeDirs:      excludeDirs,
+				ExcludeExts:      excludeExts,
+				ProcessExts:      processExts,
+				ChunkSize:        chunkSize,
+				ChunkOverlap:     overlap,
+				ChunkingStrategy: chunkingStrategy,
 			}
 
 			err = ragService.CreateRagWithOptions(modelName, ragName, folderPath, loaderOptions)
