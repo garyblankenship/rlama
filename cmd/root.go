@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	
+
 	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/service"
 )
 
 const (
-	Version = "0.1.32" // Current version of RLAMA
+	Version = "0.1.33" // Current version of RLAMA
 )
 
 var rootCmd = &cobra.Command{
@@ -59,35 +59,35 @@ func GetOllamaClient() *client.OllamaClient {
 			// if Ollama is accessible on localhost first
 		}
 	}
-	
+
 	return client.NewOllamaClient(ollamaHost, ollamaPort)
 }
 
 func init() {
 	// Add --version flag
 	rootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Display RLAMA version")
-	
+
 	// Add Ollama configuration flags
 	rootCmd.PersistentFlags().StringVar(&ollamaHost, "host", "", "Ollama host (overrides OLLAMA_HOST env var, default: localhost)")
 	rootCmd.PersistentFlags().StringVar(&ollamaPort, "port", "", "Ollama port (overrides port in OLLAMA_HOST env var, default: 11434)")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Enable verbose output")
-	
+
 	// New flag for data directory
 	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", "", "Custom data directory path")
-	
+
 	// Override the Run function to handle the --version flag
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
 		if versionFlag {
 			fmt.Printf("RLAMA version %s\n", Version)
 			return
 		}
-		
+
 		// If no arguments are provided and --version is not used, display help
 		if len(args) == 0 {
 			cmd.Help()
 		}
 	}
-	
+
 	// Start the watcher daemon
 	go startFileWatcherDaemon()
 }
@@ -96,13 +96,13 @@ func init() {
 func startFileWatcherDaemon() {
 	// Wait a bit for application initialization
 	time.Sleep(2 * time.Second)
-	
+
 	// Create the services
 	ollamaClient := GetOllamaClient()
 	ragService := service.NewRagService(ollamaClient)
 	fileWatcher := service.NewFileWatcher(ragService)
-	
+
 	// Start the daemon with a 1-minute check interval for its internal operations
 	// Actual RAG check intervals are controlled by each RAG's configuration
 	fileWatcher.StartWatcherDaemon(1 * time.Minute)
-} 
+}
