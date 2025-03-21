@@ -149,16 +149,19 @@ func (ce *ChunkingEvaluator) countChunksWithSplitSentences(chunks []*domain.Docu
 		// Check the beginning of the chunk
 		if chunk.StartPos > 0 {
 			// Check if the previous character is a sentence ending marker
-			prevChar := originalContent[chunk.StartPos-1]
-			if !strings.ContainsRune(".!?\n", rune(prevChar)) {
-				// Check if we're in the middle of a sentence
-				count++
-				continue
+			// Make sure that StartPos-1 is within the valid range
+			if chunk.StartPos-1 >= 0 && chunk.StartPos-1 < len(originalContent) {
+				prevChar := originalContent[chunk.StartPos-1]
+				if !strings.ContainsRune(".!?\n", rune(prevChar)) {
+					// Check if we're in the middle of a sentence
+					count++
+					continue
+				}
 			}
 		}
 
 		// Check the end of the chunk
-		if chunk.EndPos < len(originalContent) {
+		if chunk.EndPos < len(originalContent) && len(chunk.Content) > 0 {
 			lastChar := chunk.Content[len(chunk.Content)-1]
 			nextChar := originalContent[chunk.EndPos]
 

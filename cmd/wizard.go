@@ -381,6 +381,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				ChunkSize:        chunkSize,
 				ChunkOverlap:     overlap,
 				ChunkingStrategy: chunkingStrategy,
+				EnableReranker:   true,
 			}
 
 			// Créer le RAG
@@ -397,6 +398,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				ChunkSize:        chunkSize,
 				ChunkOverlap:     overlap,
 				ChunkingStrategy: chunkingStrategy,
+				EnableReranker:   true,
 			}
 
 			err = ragService.CreateRagWithOptions(modelName, ragName, folderPath, loaderOptions)

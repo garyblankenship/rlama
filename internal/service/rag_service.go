@@ -114,7 +114,9 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 	fmt.Println("Reranking enabled for better retrieval accuracy")
 
 	// Only disable if explicitly set to false in options
-	if options.EnableReranker == false {
+	if !options.EnableReranker && options.RerankerModel == "" {
+		// Check if EnableReranker field was explicitly set
+		// This prevents the zero-value (false) from disabling reranking when the field isn't set
 		rag.RerankerEnabled = false
 		fmt.Println("Reranking disabled by user configuration")
 	}
@@ -292,13 +294,15 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 	var includedDocs = make(map[string]bool)
 
 	if rag.RerankerEnabled {
-		// Set reranker options with an explicit TopK limiter
+		// Set reranker options for adaptive content-based filtering
 		options := RerankerOptions{
-			TopK:           contextSize,
-			InitialK:       initialRetrievalCount,
-			RerankerModel:  rag.RerankerModel,
-			ScoreThreshold: rag.RerankerThreshold,
-			RerankerWeight: rag.RerankerWeight,
+			// Don't limit by fixed TopK but use minimum threshold
+			TopK:              100, // Set to a high value to avoid arbitrary limit
+			InitialK:          initialRetrievalCount,
+			RerankerModel:     rag.RerankerModel,
+			ScoreThreshold:    0.3, // Minimum relevance threshold
+			RerankerWeight:    rag.RerankerWeight,
+			AdaptiveFiltering: true, // Enable adaptive filtering
 		}
 
 		// If no reranker model specified, use the same as the main model
@@ -306,8 +310,8 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 			options.RerankerModel = rag.ModelName
 		}
 
-		// Perform reranking
-		fmt.Printf("Reranking initial results using model '%s'...\n", options.RerankerModel)
+		// Perform reranking with adaptive filtering
+		fmt.Printf("Reranking and filtering results for relevance using model '%s'...\n", options.RerankerModel)
 		rerankedResults, err := rs.rerankerService.Rerank(query, rag, results, options)
 		if err != nil {
 			return "", fmt.Errorf("error during reranking: %w", err)
@@ -315,14 +319,14 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 
 		rankedResults = rerankedResults
 
-		// Track documents included after reranking
+		// Track documents included after adaptive filtering
 		for _, result := range rankedResults {
 			includedDocs[result.Chunk.DocumentID] = true
 		}
 
-		// Garantir que le message indique le nombre correct de résultats
-		fmt.Printf("Reranked %d initial results to %d most relevant chunks\n",
-			len(results), len(rankedResults))
+		// Show information about filtered results
+		fmt.Printf("Selected %d relevant chunks from %d initial results\n",
+			len(rankedResults), len(results))
 	}
 
 	// Build the context
