@@ -96,11 +96,18 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 
 	// Create the RAG system
 	rag := domain.NewRagSystem(ragName, modelName)
+	rag.ChunkingStrategy = options.ChunkingStrategy
+
+	// Set chunking options in WatchOptions too
+	rag.WatchOptions.ChunkSize = options.ChunkSize
+	rag.WatchOptions.ChunkOverlap = options.ChunkOverlap
+	rag.WatchOptions.ChunkingStrategy = options.ChunkingStrategy
 
 	// Create chunker service
 	chunkerService := NewChunkerService(ChunkingConfig{
-		ChunkSize:    options.ChunkSize,
-		ChunkOverlap: options.ChunkOverlap,
+		ChunkSize:        options.ChunkSize,
+		ChunkOverlap:     options.ChunkOverlap,
+		ChunkingStrategy: options.ChunkingStrategy,
 	})
 
 	// Process each document - chunk and generate embeddings

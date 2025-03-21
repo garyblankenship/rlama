@@ -57,7 +57,7 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 ### Completed Features ✅
 - ✅ **Basic RAG System Creation**: CLI tool for creating and managing RAG systems
 - ✅ **Document Processing**: Support for multiple document formats (.txt, .md, .pdf, etc.)
-- ✅ **Document Chunking**: Basic text splitting with configurable size and overlap
+- ✅ **Document Chunking**: Advanced semantic chunking with multiple strategies (fixed, semantic, hierarchical, hybrid)
 - ✅ **Vector Storage**: Local storage of document embeddings
 - ✅ **Context Retrieval**: Basic semantic search with configurable context size
 - ✅ **Ollama Integration**: Seamless connection to Ollama models
@@ -70,7 +70,7 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 
 ### Small LLM Optimization (Q2 2025)
 - [ ] **Prompt Compression**: Smart context summarization for limited context windows
-- [ ] **Adaptive Chunking**: Dynamic content segmentation based on semantic boundaries
+- ✅ **Adaptive Chunking**: Dynamic content segmentation based on semantic boundaries and document structure
 - [ ] **Minimal Context Retrieval**: Intelligent filtering to eliminate redundant content
 - [ ] **Parameter Optimization**: Fine-tuned settings for different model sizes
 
@@ -260,6 +260,22 @@ rlama crawl-rag [model] [rag-name] [website-url]
 - `--exclude-path`: Paths to exclude from crawling (comma-separated)
 - `--chunk-size`: Character count per chunk (default: 1000)
 - `--chunk-overlap`: Overlap between chunks in characters (default: 200)
+- `--chunking-strategy`: Chunking strategy to use (options: "fixed", "semantic", "hybrid", "hierarchical", default: "hybrid")
+
+#### Chunking Strategies
+
+RLAMA offers multiple advanced chunking strategies to optimize document retrieval:
+
+- **Fixed**: Traditional chunking with fixed size and overlap, respecting sentence boundaries when possible.
+- **Semantic**: Intelligently splits documents based on semantic boundaries like headings, paragraphs, and natural topic shifts.
+- **Hybrid**: Automatically selects the best strategy based on document type and content (markdown, HTML, code, or plain text).
+- **Hierarchical**: For very long documents, creates a two-level chunking structure with major sections and sub-chunks.
+
+The system automatically adapts to different document types:
+- Markdown documents: Split by headers and sections
+- HTML documents: Split by semantic HTML elements
+- Code documents: Split by functions, classes, and logical blocks
+- Plain text: Split by paragraphs with contextual overlap
 
 **Example:**
 
@@ -269,6 +285,12 @@ rlama crawl-rag llama3 docs-rag https://docs.example.com
 
 # Customize crawling behavior
 rlama crawl-rag llama3 blog-rag https://blog.example.com --max-depth=3 --exclude-path=/archive,/tags
+
+# Create a RAG with semantic chunking
+rlama rag llama3 documentation ./docs --chunking-strategy=semantic
+
+# Use hierarchical chunking for large documents
+rlama rag llama3 book-rag ./books --chunking-strategy=hierarchical
 ```
 
 ### wizard - Create a RAG system with interactive setup

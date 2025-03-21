@@ -2,20 +2,23 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/crawler"
-	"github.com/dontizi/rlama/internal/service"
 	"github.com/dontizi/rlama/internal/domain"
+	"github.com/dontizi/rlama/internal/service"
+	"github.com/spf13/cobra"
 )
 
 var (
-	crawlMaxDepth     int
-	crawlConcurrency  int
-	crawlExcludePaths []string
+	crawlMaxDepth         int
+	crawlConcurrency      int
+	crawlExcludePaths     []string
+	crawlChunkSize        int
+	crawlChunkOverlap     int
+	crawlChunkingStrategy string
 )
 
 var crawlRagCmd = &cobra.Command{
@@ -49,10 +52,10 @@ You can exclude certain paths and control other crawling parameters:
 		}
 
 		// Display a message to indicate that the process has started
-		fmt.Printf("Creating RAG '%s' with model '%s' by crawling website '%s'...\n", 
+		fmt.Printf("Creating RAG '%s' with model '%s' by crawling website '%s'...\n",
 			ragName, modelName, websiteURL)
 		fmt.Printf("Max crawl depth: %d, Concurrency: %d\n", crawlMaxDepth, crawlConcurrency)
-		
+
 		// Start crawling
 		documents, err := webCrawler.CrawlWebsite()
 		if err != nil {
@@ -70,8 +73,9 @@ You can exclude certain paths and control other crawling parameters:
 
 		// Set chunking options
 		loaderOptions := service.DocumentLoaderOptions{
-			ChunkSize:    chunkSize,
-			ChunkOverlap: chunkOverlap,
+			ChunkSize:        crawlChunkSize,
+			ChunkOverlap:     crawlChunkOverlap,
+			ChunkingStrategy: crawlChunkingStrategy,
 		}
 
 		// Create temporary directory to store crawled content
@@ -79,7 +83,7 @@ You can exclude certain paths and control other crawling parameters:
 		if tempDir != "" {
 			// Commentez cette ligne pour empêcher la suppression
 			// defer cleanupTempDir(tempDir)
-			
+
 			// Ajoutez ceci pour afficher clairement le chemin
 			fmt.Printf("\n📁 Les fichiers markdown se trouvent dans: %s\n", tempDir)
 		}
@@ -88,7 +92,7 @@ You can exclude certain paths and control other crawling parameters:
 		err = ragService.CreateRagWithOptions(modelName, ragName, tempDir, loaderOptions)
 		if err != nil {
 			if strings.Contains(err.Error(), "connection refused") {
-				return fmt.Errorf("⚠️ Unable to connect to Ollama.\n"+
+				return fmt.Errorf("⚠️ Unable to connect to Ollama.\n" +
 					"Make sure Ollama is installed and running.\n")
 			}
 			return err
@@ -101,15 +105,14 @@ You can exclude certain paths and control other crawling parameters:
 
 func init() {
 	rootCmd.AddCommand(crawlRagCmd)
-	
-	// Add crawling specific flags
-	crawlRagCmd.Flags().IntVar(&crawlMaxDepth, "max-depth", 2, "Maximum crawl depth (default: 2)")
-	crawlRagCmd.Flags().IntVar(&crawlConcurrency, "concurrency", 5, "Number of concurrent crawlers (default: 5)")
+
+	// Add local flags
+	crawlRagCmd.Flags().IntVar(&crawlMaxDepth, "max-depth", 2, "Maximum crawl depth")
+	crawlRagCmd.Flags().IntVar(&crawlConcurrency, "concurrency", 5, "Number of concurrent crawlers")
 	crawlRagCmd.Flags().StringSliceVar(&crawlExcludePaths, "exclude-path", nil, "Paths to exclude from crawling (comma-separated)")
-	
-	// Add chunking flags
-	crawlRagCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
-	crawlRagCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
+	crawlRagCmd.Flags().IntVar(&crawlChunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
+	crawlRagCmd.Flags().IntVar(&crawlChunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
+	crawlRagCmd.Flags().StringVar(&crawlChunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\")")
 }
 
 // Helper function to create a temporary directory and save crawled documents as files
@@ -120,14 +123,14 @@ func createTempDirForDocuments(documents []*domain.Document) string {
 		fmt.Printf("Error creating temporary directory: %v\n", err)
 		return ""
 	}
-	
+
 	fmt.Printf("Created temporary directory for documents: %s\n", tempDir)
-	
+
 	// Save each document as a file in the temporary directory
 	for i, doc := range documents {
 		// Default to index-based filename
 		filename := fmt.Sprintf("page_%d.md", i+1)
-		
+
 		// Try to use Path if available (more likely to exist than URL)
 		if doc.Path != "" {
 			// Create a safe filename from the Path
@@ -137,17 +140,17 @@ func createTempDirForDocuments(documents []*domain.Document) string {
 				}
 				return '-'
 			}, doc.Path)
-			
+
 			// Trim leading/trailing dashes
 			safePath = strings.Trim(safePath, "-")
 			if safePath != "" {
 				filename = fmt.Sprintf("%s.md", safePath)
 			}
 		}
-		
+
 		// Full path to the file
 		filePath := filepath.Join(tempDir, filename)
-		
+
 		// Write the document content to the file
 		err := os.WriteFile(filePath, []byte(doc.Content), 0644)
 		if err != nil {
@@ -155,7 +158,7 @@ func createTempDirForDocuments(documents []*domain.Document) string {
 			continue
 		}
 	}
-	
+
 	return tempDir
 }
 

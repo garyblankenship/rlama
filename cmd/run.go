@@ -6,13 +6,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/dontizi/rlama/internal/service"
 	"github.com/dontizi/rlama/internal/domain"
+	"github.com/dontizi/rlama/internal/service"
+	"github.com/spf13/cobra"
 )
 
 var (
 	contextSize int
+	showContext bool
 )
 
 var runCmd = &cobra.Command{
@@ -38,6 +39,14 @@ Example: rlama run rag1`,
 		}
 
 		fmt.Printf("RAG '%s' loaded. Model: %s\n", rag.Name, rag.ModelName)
+		if showContext {
+			fmt.Printf("Debug info: RAG contains %d documents and %d total chunks\n",
+				len(rag.Documents), len(rag.Chunks))
+			fmt.Printf("Chunking strategy: %s, Size: %d, Overlap: %d\n",
+				rag.ChunkingStrategy,
+				rag.WatchOptions.ChunkSize,
+				rag.WatchOptions.ChunkOverlap)
+		}
 		fmt.Println("Type your question (or 'exit' to quit):")
 
 		scanner := bufio.NewScanner(os.Stdin)
@@ -60,6 +69,31 @@ Example: rlama run rag1`,
 
 			checkWatchedResources(rag, ragService)
 
+			// If debug mode is enabled, get the chunks manually first
+			if showContext {
+				// Call embeddingService directly through ragService to generate embedding
+				embeddingService := service.NewEmbeddingService(ollamaClient)
+				queryEmbedding, err := embeddingService.GenerateQueryEmbedding(question, rag.ModelName)
+				if err != nil {
+					fmt.Printf("Error generating embedding: %s\n", err)
+				} else {
+					results := rag.HybridStore.Search(queryEmbedding, contextSize)
+
+					// Show detailed results
+					fmt.Printf("\n--- Debug: Retrieved %d chunks ---\n", len(results))
+					for i, result := range results {
+						chunk := rag.GetChunkByID(result.ID)
+						if chunk != nil {
+							fmt.Printf("%d. [Score: %.4f] %s\n", i+1, result.Score, chunk.GetMetadataString())
+							if i < 3 { // Show content for top 3 chunks only to avoid overload
+								fmt.Printf("   Preview: %s\n", truncateString(chunk.Content, 100))
+							}
+						}
+					}
+					fmt.Println("--- End Debug ---\n")
+				}
+			}
+
 			answer, err := ragService.Query(rag, question, contextSize)
 			if err != nil {
 				fmt.Printf("Error: %s\n", err)
@@ -75,11 +109,20 @@ Example: rlama run rag1`,
 	},
 }
 
+// Helper function to truncate string for preview
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
 func init() {
 	rootCmd.AddCommand(runCmd)
-	
-	// Add context size flag
+
+	// Add flags
 	runCmd.Flags().IntVar(&contextSize, "context-size", 20, "Number of context chunks to retrieve (default: 20)")
+	runCmd.Flags().BoolVar(&showContext, "show-context", false, "Show retrieved chunks and context information")
 }
 
 func checkWatchedResources(rag *domain.RagSystem, ragService service.RagService) {
@@ -93,7 +136,7 @@ func checkWatchedResources(rag *domain.RagSystem, ragService service.RagService)
 			fmt.Printf("Added %d new documents from watched directory.\n", docsAdded)
 		}
 	}
-	
+
 	// Check watched website if enabled with on-use check
 	if rag.WebWatchEnabled && rag.WebWatchInterval == 0 {
 		webWatcher := service.NewWebWatcher(ragService)

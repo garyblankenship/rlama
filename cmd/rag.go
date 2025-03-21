@@ -10,13 +10,14 @@ import (
 )
 
 var (
-	excludeDirs  []string
-	excludeExts  []string
-	processExts  []string
-	chunkSize    int
-	chunkOverlap int
-	profileName  string
-	testService  interface{} // Pour les tests
+	excludeDirs      []string
+	excludeExts      []string
+	processExts      []string
+	chunkSize        int
+	chunkOverlap     int
+	chunkingStrategy string
+	profileName      string
+	testService      interface{} // Pour les tests
 )
 
 var ragCmd = &cobra.Command{
@@ -112,12 +113,13 @@ OpenAI Models:
 
 		// Set up loader options based on flags
 		loaderOptions := service.DocumentLoaderOptions{
-			ExcludeDirs:    excludeDirs,
-			ExcludeExts:    excludeExts,
-			ProcessExts:    processExts,
-			ChunkSize:      chunkSize,
-			ChunkOverlap:   chunkOverlap,
-			APIProfileName: profileName,
+			ExcludeDirs:      excludeDirs,
+			ExcludeExts:      excludeExts,
+			ProcessExts:      processExts,
+			ChunkSize:        chunkSize,
+			ChunkOverlap:     chunkOverlap,
+			ChunkingStrategy: chunkingStrategy,
+			APIProfileName:   profileName,
 		}
 
 		ragService := service.NewRagService(ollamaClient)
@@ -145,6 +147,7 @@ func init() {
 	ragCmd.Flags().StringSliceVar(&processExts, "process-ext", nil, "Only process these file extensions (comma-separated)")
 	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
 	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
+	ragCmd.Flags().StringVar(&chunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\")")
 	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile to use for this RAG")
 
 	// Ajoutez la logique pour utiliser le service de test si disponible
