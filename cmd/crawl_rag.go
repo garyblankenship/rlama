@@ -112,7 +112,7 @@ func init() {
 	crawlRagCmd.Flags().StringSliceVar(&crawlExcludePaths, "exclude-path", nil, "Paths to exclude from crawling (comma-separated)")
 	crawlRagCmd.Flags().IntVar(&crawlChunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
 	crawlRagCmd.Flags().IntVar(&crawlChunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
-	crawlRagCmd.Flags().StringVar(&crawlChunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\")")
+	crawlRagCmd.Flags().StringVar(&crawlChunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
 }
 
 // Helper function to create a temporary directory and save crawled documents as files

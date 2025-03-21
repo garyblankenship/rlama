@@ -90,7 +90,7 @@ Example: rlama run rag1`,
 							}
 						}
 					}
-					fmt.Println("--- End Debug ---\n")
+					fmt.Println("--- End Debug ---")
 				}
 			}
 

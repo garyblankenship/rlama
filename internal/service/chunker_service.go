@@ -56,6 +56,33 @@ func (cs *ChunkerService) ChunkDocument(doc *domain.Document) []*domain.Document
 	var chunks []*domain.DocumentChunk
 
 	switch cs.config.ChunkingStrategy {
+	case "auto":
+		// For auto strategy, use the evaluator to determine optimal configuration
+		evaluator := NewChunkingEvaluator(cs)
+		optimalConfig := evaluator.GetOptimalChunkingConfig(doc)
+
+		// Create a temporary chunker with the optimal configuration
+		tempChunker := NewChunkerService(optimalConfig)
+
+		// Use the optimal chunker to create chunks
+		chunks = tempChunker.ChunkDocument(doc)
+
+		// Store chunking strategy info in chunk metadata
+		for _, chunk := range chunks {
+			chunk.Metadata["chunking_strategy"] = optimalConfig.ChunkingStrategy
+			chunk.Metadata["chunk_size"] = fmt.Sprintf("%d", optimalConfig.ChunkSize)
+			chunk.Metadata["chunk_overlap"] = fmt.Sprintf("%d", optimalConfig.ChunkOverlap)
+		}
+
+		// Evaluate to get the metrics
+		metrics := evaluator.EvaluateChunkingStrategy(doc, optimalConfig)
+
+		// Print analysis information
+		fmt.Printf("\nAuto chunking for '%s':\n", doc.Name)
+		fmt.Printf("  Selected strategy: %s\n", optimalConfig.ChunkingStrategy)
+		fmt.Printf("  Chunk size: %d, Overlap: %d\n", optimalConfig.ChunkSize, optimalConfig.ChunkOverlap)
+		fmt.Printf("  Coherence score: %.4f\n", metrics.SemanticCoherenceScore)
+		fmt.Printf("  Chunks created: %d\n", len(chunks))
 	case "fixed":
 		chunks = cs.createFixedSizeChunks(doc, content, chunkSize, overlap)
 	case "semantic":

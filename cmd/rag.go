@@ -142,13 +142,19 @@ func init() {
 	rootCmd.AddCommand(ragCmd)
 
 	// Add exclusion and processing flags
-	ragCmd.Flags().StringSliceVar(&excludeDirs, "exclude-dir", nil, "Directories to exclude (comma-separated)")
-	ragCmd.Flags().StringSliceVar(&excludeExts, "exclude-ext", nil, "File extensions to exclude (comma-separated)")
-	ragCmd.Flags().StringSliceVar(&processExts, "process-ext", nil, "Only process these file extensions (comma-separated)")
-	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
-	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
-	ragCmd.Flags().StringVar(&chunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\")")
-	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile to use for this RAG")
+	ragCmd.Flags().StringSliceVar(&excludeDirs, "exclude-dir", []string{}, "Directories to exclude (comma-separated)")
+	ragCmd.Flags().StringSliceVar(&excludeExts, "exclude-ext", []string{}, "File extensions to exclude (comma-separated)")
+	ragCmd.Flags().StringSliceVar(&processExts, "process-ext", []string{}, "File extensions to process (others will be ignored)")
+
+	// Add flags for chunking options
+	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk")
+	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters")
+	ragCmd.Flags().StringVar(&chunkingStrategy, "chunking-strategy", "hybrid",
+		"Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). "+
+			"The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
+
+	// Add flag for API profile
+	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile name to use for inference (default: none)")
 
 	// Ajoutez la logique pour utiliser le service de test si disponible
 	if testService != nil {

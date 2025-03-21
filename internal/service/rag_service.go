@@ -256,7 +256,7 @@ func (rs *RagServiceImpl) UpdateRag(rag *domain.RagSystem) error {
 	return nil
 }
 
-// AddDocsWithOptions adds documents to an existing RAG system with options
+// AddDocsWithOptions adds documents to an existing RAG with the specified options
 func (rs *RagServiceImpl) AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error {
 	// Load existing RAG
 	rag, err := rs.LoadRag(ragName)
@@ -274,18 +274,28 @@ func (rs *RagServiceImpl) AddDocsWithOptions(ragName string, folderPath string, 
 		return fmt.Errorf("no valid documents found in folder %s", folderPath)
 	}
 
-	// Create chunker service with default config
-	chunkerService := NewChunkerService(DefaultChunkingConfig())
+	var allChunks []*domain.DocumentChunk
+
+	// Create chunker service with config from options
+	chunkerConfig := ChunkingConfig{
+		ChunkSize:        options.ChunkSize,
+		ChunkOverlap:     options.ChunkOverlap,
+		ChunkingStrategy: options.ChunkingStrategy,
+		IncludeMetadata:  true,
+	}
+	chunkerService := NewChunkerService(chunkerConfig)
 
 	// Process documents
-	var allChunks []*domain.DocumentChunk
 	for _, doc := range docs {
 		chunks := chunkerService.ChunkDocument(doc)
-		for _, chunk := range chunks {
-			chunk.UpdateTotalChunks(len(chunks))
+		for i, chunk := range chunks {
+			chunk.ChunkNumber = i
+			chunk.TotalChunks = len(chunks)
 		}
 		allChunks = append(allChunks, chunks...)
 	}
+
+	fmt.Printf("Generated %d chunks using '%s' strategy.\n", len(allChunks), options.ChunkingStrategy)
 
 	// Generate embeddings
 	err = rs.embeddingService.GenerateChunkEmbeddings(allChunks, rag.ModelName)
@@ -495,4 +505,12 @@ func (rs *RagServiceImpl) CheckWatchedWebsite(ragName string) (int, error) {
 	// Create a web watcher and check for updates
 	webWatcher := NewWebWatcher(rs)
 	return webWatcher.CheckAndUpdateRag(rag)
+}
+
+// Helper function to truncate string for display
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }
