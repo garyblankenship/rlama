@@ -53,8 +53,10 @@ func TestRagServiceOperations(t *testing.T) {
 
 		// Create RAG with options
 		options := service.DocumentLoaderOptions{
-			ChunkSize:    500,
-			ChunkOverlap: 50,
+			ChunkSize:      500,
+			ChunkOverlap:   50,
+			EnableReranker: true,
+			RerankerModel:  completionModel,
 		}
 
 		err := ragService.CreateRagWithOptions(embeddingModel, "test-rag", tempDir, options)

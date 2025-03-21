@@ -12,8 +12,16 @@ import (
 )
 
 var (
-	contextSize int
-	showContext bool
+	contextSize      int
+	promptTemplate   string
+	printChunks      bool
+	streamOutput     bool
+	apiProfileName   string
+	maxTokens        int
+	temperature      float64
+	autoRetrievalAPI bool
+	useGUI           bool
+	showContext      bool
 )
 
 var runCmd = &cobra.Command{
@@ -46,6 +54,18 @@ Example: rlama run rag1`,
 				rag.ChunkingStrategy,
 				rag.WatchOptions.ChunkSize,
 				rag.WatchOptions.ChunkOverlap)
+			if rag.RerankerEnabled {
+				fmt.Printf("Reranking: Enabled (model: %s, weight: %.2f)\n",
+					rag.RerankerModel, rag.RerankerWeight)
+				defaultOpts := service.DefaultRerankerOptions()
+				if contextSize <= 0 {
+					fmt.Printf("Using default TopK: %d\n", defaultOpts.TopK)
+				} else {
+					fmt.Printf("Using custom TopK: %d\n", contextSize)
+				}
+			} else {
+				fmt.Println("Reranking: Disabled")
+			}
 		}
 		fmt.Println("Type your question (or 'exit' to quit):")
 
@@ -121,7 +141,15 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 
 	// Add flags
-	runCmd.Flags().IntVar(&contextSize, "context-size", 20, "Number of context chunks to retrieve (default: 20)")
+	runCmd.Flags().IntVar(&contextSize, "context-size", 0, "Number of chunks to use as context (0 = auto: 5 with reranking, 20 without)")
+	runCmd.Flags().StringVar(&promptTemplate, "prompt", "", "Custom prompt template to use (enclose in quotes)")
+	runCmd.Flags().BoolVar(&printChunks, "print-chunks", false, "Print the chunks used for the response")
+	runCmd.Flags().BoolVar(&streamOutput, "stream", true, "Stream the model's output")
+	runCmd.Flags().StringVar(&apiProfileName, "profile", "", "API profile name for OpenAI models")
+	runCmd.Flags().IntVar(&maxTokens, "max-tokens", 0, "Maximum number of tokens to generate (0 = model's default)")
+	runCmd.Flags().Float64Var(&temperature, "temperature", 0.7, "Temperature for sampling (higher = more random)")
+	runCmd.Flags().BoolVar(&autoRetrievalAPI, "auto-retrieval", false, "Use model's built-in retrieval API if available")
+	runCmd.Flags().BoolVarP(&useGUI, "gui", "g", false, "Use GUI mode")
 	runCmd.Flags().BoolVar(&showContext, "show-context", false, "Show retrieved chunks and context information")
 }
 

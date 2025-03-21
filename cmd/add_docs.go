@@ -14,6 +14,9 @@ var (
 	addDocsChunkSize        int
 	addDocsChunkOverlap     int
 	addDocsChunkingStrategy string
+	addDocsDisableReranker  bool
+	addDocsRerankerModel    string
+	addDocsRerankerWeight   float64
 )
 
 var addDocsCmd = &cobra.Command{
@@ -43,6 +46,9 @@ and add them to the existing RAG system.`,
 			ChunkSize:        addDocsChunkSize,
 			ChunkOverlap:     addDocsChunkOverlap,
 			ChunkingStrategy: addDocsChunkingStrategy,
+			EnableReranker:   !addDocsDisableReranker,
+			RerankerModel:    addDocsRerankerModel,
+			RerankerWeight:   addDocsRerankerWeight,
 		}
 
 		// Pass the options to the service
@@ -70,4 +76,9 @@ func init() {
 	addDocsCmd.Flags().StringVar(&addDocsChunkingStrategy, "chunking-strategy", "hybrid",
 		"Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). "+
 			"The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
+
+	// Add reranking options
+	addDocsCmd.Flags().BoolVar(&addDocsDisableReranker, "disable-reranker", false, "Disable reranking for this RAG")
+	addDocsCmd.Flags().StringVar(&addDocsRerankerModel, "reranker-model", "", "Model to use for reranking (defaults to RAG model)")
+	addDocsCmd.Flags().Float64Var(&addDocsRerankerWeight, "reranker-weight", 0.7, "Weight for reranker scores vs vector scores (0-1)")
 }

@@ -30,6 +30,12 @@ type RagSystem struct {
 	WebWatchOptions  WebWatchOptions `json:"web_watch_options,omitempty"`
 	APIProfileName   string          `json:"api_profile_name,omitempty"`  // Nom du profil API à utiliser
 	ChunkingStrategy string          `json:"chunking_strategy,omitempty"` // Type of chunking strategy used
+	// Reranking settings
+	RerankerEnabled   bool    `json:"reranker_enabled,omitempty"`   // Whether to use reranking
+	RerankerModel     string  `json:"reranker_model,omitempty"`     // Model to use for reranking (if different from ModelName)
+	RerankerWeight    float64 `json:"reranker_weight,omitempty"`    // Weight for reranker scores vs vector scores (0-1)
+	RerankerThreshold float64 `json:"reranker_threshold,omitempty"` // Minimum score threshold for reranked results
+	RerankerTopK      int     `json:"reranker_top_k,omitempty"`     // Default: return only top 5 results after reranking
 }
 
 // DocumentWatchOptions stores settings for directory watching
@@ -62,13 +68,17 @@ func NewRagSystem(name, modelName string) *RagSystem {
 	}
 
 	return &RagSystem{
-		Name:        name,
-		ModelName:   modelName,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		HybridStore: hybridStore,
-		Documents:   []*Document{},
-		Chunks:      []*DocumentChunk{},
+		Name:            name,
+		ModelName:       modelName,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		HybridStore:     hybridStore,
+		Documents:       []*Document{},
+		Chunks:          []*DocumentChunk{},
+		RerankerEnabled: true,      // Enable reranking by default
+		RerankerModel:   modelName, // Use the same model for reranking by default
+		RerankerWeight:  0.7,       // Default: 70% reranker score, 30% vector similarity
+		RerankerTopK:    5,         // Default: return only top 5 results after reranking
 	}
 }
 
