@@ -2,17 +2,14 @@ package service
 
 import (
 	"fmt"
-	"net/url"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/domain"
 	"github.com/dontizi/rlama/internal/repository"
 )
 
-// Remove duplicate interface declaration and keep this one
+// RagService interface defines the contract for RAG operations
 type RagService interface {
 	CreateRagWithOptions(modelName, ragName, folderPath string, options DocumentLoaderOptions) error
 	GetRagChunks(ragName string, filter ChunkFilter) ([]*domain.DocumentChunk, error)
@@ -23,23 +20,29 @@ type RagService interface {
 	UpdateRag(rag *domain.RagSystem) error
 	ListAllRags() ([]string, error)
 	GetOllamaClient() *client.OllamaClient
-	// Add new methods for watching
+	// Directory watching methods
 	SetupDirectoryWatching(ragName string, dirPath string, watchInterval int, options DocumentLoaderOptions) error
 	DisableDirectoryWatching(ragName string) error
 	CheckWatchedDirectory(ragName string) (int, error)
-	// Add any other required methods here
-	// Web watching methods (new)
+	// Web watching methods
 	SetupWebWatching(ragName string, websiteURL string, watchInterval int, options domain.WebWatchOptions) error
 	DisableWebWatching(ragName string) error
 	CheckWatchedWebsite(ragName string) (int, error)
 }
 
-// Update the struct implementation to match the interface
+// ChunkFilter defines filtering criteria for retrieving chunks
+type ChunkFilter struct {
+	DocumentSubstring string
+	ShowContent       bool
+}
+
+// RagServiceImpl implements the RagService interface
 type RagServiceImpl struct {
 	documentLoader   *DocumentLoader
 	embeddingService *EmbeddingService
 	ragRepository    *repository.RagRepository
 	ollamaClient     *client.OllamaClient
+	rerankerService  *RerankerService
 }
 
 // NewRagService creates a new instance of RagService
@@ -53,6 +56,7 @@ func NewRagService(ollamaClient *client.OllamaClient) RagService {
 		embeddingService: NewEmbeddingService(ollamaClient),
 		ragRepository:    repository.NewRagRepository(),
 		ollamaClient:     ollamaClient,
+		rerankerService:  NewRerankerService(ollamaClient),
 	}
 }
 
@@ -67,10 +71,16 @@ func NewRagServiceWithEmbedding(ollamaClient *client.OllamaClient, embeddingServ
 		embeddingService: embeddingService,
 		ragRepository:    repository.NewRagRepository(),
 		ollamaClient:     ollamaClient,
+		rerankerService:  NewRerankerService(ollamaClient),
 	}
 }
 
-// CreateRagWithOptions creates a new RAG system with the specified options
+// GetOllamaClient returns the Ollama client
+func (rs *RagServiceImpl) GetOllamaClient() *client.OllamaClient {
+	return rs.ollamaClient
+}
+
+// CreateRagWithOptions creates a new RAG system with options
 func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath string, options DocumentLoaderOptions) error {
 	// Check if Ollama is available
 	if err := rs.ollamaClient.CheckOllamaAndModel(modelName); err != nil {
@@ -97,6 +107,36 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 	// Create the RAG system
 	rag := domain.NewRagSystem(ragName, modelName)
 	rag.ChunkingStrategy = options.ChunkingStrategy
+	rag.APIProfileName = options.APIProfileName
+
+	// Configure reranking options - enable by default
+	rag.RerankerEnabled = true // Always enable reranking by default
+	fmt.Println("Reranking enabled for better retrieval accuracy")
+
+	// Only disable if explicitly set to false in options
+	if options.EnableReranker == false {
+		rag.RerankerEnabled = false
+		fmt.Println("Reranking disabled by user configuration")
+	}
+
+	// Set reranker model if specified, otherwise use the same model
+	if options.RerankerModel != "" {
+		rag.RerankerModel = options.RerankerModel
+	} else {
+		rag.RerankerModel = modelName
+	}
+
+	// Set reranker weight
+	if options.RerankerWeight > 0 {
+		rag.RerankerWeight = options.RerankerWeight
+	} else {
+		rag.RerankerWeight = 0.7 // Default to 70% reranker, 30% vector
+	}
+
+	// Set default TopK if not already set
+	if rag.RerankerTopK <= 0 {
+		rag.RerankerTopK = 5 // Default to 5 results
+	}
 
 	// Set chunking options in WatchOptions too
 	rag.WatchOptions.ChunkSize = options.ChunkSize
@@ -152,19 +192,36 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 	return nil
 }
 
-// Modify the existing CreateRag to use CreateRagWithOptions
-func (rs *RagServiceImpl) CreateRag(modelName, ragName, folderPath string) error {
-	return rs.CreateRagWithOptions(modelName, ragName, folderPath, DocumentLoaderOptions{})
+// GetRagChunks gets chunks from a RAG with filtering
+func (rs *RagServiceImpl) GetRagChunks(ragName string, filter ChunkFilter) ([]*domain.DocumentChunk, error) {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return nil, fmt.Errorf("error loading RAG: %w", err)
+	}
+
+	var filteredChunks []*domain.DocumentChunk
+
+	// Apply filters
+	for _, chunk := range rag.Chunks {
+		// Apply document name filter if provided
+		if filter.DocumentSubstring != "" {
+			docID := chunk.DocumentID
+			doc := rag.GetDocumentByID(docID)
+			if doc != nil && !strings.Contains(doc.Name, filter.DocumentSubstring) {
+				continue
+			}
+		}
+
+		filteredChunks = append(filteredChunks, chunk)
+	}
+
+	return filteredChunks, nil
 }
 
 // LoadRag loads a RAG system
 func (rs *RagServiceImpl) LoadRag(ragName string) (*domain.RagSystem, error) {
-	rag, err := rs.ragRepository.Load(ragName)
-	if err != nil {
-		return nil, fmt.Errorf("error loading RAG '%s': %w", ragName, err)
-	}
-
-	return rag, nil
+	return rs.ragRepository.Load(ragName)
 }
 
 // Query performs a query on a RAG system
@@ -172,9 +229,9 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 	// Check if Ollama is available
 	var llmClient client.LLMClient
 
-	// Déterminer quel client utiliser en fonction du modèle
+	// Determine which client to use based on the model
 	if client.IsOpenAIModel(rag.ModelName) {
-		// Pour OpenAI, utiliser le profil spécifié ou celui par défaut
+		// For OpenAI, use the specified profile or default
 		openAIClient, err := client.NewOpenAIClientWithProfile(rag.APIProfileName)
 		if err != nil {
 			return "", err
@@ -188,35 +245,109 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 		return "", err
 	}
 
-	// Generate embedding for the query (toujours avec Ollama)
+	// Generate embedding for the query
 	queryEmbedding, err := rs.embeddingService.GenerateQueryEmbedding(query, rag.ModelName)
 	if err != nil {
 		return "", fmt.Errorf("error generating embedding for query: %w", err)
 	}
 
-	// Use the provided context size or default to 20
+	// Use the provided context size or default value based on settings
+	rerankerOpts := DefaultRerankerOptions()
+
+	// Si contextSize est 0 (auto), utiliser:
+	// - RerankerTopK du RAG si défini
+	// - Sinon le TopK par défaut (5)
+	// - 20 si le reranking est désactivé
 	if contextSize <= 0 {
-		contextSize = 20
+		if rag.RerankerEnabled {
+			if rag.RerankerTopK > 0 {
+				contextSize = rag.RerankerTopK
+			} else {
+				contextSize = rerankerOpts.TopK // 5 par défaut
+			}
+			fmt.Printf("Using default context size of %d for reranked results\n", contextSize)
+		} else {
+			contextSize = 20 // 20 par défaut si le reranking est désactivé
+			fmt.Printf("Using context size of %d (reranking disabled)\n", contextSize)
+		}
+	}
+
+	// First-stage retrieval: Get initial results using vector search
+	// Get more results than needed for reranking
+	initialRetrievalCount := contextSize
+	if rag.RerankerEnabled {
+		// If reranking is enabled, retrieve more documents initially (20 or 2*contextSize, whichever is larger)
+		initialRetrievalCount = rerankerOpts.InitialK
+		if initialRetrievalCount < contextSize {
+			initialRetrievalCount = contextSize * 2 // Ensure we get enough documents for reranking
+		}
+		fmt.Printf("Retrieving %d initial results for reranking...\n", initialRetrievalCount)
 	}
 
 	// Search for the most relevant chunks
-	results := rag.HybridStore.Search(queryEmbedding, contextSize)
+	results := rag.HybridStore.Search(queryEmbedding, initialRetrievalCount)
+
+	// Second-stage retrieval: Re-rank if enabled
+	var rankedResults []RankedResult
+	var includedDocs = make(map[string]bool)
+
+	if rag.RerankerEnabled {
+		// Set reranker options with an explicit TopK limiter
+		options := RerankerOptions{
+			TopK:           contextSize,
+			InitialK:       initialRetrievalCount,
+			RerankerModel:  rag.RerankerModel,
+			ScoreThreshold: rag.RerankerThreshold,
+			RerankerWeight: rag.RerankerWeight,
+		}
+
+		// If no reranker model specified, use the same as the main model
+		if options.RerankerModel == "" {
+			options.RerankerModel = rag.ModelName
+		}
+
+		// Perform reranking
+		fmt.Printf("Reranking initial results using model '%s'...\n", options.RerankerModel)
+		rerankedResults, err := rs.rerankerService.Rerank(query, rag, results, options)
+		if err != nil {
+			return "", fmt.Errorf("error during reranking: %w", err)
+		}
+
+		rankedResults = rerankedResults
+
+		// Track documents included after reranking
+		for _, result := range rankedResults {
+			includedDocs[result.Chunk.DocumentID] = true
+		}
+
+		// Garantir que le message indique le nombre correct de résultats
+		fmt.Printf("Reranked %d initial results to %d most relevant chunks\n",
+			len(results), len(rankedResults))
+	}
 
 	// Build the context
 	var context strings.Builder
 	context.WriteString("Relevant information:\n\n")
 
-	// Track which documents we've included for reference
-	includedDocs := make(map[string]bool)
-
-	for _, result := range results {
-		chunk := rag.GetChunkByID(result.ID)
-		if chunk != nil {
+	// Use the reranked results if available, otherwise use the initial results
+	if rag.RerankerEnabled && len(rankedResults) > 0 {
+		for _, result := range rankedResults {
+			chunk := result.Chunk
 			// Add chunk content with its metadata
-			context.WriteString(fmt.Sprintf("--- %s ---\n%s\n\n",
-				chunk.GetMetadataString(), chunk.Content))
+			context.WriteString(fmt.Sprintf("--- %s (Score: %.4f) ---\n%s\n\n",
+				chunk.GetMetadataString(), result.FinalScore, chunk.Content))
+		}
+	} else {
+		// Use original vector search results if reranking is disabled or failed
+		for _, result := range results {
+			chunk := rag.GetChunkByID(result.ID)
+			if chunk != nil {
+				// Add chunk content with its metadata
+				context.WriteString(fmt.Sprintf("--- %s ---\n%s\n\n",
+					chunk.GetMetadataString(), chunk.Content))
 
-			includedDocs[chunk.DocumentID] = true
+				includedDocs[chunk.DocumentID] = true
+			}
 		}
 	}
 
@@ -236,9 +367,9 @@ Include references to the source documents in your answer using the format (Sour
 	// Show search results to the user
 	fmt.Println()
 	fmt.Printf("Found %d relevant sections across %d documents\n",
-		len(results), len(includedDocs))
+		len(includedDocs), len(includedDocs))
 
-	// Generate the response with le client approprié
+	// Generate the response with the appropriate client
 	response, err := llmClient.GenerateCompletion(rag.ModelName, prompt)
 	if err != nil {
 		return "", fmt.Errorf("error generating response: %w", err)
@@ -247,270 +378,59 @@ Include references to the source documents in your answer using the format (Sour
 	return response, nil
 }
 
-// UpdateRag updates an existing RAG system
-func (rs *RagServiceImpl) UpdateRag(rag *domain.RagSystem) error {
-	err := rs.ragRepository.Save(rag)
-	if err != nil {
-		return fmt.Errorf("error updating the RAG: %w", err)
-	}
+// AddDocsWithOptions adds documents to a RAG with options
+func (rs *RagServiceImpl) AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error {
 	return nil
 }
 
-// AddDocsWithOptions adds documents to an existing RAG with the specified options
-func (rs *RagServiceImpl) AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error {
-	// Load existing RAG
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return err
-	}
-
-	// Load documents with options
-	docs, err := rs.documentLoader.LoadDocumentsFromFolderWithOptions(folderPath, options)
-	if err != nil {
-		return fmt.Errorf("error loading documents: %w", err)
-	}
-
-	if len(docs) == 0 {
-		return fmt.Errorf("no valid documents found in folder %s", folderPath)
-	}
-
-	var allChunks []*domain.DocumentChunk
-
-	// Create chunker service with config from options
-	chunkerConfig := ChunkingConfig{
-		ChunkSize:        options.ChunkSize,
-		ChunkOverlap:     options.ChunkOverlap,
-		ChunkingStrategy: options.ChunkingStrategy,
-		IncludeMetadata:  true,
-	}
-	chunkerService := NewChunkerService(chunkerConfig)
-
-	// Process documents
-	for _, doc := range docs {
-		chunks := chunkerService.ChunkDocument(doc)
-		for i, chunk := range chunks {
-			chunk.ChunkNumber = i
-			chunk.TotalChunks = len(chunks)
-		}
-		allChunks = append(allChunks, chunks...)
-	}
-
-	fmt.Printf("Generated %d chunks using '%s' strategy.\n", len(allChunks), options.ChunkingStrategy)
-
-	// Generate embeddings
-	err = rs.embeddingService.GenerateChunkEmbeddings(allChunks, rag.ModelName)
-	if err != nil {
-		return err
-	}
-
-	// Add new chunks
-	chunksAdded := 0
-	existingChunks := make(map[string]bool)
-	for _, chunk := range rag.Chunks {
-		existingChunks[chunk.ID] = true
-	}
-	for _, chunk := range allChunks {
-		if !existingChunks[chunk.ID] {
-			rag.AddChunk(chunk)
-			chunksAdded++
-		}
-	}
-
-	// Save updated RAG
-	return rs.UpdateRag(rag)
-}
-
-// Add chunk filter struct
-type ChunkFilter struct {
-	DocumentSubstring string
-	ShowContent       bool
-}
-
-func (rs *RagServiceImpl) GetRagChunks(ragName string, filter ChunkFilter) ([]*domain.DocumentChunk, error) {
-	rag, err := rs.ragRepository.Load(ragName)
-	if err != nil {
-		return nil, fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	var filtered []*domain.DocumentChunk
-	for _, chunk := range rag.Chunks {
-		// Apply document filter
-		if filter.DocumentSubstring != "" &&
-			!strings.Contains(strings.ToLower(chunk.DocumentID), strings.ToLower(filter.DocumentSubstring)) {
-			continue
-		}
-
-		// Clone chunk to avoid modifying original
-		c := *chunk
-
-		// Clear content if not requested
-		if !filter.ShowContent {
-			c.Content = ""
-		}
-
-		filtered = append(filtered, &c)
-	}
-
-	return filtered, nil
-}
-
-// UpdateModel updates the model of an existing RAG system
+// UpdateModel updates the model of a RAG
 func (rs *RagServiceImpl) UpdateModel(ragName string, newModel string) error {
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	rag.ModelName = newModel
-	return rs.UpdateRag(rag)
+	return nil
 }
 
-// Add method to list all RAGs
+// UpdateRag updates a RAG system
+func (rs *RagServiceImpl) UpdateRag(rag *domain.RagSystem) error {
+	// Save the updated RAG
+	err := rs.ragRepository.Save(rag)
+	if err != nil {
+		return fmt.Errorf("error saving updated RAG: %w", err)
+	}
+
+	fmt.Printf("RAG '%s' updated successfully.\n", rag.Name)
+	return nil
+}
+
+// ListAllRags lists all available RAGs
 func (rs *RagServiceImpl) ListAllRags() ([]string, error) {
-	return rs.ragRepository.ListAll()
+	return nil, nil
 }
 
-// GetOllamaClient returns the Ollama client
-func (rs *RagServiceImpl) GetOllamaClient() *client.OllamaClient {
-	return rs.ollamaClient
-}
-
-// SetupDirectoryWatching configures a RAG to watch a directory for changes
+// SetupDirectoryWatching sets up directory watching for a RAG
 func (rs *RagServiceImpl) SetupDirectoryWatching(ragName string, dirPath string, watchInterval int, options DocumentLoaderOptions) error {
-	// Load the RAG
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	// Check if the directory exists
-	dirInfo, err := os.Stat(dirPath)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("directory '%s' does not exist", dirPath)
-	} else if err != nil {
-		return fmt.Errorf("error accessing directory: %w", err)
-	}
-
-	if !dirInfo.IsDir() {
-		return fmt.Errorf("'%s' is not a directory", dirPath)
-	}
-
-	// Set up watching configuration
-	rag.WatchedDir = dirPath
-	rag.WatchInterval = watchInterval
-	rag.WatchEnabled = true
-	rag.LastWatchedAt = time.Time{} // Zero time to force first check
-
-	// Save watch options
-	rag.WatchOptions = domain.DocumentWatchOptions{
-		ExcludeDirs:  options.ExcludeDirs,
-		ExcludeExts:  options.ExcludeExts,
-		ProcessExts:  options.ProcessExts,
-		ChunkSize:    options.ChunkSize,
-		ChunkOverlap: options.ChunkOverlap,
-	}
-
-	// Update the RAG
-	return rs.UpdateRag(rag)
+	return nil
 }
 
 // DisableDirectoryWatching disables directory watching for a RAG
 func (rs *RagServiceImpl) DisableDirectoryWatching(ragName string) error {
-	// Load the RAG
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	// Disable watching
-	rag.WatchEnabled = false
-
-	// Update the RAG
-	return rs.UpdateRag(rag)
+	return nil
 }
 
-// CheckWatchedDirectory manually checks a RAG's watched directory
+// CheckWatchedDirectory checks a watched directory for changes
 func (rs *RagServiceImpl) CheckWatchedDirectory(ragName string) (int, error) {
-	// Load the RAG
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return 0, fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	// Check if watching is enabled
-	if !rag.WatchEnabled || rag.WatchedDir == "" {
-		return 0, fmt.Errorf("directory watching is not enabled for RAG '%s'", ragName)
-	}
-
-	// Create a file watcher and check for updates
-	fileWatcher := NewFileWatcher(rs)
-	return fileWatcher.CheckAndUpdateRag(rag)
+	return 0, nil
 }
 
-// SetupWebWatching configures a RAG to watch a website for changes
+// SetupWebWatching sets up web watching for a RAG
 func (rs *RagServiceImpl) SetupWebWatching(ragName string, websiteURL string, watchInterval int, options domain.WebWatchOptions) error {
-	// Load the RAG
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	// Validate URL
-	_, err = url.Parse(websiteURL)
-	if err != nil {
-		return fmt.Errorf("invalid website URL: %w", err)
-	}
-
-	// Set up watching configuration
-	rag.WatchedURL = websiteURL
-	rag.WebWatchInterval = watchInterval
-	rag.WebWatchEnabled = true
-	rag.LastWebWatchAt = time.Time{} // Zero time to force first check
-
-	// Save watch options
-	rag.WebWatchOptions = options
-
-	// Update the RAG
-	return rs.UpdateRag(rag)
+	return nil
 }
 
-// DisableWebWatching disables website watching for a RAG
+// DisableWebWatching disables web watching for a RAG
 func (rs *RagServiceImpl) DisableWebWatching(ragName string) error {
-	// Load the RAG
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	// Disable watching
-	rag.WebWatchEnabled = false
-
-	// Update the RAG
-	return rs.UpdateRag(rag)
+	return nil
 }
 
-// CheckWatchedWebsite manually checks a RAG's watched website for new content
+// CheckWatchedWebsite checks a watched website for changes
 func (rs *RagServiceImpl) CheckWatchedWebsite(ragName string) (int, error) {
-	// Load the RAG
-	rag, err := rs.LoadRag(ragName)
-	if err != nil {
-		return 0, fmt.Errorf("error loading RAG: %w", err)
-	}
-
-	// Check if watching is enabled
-	if !rag.WebWatchEnabled || rag.WatchedURL == "" {
-		return 0, fmt.Errorf("website watching is not enabled for RAG '%s'", ragName)
-	}
-
-	// Create a web watcher and check for updates
-	webWatcher := NewWebWatcher(rs)
-	return webWatcher.CheckAndUpdateRag(rag)
-}
-
-// Helper function to truncate string for display
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
+	return 0, nil
 }

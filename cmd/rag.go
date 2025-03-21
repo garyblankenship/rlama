@@ -10,14 +10,17 @@ import (
 )
 
 var (
-	excludeDirs      []string
-	excludeExts      []string
-	processExts      []string
-	chunkSize        int
-	chunkOverlap     int
-	chunkingStrategy string
-	profileName      string
-	testService      interface{} // Pour les tests
+	excludeDirs        []string
+	excludeExts        []string
+	processExts        []string
+	chunkSize          int
+	chunkOverlap       int
+	chunkingStrategy   string
+	profileName        string
+	ragDisableReranker bool
+	ragRerankerModel   string
+	ragRerankerWeight  float64
+	testService        interface{} // Pour les tests
 )
 
 var ragCmd = &cobra.Command{
@@ -120,6 +123,9 @@ OpenAI Models:
 			ChunkOverlap:     chunkOverlap,
 			ChunkingStrategy: chunkingStrategy,
 			APIProfileName:   profileName,
+			EnableReranker:   !ragDisableReranker,
+			RerankerModel:    ragRerankerModel,
+			RerankerWeight:   ragRerankerWeight,
 		}
 
 		ragService := service.NewRagService(ollamaClient)
@@ -149,12 +155,15 @@ func init() {
 	// Add flags for chunking options
 	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk")
 	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters")
-	ragCmd.Flags().StringVar(&chunkingStrategy, "chunking-strategy", "hybrid",
-		"Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). "+
-			"The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
+	ragCmd.Flags().StringVar(&chunkingStrategy, "chunking", "hybrid", "Chunking strategy (options: fixed, semantic, hybrid, hierarchical)")
 
-	// Add flag for API profile
-	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile name to use for inference (default: none)")
+	// Add reranking options - now with a flag to disable it instead
+	ragCmd.Flags().BoolVar(&ragDisableReranker, "disable-reranker", false, "Disable reranking (enabled by default)")
+	ragCmd.Flags().StringVar(&ragRerankerModel, "reranker-model", "", "Model to use for reranking (defaults to main model)")
+	ragCmd.Flags().Float64Var(&ragRerankerWeight, "reranker-weight", 0.7, "Weight for reranker scores vs vector scores (0-1)")
+
+	// Add profile option
+	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile name for OpenAI models")
 
 	// Ajoutez la logique pour utiliser le service de test si disponible
 	if testService != nil {

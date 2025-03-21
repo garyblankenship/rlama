@@ -23,8 +23,23 @@ type DocumentLoaderOptions struct {
 	ProcessExts      []string
 	ChunkSize        int
 	ChunkOverlap     int
-	ChunkingStrategy string // Stratégie de chunking: "fixed", "semantic", "hybrid", "hierarchical"
-	APIProfileName   string // Nom du profil API à utiliser
+	ChunkingStrategy string  // Stratégie de chunking: "fixed", "semantic", "hybrid", "hierarchical"
+	APIProfileName   string  // Nom du profil API à utiliser
+	EnableReranker   bool    // Whether to enable reranking - now true by default
+	RerankerModel    string  // Model to use for reranking
+	RerankerWeight   float64 // Weight for reranker scores (0-1)
+}
+
+// NewDocumentLoaderOptions creates default document loader options with reranking enabled
+func NewDocumentLoaderOptions() DocumentLoaderOptions {
+	return DocumentLoaderOptions{
+		ChunkSize:        1000,
+		ChunkOverlap:     200,
+		ChunkingStrategy: "hybrid",
+		EnableReranker:   true, // Enable reranking by default
+		RerankerWeight:   0.7,  // 70% reranker, 30% vector
+		RerankerModel:    "",   // Will use the same model as RAG by default
+	}
 }
 
 // DocumentLoader is responsible for loading documents from the file system
