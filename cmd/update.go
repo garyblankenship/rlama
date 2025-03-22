@@ -138,7 +138,7 @@ func doUpdate(version string, force bool) error {
 
 	// Sous Windows, nous devons utiliser une approche différente
 	if runtime.GOOS == "windows" {
-		return windowsReplaceBinary(execPath, newBinaryPath)
+		return doWindowsUpdate(execPath, newBinaryPath)
 	}
 
 	// Sur les autres plateformes, nous pouvons remplacer directement
@@ -152,15 +152,24 @@ func doUpdate(version string, force bool) error {
 }
 
 // Nouvelle fonction pour gérer la mise à jour sous Windows
-func windowsReplaceBinary(originalPath, newPath string) error {
-	// Create a batch script for delayed replacement with multiple retry attempts
+func doWindowsUpdate(originalPath, newPath string) error {
+	// Create temporary batch script in a location we know exists
+	userProfile := os.Getenv("USERPROFILE")
+	if userProfile == "" {
+		userProfile = os.TempDir()
+	}
+
+	tempDir := filepath.Join(userProfile, "AppData", "Local", "Temp")
+	os.MkdirAll(tempDir, 0755) // Ensure the directory exists
+
+	tempBatchFile := filepath.Join(tempDir, "rlama_update.bat")
+
+	// Simple batch script that waits for the process to end and then replaces the file
 	batchContent := `@echo off
-echo RLAMA update in progress, please wait...
-echo This window will close automatically when the update is complete.
-echo.
+echo Waiting for RLAMA to close...
+echo Please close any running instances of RLAMA.
 
 :checkprocess
-echo Waiting for RLAMA processes to close...
 tasklist /fi "imagename eq rlama.exe" | find "rlama.exe" >nul
 if %errorlevel% equ 0 (
     timeout /t 2 >nul
@@ -181,8 +190,10 @@ if errorlevel 1 (
     if %retryCount% geq 10 (
         echo Maximum retry attempts exceeded.
         echo.
-        echo Please close all RLAMA instances manually and run "rlama update" again.
-        echo You can also try running Command Prompt as Administrator and running "rlama update" again.
+        echo Please manually run this command to complete the update:
+        echo move /y "%s" "%s"
+        echo.
+        echo Or try running Command Prompt as Administrator.
         echo.
         pause
         exit /b 1
@@ -195,18 +206,16 @@ echo.
 echo Update successful!
 echo RLAMA has been updated to the new version.
 echo.
-timeout /t 3 >nul
-exit
+pause
 `
-	batchScript := fmt.Sprintf(batchContent, newPath, originalPath)
+	batchScript := fmt.Sprintf(batchContent, newPath, originalPath, newPath, originalPath)
 
-	// Créer un fichier temporaire pour le script batch
-	tempBatchFile := filepath.Join(os.TempDir(), "rlama_update.bat")
+	// Write the batch script
 	if err := os.WriteFile(tempBatchFile, []byte(batchScript), 0644); err != nil {
 		return fmt.Errorf("error creating update script: %w", err)
 	}
 
-	// Exécuter le script en arrière-plan dans une nouvelle fenêtre
+	// Run the batch script in a new window
 	cmd := exec.Command("cmd", "/c", "start", "RLAMA Update", tempBatchFile)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("error starting update process: %w", err)
@@ -214,6 +223,7 @@ exit
 
 	fmt.Println("Update will complete after you exit the RLAMA application.")
 	fmt.Println("Please close all RLAMA windows and processes to complete the update.")
+	fmt.Println("A separate window is now monitoring the update process.")
 
 	return nil
 }

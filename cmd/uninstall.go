@@ -90,9 +90,10 @@ var uninstallCmd = &cobra.Command{
 				// On Windows, try to remove directly
 				err = os.Remove(executablePath)
 				if err != nil {
-					// If direct removal fails, try with elevated privileges
+					// If direct removal fails, try with elevated privileges using full PowerShell path
 					fmt.Println("Need elevated privileges to remove the executable")
-					err = execCommand("powershell", "-Command", fmt.Sprintf("Start-Process -Verb RunAs -FilePath 'cmd.exe' -ArgumentList '/c del \"%s\"'", executablePath))
+					powershellPath := filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+					err = execCommand(powershellPath, "-Command", fmt.Sprintf("Start-Process -Verb RunAs -FilePath 'cmd.exe' -ArgumentList '/c del \"%s\"'", executablePath))
 				}
 			} else if isRoot() {
 				// If we're already root on Unix systems
