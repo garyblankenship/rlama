@@ -2,6 +2,7 @@
 
 # Script d'installation des dépendances pour RLAMA
 # Ce script tente d'installer les outils nécessaires pour l'extraction de texte
+# et le reranking avec BGE
 
 echo "Installation des dépendances pour RLAMA..."
 
@@ -80,11 +81,37 @@ elif [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; th
   echo "Il est recommandé d'utiliser WSL (Windows Subsystem for Linux) pour de meilleures performances."
   echo "Vous pouvez installer les dépendances manuellement:"
   echo "1. Installez Python: https://www.python.org/downloads/windows/"
-  echo "2. Installez les packages Python: pip install pdfminer.six docx2txt xlsx2csv"
+  echo "2. Installez les packages Python: pip install pdfminer.six docx2txt xlsx2csv FlagEmbedding torch transformers"
   echo "3. Pour l'OCR, installez Tesseract: https://github.com/UB-Mannheim/tesseract/wiki"
+  
+  # Essayer d'installer les packages Python avec pip dans Windows
+  if is_installed pip; then
+    echo "Installation des dépendances Python sous Windows..."
+    pip install --user pdfminer.six docx2txt xlsx2csv
+    pip install --user -U FlagEmbedding torch transformers
+  elif is_installed pip3; then
+    echo "Installation des dépendances Python sous Windows..."
+    pip3 install --user pdfminer.six docx2txt xlsx2csv
+    pip3 install --user -U FlagEmbedding torch transformers
+  fi
 fi
 
-echo "Installation des dépendances Python..."
-pip3 install --user pdfminer.six docx2txt xlsx2csv
+# Installation des dépendances Python communes
+echo "Installation des dépendances Python communes..."
+if is_installed pip3; then
+  pip3 install --user pdfminer.six docx2txt xlsx2csv
+  echo "Installation des dépendances pour le reranker BGE..."
+  pip3 install --user -U FlagEmbedding torch transformers
+elif is_installed pip; then
+  pip install --user pdfminer.six docx2txt xlsx2csv
+  echo "Installation des dépendances pour le reranker BGE..."
+  pip install --user -U FlagEmbedding torch transformers
+else
+  echo "⚠️ Pip n'est pas installé. Impossible d'installer les dépendances Python."
+  echo "Veuillez installer pip puis exécuter: pip install -U FlagEmbedding pdfminer.six docx2txt xlsx2csv"
+fi
 
-echo "Installation terminée!" 
+echo "Installation terminée!"
+echo ""
+echo "Pour utiliser le reranker BGE, exécutez: rlama update-reranker [nom-du-rag]"
+echo "Cela configurera votre RAG pour utiliser le modèle BAAI/bge-reranker-v2-m3 pour le reranking." 

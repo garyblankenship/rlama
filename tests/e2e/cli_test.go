@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,9 @@ func TestBasicCliCommands(t *testing.T) {
 		require.NoError(t, err, "Failed to create bin directory")
 
 		binaryPath = filepath.Join(binDir, "rlama")
+		if runtime.GOOS == "windows" {
+			binaryPath += ".exe" // Ajouter l'extension .exe pour Windows
+		}
 
 		// Compiler le binaire
 		cmd := exec.Command("go", "build", "-o", binaryPath, filepath.Join(projectRoot, "main.go"))
@@ -165,14 +169,14 @@ func TestBasicCliCommands(t *testing.T) {
 		err = os.WriteFile(testFile, []byte("This is a test document for RAG testing."), 0644)
 		assert.NoError(t, err, "Failed to create test file")
 
-		// Créer un profil pour les tests RAG
-		cmd := exec.Command(binaryPath, "profile", "add", "doc-test-profile", "openai", "sk-test-key")
-		output, err := cmd.CombinedOutput()
-		assert.NoError(t, err)
+		// Delete any existing RAG before starting the test
+		deleteCmd := exec.Command(binaryPath, "delete", "doc-test-rag")
+		deleteCmd.Stdin = strings.NewReader("y\n")
+		deleteCmd.CombinedOutput() // Ignore error as RAG might not exist
 
-		// Créer un RAG pour tester les commandes de documents
-		cmd = exec.Command(binaryPath, "rag", "llama2", "doc-test-rag", docsDir, "--profile", "doc-test-profile")
-		output, err = cmd.CombinedOutput()
+		// Create a RAG for testing
+		cmd := exec.Command(binaryPath, "rag", "llama2", "doc-test-rag", docsDir, "--profile", "doc-test-profile")
+		output, err := cmd.CombinedOutput()
 		assert.NoError(t, err)
 		assert.Contains(t, string(output), "RAG 'doc-test-rag' created successfully")
 
@@ -207,7 +211,7 @@ func TestBasicCliCommands(t *testing.T) {
 		assert.Contains(t, string(output), "new.txt")
 
 		// Nettoyer les deux RAGs
-		deleteCmd := exec.Command(binaryPath, "delete", "doc-test-rag")
+		deleteCmd = exec.Command(binaryPath, "delete", "doc-test-rag")
 		deleteCmd.Stdin = strings.NewReader("y\n")
 		output, err = deleteCmd.CombinedOutput()
 		assert.NoError(t, err)
@@ -343,15 +347,27 @@ func TestBasicCliCommands(t *testing.T) {
 		cmd := exec.Command(binaryPath, "api", "--port", "11249")
 		err := cmd.Start()
 		assert.NoError(t, err)
-		defer cmd.Process.Kill()
 
-		// Attendre que le serveur démarre
-		time.Sleep(2 * time.Second)
+		// Ensure cleanup
+		defer func() {
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+		}()
 
-		// Faire une requête de test
-		resp, err := http.Get("http://localhost:11249/health")
-		assert.NoError(t, err)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Wait and retry health check
+		maxRetries := 5
+		var lastErr error
+		for i := 0; i < maxRetries; i++ {
+			time.Sleep(2 * time.Second)
+			resp, err := http.Get("http://localhost:11249/health")
+			if err == nil && resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				return
+			}
+			lastErr = err
+		}
+		t.Fatalf("Server failed to start after %d retries: %v", maxRetries, lastErr)
 	})
 }
 

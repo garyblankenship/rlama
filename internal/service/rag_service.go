@@ -18,6 +18,7 @@ type RagService interface {
 	AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error
 	UpdateModel(ragName string, newModel string) error
 	UpdateRag(rag *domain.RagSystem) error
+	UpdateRerankerModel(ragName string, model string) error
 	ListAllRags() ([]string, error)
 	GetOllamaClient() *client.OllamaClient
 	// Directory watching methods
@@ -299,19 +300,22 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 			// Don't limit by fixed TopK but use minimum threshold
 			TopK:              100, // Set to a high value to avoid arbitrary limit
 			InitialK:          initialRetrievalCount,
-			RerankerModel:     rag.RerankerModel,
-			ScoreThreshold:    0.3, // Minimum relevance threshold
+			RerankerModel:     "BAAI/bge-reranker-v2-m3", // Always prefer BGE reranker
+			ScoreThreshold:    0.3,                       // Minimum relevance threshold
 			RerankerWeight:    rag.RerankerWeight,
 			AdaptiveFiltering: true, // Enable adaptive filtering
 		}
 
-		// If no reranker model specified, use the same as the main model
-		if options.RerankerModel == "" {
-			options.RerankerModel = rag.ModelName
+		// If a specific BGE reranker model is defined in the RAG, use that one
+		// This allows users to choose between different BGE reranker models
+		if rag.RerankerModel != "" && strings.Contains(strings.ToLower(rag.RerankerModel), "bge-reranker") {
+			options.RerankerModel = rag.RerankerModel
 		}
 
-		// Perform reranking with adaptive filtering
+		// Display the effective model being used
 		fmt.Printf("Reranking and filtering results for relevance using model '%s'...\n", options.RerankerModel)
+
+		// Perform reranking with adaptive filtering
 		rerankedResults, err := rs.rerankerService.Rerank(query, rag, results, options)
 		if err != nil {
 			return "", fmt.Errorf("error during reranking: %w", err)
@@ -437,4 +441,25 @@ func (rs *RagServiceImpl) DisableWebWatching(ragName string) error {
 // CheckWatchedWebsite checks a watched website for changes
 func (rs *RagServiceImpl) CheckWatchedWebsite(ragName string) (int, error) {
 	return 0, nil
+}
+
+// UpdateRerankerModel updates the reranker model of a RAG
+func (rs *RagServiceImpl) UpdateRerankerModel(ragName string, model string) error {
+	// Load the RAG
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return fmt.Errorf("error loading RAG: %w", err)
+	}
+
+	// Update the reranker model
+	rag.RerankerModel = model
+
+	// Save the updated RAG
+	err = rs.ragRepository.Save(rag)
+	if err != nil {
+		return fmt.Errorf("error saving updated RAG: %w", err)
+	}
+
+	fmt.Printf("Reranker model updated to '%s' for RAG '%s'.\n", model, rag.Name)
+	return nil
 }

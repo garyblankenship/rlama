@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/domain"
@@ -40,7 +41,7 @@ func DefaultRerankerOptions() RerankerOptions {
 	return RerankerOptions{
 		TopK:              5,
 		InitialK:          20,
-		RerankerModel:     "",
+		RerankerModel:     "BAAI/bge-reranker-v2-m3",
 		ScoreThreshold:    0.0,
 		RerankerWeight:    0.7, // 70% reranker score, 30% vector similarity
 		AdaptiveFiltering: false,
@@ -49,7 +50,8 @@ func DefaultRerankerOptions() RerankerOptions {
 
 // RerankerService handles document reranking using cross-encoder models
 type RerankerService struct {
-	ollamaClient *client.OllamaClient
+	ollamaClient      *client.OllamaClient
+	bgeRerankerClient *client.BGERerankerClient
 }
 
 // NewRerankerService creates a new instance of RerankerService
@@ -58,8 +60,12 @@ func NewRerankerService(ollamaClient *client.OllamaClient) *RerankerService {
 		ollamaClient = client.NewDefaultOllamaClient()
 	}
 
+	// Create the BGE reranker client with the default model
+	bgeRerankerClient := client.NewBGERerankerClient("BAAI/bge-reranker-v2-m3")
+
 	return &RerankerService{
-		ollamaClient: ollamaClient,
+		ollamaClient:      ollamaClient,
+		bgeRerankerClient: bgeRerankerClient,
 	}
 }
 
@@ -83,7 +89,77 @@ func (rs *RerankerService) Rerank(
 		return []RankedResult{}, nil
 	}
 
-	// Use model from options or fall back to the RAG model
+	// Toujours utiliser BGE Reranker si disponible
+	if rs.bgeRerankerClient != nil {
+		// Utiliser le modèle BGE configuré dans le client
+		fmt.Printf("Using reranker model: %s (BGE Reranker)\n", rs.bgeRerankerClient.GetModelName())
+
+		// Code pour effectuer le reranking avec BGE
+		pairs := make([][]string, 0, len(initialResults))
+		resultMap := make(map[int]*domain.DocumentChunk)
+
+		// Prepare the pairs for batch processing
+		for i, result := range initialResults {
+			chunk := rag.GetChunkByID(result.ID)
+			if chunk == nil {
+				continue
+			}
+
+			pairs = append(pairs, []string{query, chunk.Content})
+			resultMap[i] = chunk
+		}
+
+		// Obtenir les scores
+		scores, err := rs.bgeRerankerClient.ComputeScores(pairs, true)
+		if err != nil {
+			// En cas d'échec, revenir au modèle standard
+			fmt.Printf("⚠️ Échec du BGE Reranker: %v. Retour au modèle standard.\n", err)
+		} else {
+			// Traiter les scores et retourner les résultats
+			rankedResults := make([]RankedResult, 0, len(scores))
+			for i, score := range scores {
+				if i >= len(initialResults) {
+					break
+				}
+
+				chunk := resultMap[i]
+				if chunk == nil {
+					continue
+				}
+
+				vectorScore := initialResults[i].Score
+
+				// Calculate final score as weighted combination of vector and reranker scores
+				finalScore := (options.RerankerWeight * score) + ((1 - options.RerankerWeight) * vectorScore)
+
+				// Add to results if above threshold
+				if finalScore >= options.ScoreThreshold {
+					rankedResults = append(rankedResults, RankedResult{
+						Chunk:         chunk,
+						VectorScore:   vectorScore,
+						RerankerScore: score,
+						FinalScore:    finalScore,
+					})
+				}
+			}
+
+			// Sort by final score (descending)
+			sort.Slice(rankedResults, func(i, j int) bool {
+				return rankedResults[i].FinalScore > rankedResults[j].FinalScore
+			})
+
+			// Only apply Top-K limit if we're not using adaptive filtering
+			if !options.AdaptiveFiltering && options.TopK > 0 && len(rankedResults) > options.TopK {
+				fmt.Printf("Limiting reranked results from %d to top %d\n", len(rankedResults), options.TopK)
+				rankedResults = rankedResults[:options.TopK]
+			}
+
+			return rankedResults, nil
+		}
+	}
+
+	// Si BGE n'est pas disponible ou a échoué, revenir au modèle standard
+	// Utiliser le modèle spécifié dans les options ou celui du RAG
 	modelName := options.RerankerModel
 	if modelName == "" {
 		modelName = rag.ModelName
@@ -91,11 +167,66 @@ func (rs *RerankerService) Rerank(
 
 	fmt.Printf("Using reranker model: %s\n", modelName)
 
-	// Prepare the cross-encoder prompt template
-	var promptTemplate string
-	if options.AdaptiveFiltering {
-		// Enhanced prompt for adaptive content filtering
-		promptTemplate = `You are an advanced document relevance scoring system. Your task is to determine if a document contains useful information to answer a specific query.
+	// Check if the model is a BGE reranker model
+	isBGEReranker := strings.Contains(strings.ToLower(modelName), "bge-reranker")
+
+	var rankedResults []RankedResult
+
+	if isBGEReranker {
+		// Use BGE reranker for BGE models
+		pairs := make([][]string, 0, len(initialResults))
+		resultMap := make(map[int]*domain.DocumentChunk)
+
+		// Prepare the pairs for batch processing
+		for i, result := range initialResults {
+			chunk := rag.GetChunkByID(result.ID)
+			if chunk == nil {
+				continue
+			}
+
+			pairs = append(pairs, []string{query, chunk.Content})
+			resultMap[i] = chunk
+		}
+
+		// Get all scores at once using the BGE reranker
+		scores, err := rs.bgeRerankerClient.ComputeScores(pairs, true) // normalize=true to get 0-1 scores
+		if err != nil {
+			return nil, fmt.Errorf("error computing BGE reranker scores: %w", err)
+		}
+
+		// Process the scores
+		for i, score := range scores {
+			if i >= len(initialResults) {
+				break
+			}
+
+			chunk := resultMap[i]
+			if chunk == nil {
+				continue
+			}
+
+			vectorScore := initialResults[i].Score
+
+			// Calculate final score as weighted combination of vector and reranker scores
+			finalScore := (options.RerankerWeight * score) + ((1 - options.RerankerWeight) * vectorScore)
+
+			// Add to results if above threshold
+			if finalScore >= options.ScoreThreshold {
+				rankedResults = append(rankedResults, RankedResult{
+					Chunk:         chunk,
+					VectorScore:   vectorScore,
+					RerankerScore: score,
+					FinalScore:    finalScore,
+				})
+			}
+		}
+	} else {
+		// Use the existing Ollama-based reranker for other models
+		// Prepare the cross-encoder prompt template
+		var promptTemplate string
+		if options.AdaptiveFiltering {
+			// Enhanced prompt for adaptive content filtering
+			promptTemplate = `You are an advanced document relevance scoring system. Your task is to determine if a document contains useful information to answer a specific query.
 
 Query: %s
 
@@ -110,9 +241,9 @@ Score guidelines:
 
 Only output a single number between 0 and 1 representing your relevance assessment:
 `
-	} else {
-		// Original prompt for standard reranking
-		promptTemplate = `You are a document relevance scoring system. Rate how relevant a document is to a query on a scale from 0 to 1, where 0 is completely irrelevant and 1 is highly relevant.
+		} else {
+			// Original prompt for standard reranking
+			promptTemplate = `You are a document relevance scoring system. Rate how relevant a document is to a query on a scale from 0 to 1, where 0 is completely irrelevant and 1 is highly relevant.
 
 Query: %s
 
@@ -121,51 +252,51 @@ Document:
 
 Relevance score (output only a single number between 0 and 1):
 `
-	}
-
-	// Get chunks and score them
-	var rankedResults []RankedResult
-	for _, result := range initialResults {
-		chunk := rag.GetChunkByID(result.ID)
-		if chunk == nil {
-			continue
 		}
 
-		// Prepare prompt for this chunk
-		prompt := fmt.Sprintf(promptTemplate, query, chunk.Content)
+		// Get chunks and score them
+		for _, result := range initialResults {
+			chunk := rag.GetChunkByID(result.ID)
+			if chunk == nil {
+				continue
+			}
 
-		// Get reranking score from the model
-		response, err := rs.ollamaClient.GenerateCompletion(modelName, prompt)
-		if err != nil {
-			return nil, fmt.Errorf("error generating reranking score: %w", err)
-		}
+			// Prepare prompt for this chunk
+			prompt := fmt.Sprintf(promptTemplate, query, chunk.Content)
 
-		// Parse the response as a float (score)
-		var score float64
-		_, err = fmt.Sscanf(response, "%f", &score)
-		if err != nil {
-			// If parsing fails, use a default score (based on vector similarity)
-			score = result.Score
-		}
+			// Get reranking score from the model
+			response, err := rs.ollamaClient.GenerateCompletion(modelName, prompt)
+			if err != nil {
+				return nil, fmt.Errorf("error generating reranking score: %w", err)
+			}
 
-		// Ensure score is in range [0,1]
-		if score < 0 {
-			score = 0
-		} else if score > 1 {
-			score = 1
-		}
+			// Parse the response as a float (score)
+			var score float64
+			_, err = fmt.Sscanf(response, "%f", &score)
+			if err != nil {
+				// If parsing fails, use a default score (based on vector similarity)
+				score = result.Score
+			}
 
-		// Calculate final score as weighted combination of vector and reranker scores
-		finalScore := (options.RerankerWeight * score) + ((1 - options.RerankerWeight) * result.Score)
+			// Ensure score is in range [0,1]
+			if score < 0 {
+				score = 0
+			} else if score > 1 {
+				score = 1
+			}
 
-		// Add to results if above threshold
-		if finalScore >= options.ScoreThreshold {
-			rankedResults = append(rankedResults, RankedResult{
-				Chunk:         chunk,
-				VectorScore:   result.Score,
-				RerankerScore: score,
-				FinalScore:    finalScore,
-			})
+			// Calculate final score as weighted combination of vector and reranker scores
+			finalScore := (options.RerankerWeight * score) + ((1 - options.RerankerWeight) * result.Score)
+
+			// Add to results if above threshold
+			if finalScore >= options.ScoreThreshold {
+				rankedResults = append(rankedResults, RankedResult{
+					Chunk:         chunk,
+					VectorScore:   result.Score,
+					RerankerScore: score,
+					FinalScore:    finalScore,
+				})
+			}
 		}
 	}
 
