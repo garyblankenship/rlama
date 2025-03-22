@@ -14,6 +14,8 @@ var (
 	addCrawlConcurrency      int
 	addCrawlExcludePaths     []string
 	addCrawlUseSitemap       bool
+	addCrawlSingleURL        bool
+	addCrawlURLsList         []string
 	addCrawlChunkSize        int
 	addCrawlChunkOverlap     int
 	addCrawlChunkingStrategy string
@@ -36,6 +38,8 @@ Control the crawling behavior with these flags:
   --concurrency=10      Number of concurrent crawlers
   --exclude-path=/tag   Skip specific path patterns (comma-separated)
   --use-sitemap         Use sitemap.xml if available for comprehensive coverage
+  --single-url          Process only the specified URL without following links
+  --urls-list=url1,url2 Provide a comma-separated list of specific URLs to crawl
   --chunk-size=1000     Character count per chunk
   --chunk-overlap=200   Overlap between chunks in characters
   --chunking-strategy=hybrid  Chunking strategy to use (fixed, semantic, hybrid, hierarchical)
@@ -65,8 +69,25 @@ Control the crawling behavior with these flags:
 			return fmt.Errorf("error initializing web crawler: %w", err)
 		}
 
-		// Définir l'option de sitemap
+		// Définir les options de crawling
 		webCrawler.SetUseSitemap(addCrawlUseSitemap)
+		webCrawler.SetSingleURLMode(addCrawlSingleURL)
+
+		// Si liste d'URLs spécifiques, la définir
+		if len(addCrawlURLsList) > 0 {
+			webCrawler.SetURLsList(addCrawlURLsList)
+		}
+
+		// Afficher le mode de crawling
+		if len(addCrawlURLsList) > 0 {
+			fmt.Printf("URLs list mode: crawling %d specific URLs\n", len(addCrawlURLsList))
+		} else if addCrawlSingleURL {
+			fmt.Println("Single URL mode: only the specified URL will be crawled (no links will be followed)")
+		} else if addCrawlUseSitemap {
+			fmt.Println("Sitemap mode enabled: will try to use sitemap.xml for comprehensive coverage")
+		} else {
+			fmt.Println("Standard crawling mode: will follow links to the specified depth")
+		}
 
 		fmt.Printf("Crawling website '%s' to add content to RAG '%s'...\n", websiteURL, ragName)
 
@@ -123,6 +144,8 @@ func init() {
 	crawlAddDocsCmd.Flags().IntVar(&addCrawlConcurrency, "concurrency", 5, "Number of concurrent crawlers")
 	crawlAddDocsCmd.Flags().StringSliceVar(&addCrawlExcludePaths, "exclude-path", nil, "Paths to exclude from crawling (comma-separated)")
 	crawlAddDocsCmd.Flags().BoolVar(&addCrawlUseSitemap, "use-sitemap", true, "Use sitemap.xml if available for comprehensive coverage")
+	crawlAddDocsCmd.Flags().BoolVar(&addCrawlSingleURL, "single-url", false, "Process only the specified URL without following links")
+	crawlAddDocsCmd.Flags().StringSliceVar(&addCrawlURLsList, "urls-list", nil, "Provide a comma-separated list of specific URLs to crawl")
 
 	// Add chunking flags
 	crawlAddDocsCmd.Flags().IntVar(&addCrawlChunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
