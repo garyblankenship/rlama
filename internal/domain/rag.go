@@ -75,10 +75,10 @@ func NewRagSystem(name, modelName string) *RagSystem {
 		HybridStore:     hybridStore,
 		Documents:       []*Document{},
 		Chunks:          []*DocumentChunk{},
-		RerankerEnabled: true,      // Enable reranking by default
-		RerankerModel:   modelName, // Use the same model for reranking by default
-		RerankerWeight:  0.7,       // Default: 70% reranker score, 30% vector similarity
-		RerankerTopK:    5,         // Default: return only top 5 results after reranking
+		RerankerEnabled: true,                      // Enable reranking by default
+		RerankerModel:   "BAAI/bge-reranker-v2-m3", // Utiliser BGE reranker par défaut
+		RerankerWeight:  0.7,                       // Default: 70% reranker score, 30% vector similarity
+		RerankerTopK:    5,                         // Default: return only top 5 results after reranking
 	}
 }
 

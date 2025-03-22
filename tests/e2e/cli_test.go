@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,9 @@ func TestBasicCliCommands(t *testing.T) {
 		require.NoError(t, err, "Failed to create bin directory")
 
 		binaryPath = filepath.Join(binDir, "rlama")
+		if runtime.GOOS == "windows" {
+			binaryPath += ".exe" // Ajouter l'extension .exe pour Windows
+		}
 
 		// Compiler le binaire
 		cmd := exec.Command("go", "build", "-o", binaryPath, filepath.Join(projectRoot, "main.go"))
@@ -101,27 +105,32 @@ func TestBasicCliCommands(t *testing.T) {
 
 	// Test des commandes RAG
 	t.Run("RAGCommands", func(t *testing.T) {
-		// Définir HOME pour isoler les tests
+		// Define HOME for isolation
 		oldHome := os.Getenv("HOME")
 		os.Setenv("HOME", testDir)
 		defer os.Setenv("HOME", oldHome)
 
-		// Créer un dossier pour les documents
+		// Create docs directory
 		docsDir := filepath.Join(testDir, "docs")
 		err := os.MkdirAll(docsDir, 0755)
 		require.NoError(t, err, "Failed to create docs directory")
 
-		// Créer un fichier de test
+		// Create test file
 		testFile := filepath.Join(docsDir, "test.txt")
 		err = os.WriteFile(testFile, []byte("This is a test document for RAG testing."), 0644)
 		assert.NoError(t, err, "Failed to create test file")
 
-		// Créer un profil pour les tests RAG avec OpenAI
+		// IMPORTANT: Ensure any existing test RAGs are deleted first
+		deleteCmd := exec.Command(binaryPath, "delete", "test-rag")
+		deleteCmd.Stdin = strings.NewReader("y\n") // Automatic yes to prompt
+		deleteCmd.Run()                            // Ignore errors as it might not exist
+
+		// Create profile for tests
 		cmd := exec.Command(binaryPath, "profile", "add", "rag-test", "openai", "sk-test-key")
 		output, err := cmd.CombinedOutput()
 		assert.NoError(t, err, "Failed to create profile for RAG test")
 
-		// Créer un RAG avec llama2 comme modèle
+		// Create RAG
 		cmd = exec.Command(binaryPath, "rag", "llama2", "test-rag", docsDir, "--profile", "rag-test")
 		output, err = cmd.CombinedOutput()
 		assert.NoError(t, err, "Failed to create RAG: %s", string(output))
@@ -134,7 +143,7 @@ func TestBasicCliCommands(t *testing.T) {
 		assert.Contains(t, string(output), "test-rag")
 
 		// Nettoyer
-		deleteCmd := exec.Command(binaryPath, "delete", "test-rag")
+		deleteCmd = exec.Command(binaryPath, "delete", "test-rag")
 		deleteCmd.Stdin = strings.NewReader("y\n")
 		output, err = deleteCmd.CombinedOutput()
 		assert.NoError(t, err, "Failed to remove RAG: %s", string(output))
@@ -150,27 +159,36 @@ func TestBasicCliCommands(t *testing.T) {
 
 	// Test des commandes de gestion des documents
 	t.Run("DocumentCommands", func(t *testing.T) {
-		// Définir HOME pour isoler les tests
+		// Define HOME for isolation
 		oldHome := os.Getenv("HOME")
 		os.Setenv("HOME", testDir)
 		defer os.Setenv("HOME", oldHome)
 
-		// Créer un dossier pour les documents
+		// Create docs directory
 		docsDir := filepath.Join(testDir, "docs")
 		err := os.MkdirAll(docsDir, 0755)
 		require.NoError(t, err, "Failed to create docs directory")
 
-		// Créer un fichier de test
+		// Create test file
 		testFile := filepath.Join(docsDir, "test.txt")
 		err = os.WriteFile(testFile, []byte("This is a test document for RAG testing."), 0644)
 		assert.NoError(t, err, "Failed to create test file")
 
-		// Créer un profil pour les tests RAG
+		// Clean up existing test RAGs
+		deleteCmd := exec.Command(binaryPath, "delete", "doc-test-rag")
+		deleteCmd.Stdin = strings.NewReader("y\n")
+		deleteCmd.Run() // Ignore errors
+
+		deleteCmd = exec.Command(binaryPath, "delete", "new-doc-rag")
+		deleteCmd.Stdin = strings.NewReader("y\n")
+		deleteCmd.Run() // Ignore errors
+
+		// Create profile
 		cmd := exec.Command(binaryPath, "profile", "add", "doc-test-profile", "openai", "sk-test-key")
 		output, err := cmd.CombinedOutput()
 		assert.NoError(t, err)
 
-		// Créer un RAG pour tester les commandes de documents
+		// Create a RAG for testing
 		cmd = exec.Command(binaryPath, "rag", "llama2", "doc-test-rag", docsDir, "--profile", "doc-test-profile")
 		output, err = cmd.CombinedOutput()
 		assert.NoError(t, err)
@@ -207,7 +225,7 @@ func TestBasicCliCommands(t *testing.T) {
 		assert.Contains(t, string(output), "new.txt")
 
 		// Nettoyer les deux RAGs
-		deleteCmd := exec.Command(binaryPath, "delete", "doc-test-rag")
+		deleteCmd = exec.Command(binaryPath, "delete", "doc-test-rag")
 		deleteCmd.Stdin = strings.NewReader("y\n")
 		output, err = deleteCmd.CombinedOutput()
 		assert.NoError(t, err)
@@ -343,15 +361,27 @@ func TestBasicCliCommands(t *testing.T) {
 		cmd := exec.Command(binaryPath, "api", "--port", "11249")
 		err := cmd.Start()
 		assert.NoError(t, err)
-		defer cmd.Process.Kill()
 
-		// Attendre que le serveur démarre
-		time.Sleep(2 * time.Second)
+		// Ensure cleanup
+		defer func() {
+			if cmd.Process != nil {
+				cmd.Process.Kill()
+			}
+		}()
 
-		// Faire une requête de test
-		resp, err := http.Get("http://localhost:11249/health")
-		assert.NoError(t, err)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Wait and retry health check
+		maxRetries := 5
+		var lastErr error
+		for i := 0; i < maxRetries; i++ {
+			time.Sleep(2 * time.Second)
+			resp, err := http.Get("http://localhost:11249/health")
+			if err == nil && resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				return
+			}
+			lastErr = err
+		}
+		t.Fatalf("Server failed to start after %d retries: %v", maxRetries, lastErr)
 	})
 }
 

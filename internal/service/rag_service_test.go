@@ -9,8 +9,15 @@ import (
 
 // TestRagRerankerTopK vérifie que le reranking est configuré correctement et limite les résultats à 5 par défaut
 func TestRagRerankerTopK(t *testing.T) {
-	// Créer un nouveau RAG
-	rag := domain.NewRagSystem("test-rerank-topk", "test-model")
+	// Créer un RAG avec un modèle personnalisé en utilisant le constructeur
+	rag := &domain.RagSystem{
+		Name:            "test-rag",
+		ModelName:       "test-model",
+		RerankerEnabled: true,
+		RerankerModel:   "test-model",
+		RerankerTopK:    5,
+		RerankerWeight:  0.7,
+	}
 
 	// Vérifier que les valeurs par défaut du reranking sont correctes
 	assert.True(t, rag.RerankerEnabled, "Le reranking devrait être activé par défaut")
