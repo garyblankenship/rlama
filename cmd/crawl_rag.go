@@ -16,10 +16,12 @@ var (
 	crawlMaxDepth         int
 	crawlConcurrency      int
 	crawlExcludePaths     []string
+	crawlUseSitemap       bool
+	crawlSingleURL        bool
+	crawlURLsList         []string
 	crawlChunkSize        int
 	crawlChunkOverlap     int
 	crawlChunkingStrategy string
-	crawlUseSitemap       bool
 )
 
 var crawlRagCmd = &cobra.Command{
@@ -53,8 +55,25 @@ You can exclude certain paths and control other crawling parameters:
 			return fmt.Errorf("error initializing web crawler: %w", err)
 		}
 
-		// Définir l'option de sitemap
+		// Définir les options de crawling
 		webCrawler.SetUseSitemap(crawlUseSitemap)
+		webCrawler.SetSingleURLMode(crawlSingleURL)
+
+		// Si liste d'URLs spécifiques, la définir
+		if len(crawlURLsList) > 0 {
+			webCrawler.SetURLsList(crawlURLsList)
+		}
+
+		// Afficher le mode de crawling
+		if len(crawlURLsList) > 0 {
+			fmt.Printf("URLs list mode: crawling %d specific URLs\n", len(crawlURLsList))
+		} else if crawlSingleURL {
+			fmt.Println("Single URL mode: only the specified URL will be crawled (no links will be followed)")
+		} else if crawlUseSitemap {
+			fmt.Println("Sitemap mode enabled: will try to use sitemap.xml for comprehensive coverage")
+		} else {
+			fmt.Println("Standard crawling mode: will follow links to the specified depth")
+		}
 
 		// Display a message to indicate that the process has started
 		fmt.Printf("Creating RAG '%s' with model '%s' by crawling website '%s'...\n",
@@ -125,6 +144,8 @@ func init() {
 	crawlRagCmd.Flags().IntVar(&crawlChunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
 	crawlRagCmd.Flags().StringVar(&crawlChunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
 	crawlRagCmd.Flags().BoolVar(&crawlUseSitemap, "use-sitemap", true, "Use sitemap.xml if available for comprehensive coverage")
+	crawlRagCmd.Flags().BoolVar(&crawlSingleURL, "single-url", false, "Process only the specified URL without following links")
+	crawlRagCmd.Flags().StringSliceVar(&crawlURLsList, "urls-list", nil, "Provide a comma-separated list of specific URLs to crawl")
 }
 
 // Helper function to create a temporary directory and save crawled documents as files
