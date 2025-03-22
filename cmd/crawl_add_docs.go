@@ -10,10 +10,16 @@ import (
 )
 
 var (
-	addCrawlMaxDepth     int
-	addCrawlConcurrency  int
-	addCrawlExcludePaths []string
-	addCrawlUseSitemap   bool
+	addCrawlMaxDepth         int
+	addCrawlConcurrency      int
+	addCrawlExcludePaths     []string
+	addCrawlUseSitemap       bool
+	addCrawlChunkSize        int
+	addCrawlChunkOverlap     int
+	addCrawlChunkingStrategy string
+	addCrawlDisableReranker  bool
+	addCrawlRerankerModel    string
+	addCrawlRerankerWeight   float64
 )
 
 var crawlAddDocsCmd = &cobra.Command{
@@ -29,7 +35,13 @@ Control the crawling behavior with these flags:
   --max-depth=3         Maximum depth of pages to crawl
   --concurrency=10      Number of concurrent crawlers
   --exclude-path=/tag   Skip specific path patterns (comma-separated)
-  --use-sitemap         Use sitemap.xml if available for comprehensive coverage`,
+  --use-sitemap         Use sitemap.xml if available for comprehensive coverage
+  --chunk-size=1000     Character count per chunk
+  --chunk-overlap=200   Overlap between chunks in characters
+  --chunking-strategy=hybrid  Chunking strategy to use (fixed, semantic, hybrid, hierarchical)
+  --disable-reranker    Disable reranking for this content
+  --reranker-model=model  Model to use for reranking
+  --reranker-weight=0.7   Weight for reranker scores vs vector scores (0-1)`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
@@ -84,8 +96,12 @@ Control the crawling behavior with these flags:
 
 		// Set up loader options
 		loaderOptions := service.DocumentLoaderOptions{
-			ChunkSize:    chunkSize,
-			ChunkOverlap: chunkOverlap,
+			ChunkSize:        addCrawlChunkSize,
+			ChunkOverlap:     addCrawlChunkOverlap,
+			ChunkingStrategy: addCrawlChunkingStrategy,
+			EnableReranker:   !addCrawlDisableReranker,
+			RerankerModel:    addCrawlRerankerModel,
+			RerankerWeight:   addCrawlRerankerWeight,
 		}
 
 		// Pass the options to the service
@@ -109,6 +125,14 @@ func init() {
 	crawlAddDocsCmd.Flags().BoolVar(&addCrawlUseSitemap, "use-sitemap", true, "Use sitemap.xml if available for comprehensive coverage")
 
 	// Add chunking flags
-	crawlAddDocsCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
-	crawlAddDocsCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
+	crawlAddDocsCmd.Flags().IntVar(&addCrawlChunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
+	crawlAddDocsCmd.Flags().IntVar(&addCrawlChunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
+	crawlAddDocsCmd.Flags().StringVar(&addCrawlChunkingStrategy, "chunking-strategy", "hybrid",
+		"Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). "+
+			"The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
+
+	// Add reranking options
+	crawlAddDocsCmd.Flags().BoolVar(&addCrawlDisableReranker, "disable-reranker", false, "Disable reranking for this content")
+	crawlAddDocsCmd.Flags().StringVar(&addCrawlRerankerModel, "reranker-model", "", "Model to use for reranking (defaults to RAG model)")
+	crawlAddDocsCmd.Flags().Float64Var(&addCrawlRerankerWeight, "reranker-weight", 0.7, "Weight for reranker scores vs vector scores (0-1)")
 }

@@ -388,6 +388,135 @@ Include references to the source documents in your answer using the format (Sour
 
 // AddDocsWithOptions adds documents to a RAG with options
 func (rs *RagServiceImpl) AddDocsWithOptions(ragName string, folderPath string, options DocumentLoaderOptions) error {
+	// Load the existing RAG system
+	rag, err := rs.LoadRag(ragName)
+	if err != nil {
+		return fmt.Errorf("error loading RAG '%s': %w", ragName, err)
+	}
+
+	// Check if Ollama is available
+	if err := rs.ollamaClient.CheckOllamaAndModel(rag.ModelName); err != nil {
+		return err
+	}
+
+	// Load new documents with options
+	newDocs, err := rs.documentLoader.LoadDocumentsFromFolderWithOptions(folderPath, options)
+	if err != nil {
+		return fmt.Errorf("error loading documents: %w", err)
+	}
+
+	if len(newDocs) == 0 {
+		return fmt.Errorf("no valid documents found in folder %s", folderPath)
+	}
+
+	fmt.Printf("Successfully loaded %d new documents. Chunking documents...\n", len(newDocs))
+
+	// Create chunker service with the same options as the RAG or from provided options
+	chunkSize := rag.WatchOptions.ChunkSize
+	chunkOverlap := rag.WatchOptions.ChunkOverlap
+	chunkingStrategy := rag.ChunkingStrategy
+
+	// Override with provided options if specified
+	if options.ChunkSize > 0 {
+		chunkSize = options.ChunkSize
+	}
+	if options.ChunkOverlap > 0 {
+		chunkOverlap = options.ChunkOverlap
+	}
+	if options.ChunkingStrategy != "" {
+		chunkingStrategy = options.ChunkingStrategy
+	}
+
+	// Create chunker with configured options
+	chunkerService := NewChunkerService(ChunkingConfig{
+		ChunkSize:        chunkSize,
+		ChunkOverlap:     chunkOverlap,
+		ChunkingStrategy: chunkingStrategy,
+	})
+
+	// Check for duplicates
+	existingDocPaths := make(map[string]bool)
+	for _, doc := range rag.Documents {
+		existingDocPaths[doc.Path] = true
+	}
+
+	var uniqueDocs []*domain.Document
+	var skippedDocs int
+
+	// Filter out duplicate documents
+	for _, doc := range newDocs {
+		if existingDocPaths[doc.Path] {
+			skippedDocs++
+			continue
+		}
+		uniqueDocs = append(uniqueDocs, doc)
+		existingDocPaths[doc.Path] = true // Mark as processed to avoid future duplicates
+	}
+
+	if len(uniqueDocs) == 0 {
+		return fmt.Errorf("all %d documents already exist in the RAG, none added", skippedDocs)
+	}
+
+	if skippedDocs > 0 {
+		fmt.Printf("Skipped %d documents that were already in the RAG.\n", skippedDocs)
+	}
+
+	// Process each unique document - chunk and generate embeddings
+	var allChunks []*domain.DocumentChunk
+	for _, doc := range uniqueDocs {
+		// Add the document to the RAG
+		rag.AddDocument(doc)
+
+		// Chunk the document
+		chunks := chunkerService.ChunkDocument(doc)
+
+		// Update total chunks in metadata
+		for i, chunk := range chunks {
+			chunk.ChunkNumber = i
+			chunk.TotalChunks = len(chunks)
+		}
+
+		allChunks = append(allChunks, chunks...)
+	}
+
+	fmt.Printf("Generated %d chunks from %d new documents. Generating embeddings...\n",
+		len(allChunks), len(uniqueDocs))
+
+	// Generate embeddings for all chunks
+	err = rs.embeddingService.GenerateChunkEmbeddings(allChunks, rag.ModelName)
+	if err != nil {
+		return fmt.Errorf("error generating embeddings: %w", err)
+	}
+
+	// Add all chunks to the RAG
+	for _, chunk := range allChunks {
+		rag.AddChunk(chunk)
+	}
+
+	// Update the RAG's chunk options based on the most recent settings
+	rag.WatchOptions.ChunkSize = chunkSize
+	rag.WatchOptions.ChunkOverlap = chunkOverlap
+	rag.ChunkingStrategy = chunkingStrategy
+
+	// Update reranker settings if specified in options
+	if options.RerankerModel != "" {
+		rag.RerankerModel = options.RerankerModel
+	}
+	if options.RerankerWeight > 0 {
+		rag.RerankerWeight = options.RerankerWeight
+	}
+	if options.EnableReranker {
+		rag.RerankerEnabled = true
+	}
+
+	// Save the updated RAG
+	err = rs.ragRepository.Save(rag)
+	if err != nil {
+		return fmt.Errorf("error saving the updated RAG: %w", err)
+	}
+
+	fmt.Printf("Successfully added %d new documents (%d chunks) to RAG '%s'.\n",
+		len(uniqueDocs), len(allChunks), ragName)
 	return nil
 }
 
