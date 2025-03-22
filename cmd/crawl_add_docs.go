@@ -3,15 +3,17 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/crawler"
+	"github.com/dontizi/rlama/internal/domain"
 	"github.com/dontizi/rlama/internal/service"
+	"github.com/spf13/cobra"
 )
 
 var (
 	addCrawlMaxDepth     int
 	addCrawlConcurrency  int
 	addCrawlExcludePaths []string
+	addCrawlUseSitemap   bool
 )
 
 var crawlAddDocsCmd = &cobra.Command{
@@ -26,7 +28,8 @@ and add them to the existing RAG system.
 Control the crawling behavior with these flags:
   --max-depth=3         Maximum depth of pages to crawl
   --concurrency=10      Number of concurrent crawlers
-  --exclude-path=/tag   Skip specific path patterns (comma-separated)`,
+  --exclude-path=/tag   Skip specific path patterns (comma-separated)
+  --use-sitemap         Use sitemap.xml if available for comprehensive coverage`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
@@ -34,7 +37,7 @@ Control the crawling behavior with these flags:
 
 		// Get Ollama client from root command
 		ollamaClient := GetOllamaClient()
-		
+
 		// Create necessary services
 		ragService := service.NewRagService(ollamaClient)
 
@@ -50,8 +53,11 @@ Control the crawling behavior with these flags:
 			return fmt.Errorf("error initializing web crawler: %w", err)
 		}
 
+		// Définir l'option de sitemap
+		webCrawler.SetUseSitemap(addCrawlUseSitemap)
+
 		fmt.Printf("Crawling website '%s' to add content to RAG '%s'...\n", websiteURL, ragName)
-		
+
 		// Start crawling
 		documents, err := webCrawler.CrawlWebsite()
 		if err != nil {
@@ -64,8 +70,14 @@ Control the crawling behavior with these flags:
 
 		fmt.Printf("Retrieved %d pages from website. Processing content...\n", len(documents))
 
+		// Convertir []domain.Document en []*domain.Document
+		var docPointers []*domain.Document
+		for i := range documents {
+			docPointers = append(docPointers, &documents[i])
+		}
+
 		// Create temporary directory to store crawled content
-		tempDir := createTempDirForDocuments(documents)
+		tempDir := createTempDirForDocuments(docPointers)
 		if tempDir != "" {
 			defer cleanupTempDir(tempDir)
 		}
@@ -91,10 +103,11 @@ func init() {
 	rootCmd.AddCommand(crawlAddDocsCmd)
 
 	// Add crawling specific flags
-	crawlAddDocsCmd.Flags().IntVar(&addCrawlMaxDepth, "max-depth", 2, "Maximum crawl depth (default: 2)")
-	crawlAddDocsCmd.Flags().IntVar(&addCrawlConcurrency, "concurrency", 5, "Number of concurrent crawlers (default: 5)")
+	crawlAddDocsCmd.Flags().IntVar(&addCrawlMaxDepth, "max-depth", 2, "Maximum crawl depth")
+	crawlAddDocsCmd.Flags().IntVar(&addCrawlConcurrency, "concurrency", 5, "Number of concurrent crawlers")
 	crawlAddDocsCmd.Flags().StringSliceVar(&addCrawlExcludePaths, "exclude-path", nil, "Paths to exclude from crawling (comma-separated)")
-	
+	crawlAddDocsCmd.Flags().BoolVar(&addCrawlUseSitemap, "use-sitemap", true, "Use sitemap.xml if available for comprehensive coverage")
+
 	// Add chunking flags
 	crawlAddDocsCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
 	crawlAddDocsCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")

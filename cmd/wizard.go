@@ -9,7 +9,9 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/dontizi/rlama/internal/crawler"
+	"github.com/dontizi/rlama/internal/domain"
 	"github.com/dontizi/rlama/internal/service"
 	"github.com/spf13/cobra"
 )
@@ -168,6 +170,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 		var maxDepth, concurrency int
 		var excludePaths []string
 		var useWebCrawler bool
+		var useSitemap bool
 
 		if sourceChoice == "2" {
 			// Option crawler de site web
@@ -208,6 +211,16 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				for i := range excludePaths {
 					excludePaths[i] = strings.TrimSpace(excludePaths[i])
 				}
+			}
+
+			// Demander si l'utilisateur veut utiliser le sitemap
+			useSitemapPrompt := &survey.Confirm{
+				Message: "Utiliser le sitemap.xml si disponible (recommandé pour une meilleure couverture) ?",
+				Default: true,
+			}
+			err = survey.AskOne(useSitemapPrompt, &useSitemap)
+			if err != nil {
+				return err
 			}
 		} else {
 			// Option dossier local (code existant)
@@ -358,6 +371,9 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				return fmt.Errorf("error initializing web crawler: %w", err)
 			}
 
+			// Définir l'option de sitemap
+			webCrawler.SetUseSitemap(useSitemap)
+
 			// Démarrer le crawling
 			documents, err := webCrawler.CrawlWebsite()
 			if err != nil {
@@ -370,8 +386,14 @@ This makes it easy to set up a new RAG without remembering all command options.`
 
 			fmt.Printf("Retrieved %d pages from website. Processing content...\n", len(documents))
 
+			// Convertir les documents en pointeurs avant d'appeler createTempDirForDocuments
+			var docPointers []*domain.Document
+			for i := range documents {
+				docPointers = append(docPointers, &documents[i])
+			}
+
 			// Créer un répertoire temporaire pour les documents
-			tempDir := createTempDirForDocuments(documents)
+			tempDir := createTempDirForDocuments(docPointers)
 			if tempDir != "" {
 				defer cleanupTempDir(tempDir)
 			}

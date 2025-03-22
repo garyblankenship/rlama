@@ -57,7 +57,9 @@ func (ww *WebWatcher) CheckAndUpdateRag(rag *domain.RagSystem) (int, error) {
 	}
 
 	// S'assurer que tous les documents ont une URL valide
-	for i, doc := range documents {
+	var validDocuments []*domain.Document // Changé pour utiliser des pointeurs
+	for i := range documents {
+		doc := &documents[i] // Obtenir l'adresse du document
 		if doc.URL == "" {
 			// Construire une URL basée sur le path ou un identifiant unique
 			if doc.Path != "" {
@@ -67,19 +69,20 @@ func (ww *WebWatcher) CheckAndUpdateRag(rag *domain.RagSystem) (int, error) {
 			}
 			fmt.Printf("Assigned URL to document: %s\n", doc.URL)
 		}
+		validDocuments = append(validDocuments, doc)
 	}
 
 	// Get existing document URLs and content hashes
 	existingURLs := make(map[string]bool)
 	existingContents := make(map[string]bool)
-	
+
 	for _, doc := range rag.Documents {
 		if doc.URL != "" {
 			normalizedURL := normalizeURL(doc.URL)
 			existingURLs[normalizedURL] = true
 			fmt.Printf("Existing URL in RAG: %s\n", normalizedURL)
 		}
-		
+
 		if len(doc.Content) > 0 {
 			contentHash := getContentHash(doc.Content)
 			existingContents[contentHash] = true
@@ -91,19 +94,20 @@ func (ww *WebWatcher) CheckAndUpdateRag(rag *domain.RagSystem) (int, error) {
 
 	// Filtrer les documents pour ne garder que les nouveaux
 	var newDocuments []*domain.Document
-	for _, doc := range documents {
+	for i := range validDocuments {
+		doc := validDocuments[i] // Doc est déjà un pointeur
 		normalizedURL := normalizeURL(doc.URL)
 		contentHash := getContentHash(doc.Content)
-		
+
 		// Debug logging
 		fmt.Printf("Checking document URL: %s (normalized: %s)\n", doc.URL, normalizedURL)
 		fmt.Printf("  URL exists: %v, Content exists: %v\n", existingURLs[normalizedURL], existingContents[contentHash])
-		
+
 		// Vérifier à la fois l'URL et le contenu
 		if !existingURLs[normalizedURL] && !existingContents[contentHash] {
 			fmt.Printf("New content found: %s\n", doc.URL)
 			newDocuments = append(newDocuments, doc)
-			
+
 			// Ajouter à la liste pour éviter les doublons dans cette session
 			existingURLs[normalizedURL] = true
 			existingContents[contentHash] = true
@@ -125,23 +129,23 @@ func (ww *WebWatcher) CheckAndUpdateRag(rag *domain.RagSystem) (int, error) {
 		ChunkSize:    rag.WebWatchOptions.ChunkSize,
 		ChunkOverlap: rag.WebWatchOptions.ChunkOverlap,
 	})
-	
+
 	var allChunks []*domain.DocumentChunk
 	var processedDocs []*domain.Document
-	
+
 	// Traiter directement chaque nouveau document
 	for i, doc := range newDocuments {
 		// Créer un ID unique basé sur l'URL
 		doc.ID = fmt.Sprintf("web_%d_%s", i, normalizeURL(doc.URL))
-		
+
 		// S'assurer que l'URL est préservée
 		if doc.URL == "" {
 			doc.URL = rag.WatchedURL + doc.Path
 		}
-		
+
 		// Ajouter à la liste des documents traités
 		processedDocs = append(processedDocs, doc)
-		
+
 		// Chunk le document
 		chunks := chunkerService.ChunkDocument(doc)
 		// Mettre à jour les métadonnées des chunks
@@ -151,7 +155,7 @@ func (ww *WebWatcher) CheckAndUpdateRag(rag *domain.RagSystem) (int, error) {
 		}
 		allChunks = append(allChunks, chunks...)
 	}
-	
+
 	// Generate embeddings for all chunks
 	embeddingService := NewEmbeddingService(ww.ragService.GetOllamaClient())
 	err = embeddingService.GenerateChunkEmbeddings(allChunks, rag.ModelName)
@@ -163,14 +167,14 @@ func (ww *WebWatcher) CheckAndUpdateRag(rag *domain.RagSystem) (int, error) {
 	for _, doc := range processedDocs {
 		rag.AddDocument(doc)
 	}
-	
+
 	for _, chunk := range allChunks {
 		rag.AddChunk(chunk)
 	}
 
 	// Update last watched time
 	rag.LastWebWatchAt = time.Now()
-	
+
 	// Save the updated RAG
 	err = ww.ragService.UpdateRag(rag)
 	if err != nil {
@@ -195,12 +199,12 @@ func getContentHash(content string) string {
 	// Simplifier le contenu pour la comparaison (supprimer espaces, etc.)
 	content = strings.TrimSpace(content)
 	simplified := strings.Join(strings.Fields(content), " ")
-	
+
 	// Si le contenu est très court, utiliser l'intégralité
 	if len(simplified) < 200 {
 		return simplified
 	}
-	
+
 	// Pour un contenu plus long, prendre le début et la fin
 	// pour une meilleure identification
 	return simplified[:100] + "..." + simplified[len(simplified)-100:]
@@ -214,14 +218,14 @@ func createTempDirForDocuments(documents []*domain.Document) string {
 		fmt.Printf("Error creating temporary directory: %v\n", err)
 		return ""
 	}
-	
+
 	fmt.Printf("Created temporary directory for documents: %s\n", tempDir)
-	
+
 	// Save each document as a file in the temporary directory
 	for i, doc := range documents {
 		// Default to index-based filename
 		filename := fmt.Sprintf("page_%d.md", i+1)
-		
+
 		// Try to use Path if available (more likely to exist than URL)
 		if doc.Path != "" {
 			// Create a safe filename from the Path
@@ -231,17 +235,17 @@ func createTempDirForDocuments(documents []*domain.Document) string {
 				}
 				return '-'
 			}, doc.Path)
-			
+
 			// Trim leading/trailing dashes
 			safePath = strings.Trim(safePath, "-")
 			if safePath != "" {
 				filename = fmt.Sprintf("%s.md", safePath)
 			}
 		}
-		
+
 		// Full path to the file
 		filePath := filepath.Join(tempDir, filename)
-		
+
 		// Write the document content to the file
 		err := os.WriteFile(filePath, []byte(doc.Content), 0644)
 		if err != nil {
@@ -249,7 +253,7 @@ func createTempDirForDocuments(documents []*domain.Document) string {
 			continue
 		}
 	}
-	
+
 	return tempDir
 }
 
@@ -284,7 +288,7 @@ func (ww *WebWatcher) checkAllRags() {
 	}
 
 	now := time.Now()
-	
+
 	for _, ragName := range rags {
 		rag, err := ww.ragService.LoadRag(ragName)
 		if err != nil {
@@ -305,4 +309,4 @@ func (ww *WebWatcher) checkAllRags() {
 			}
 		}
 	}
-} 
+}

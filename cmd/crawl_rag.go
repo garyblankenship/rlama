@@ -19,6 +19,7 @@ var (
 	crawlChunkSize        int
 	crawlChunkOverlap     int
 	crawlChunkingStrategy string
+	crawlUseSitemap       bool
 )
 
 var crawlRagCmd = &cobra.Command{
@@ -27,12 +28,13 @@ var crawlRagCmd = &cobra.Command{
 	Long: `Create a new RAG system by crawling a website and indexing its content.
 Example: rlama crawl-rag llama3 mysite-rag https://example.com
 
-The crawler will start at the provided URL and follow links to other pages 
-on the same domain up to the specified depth.
+The crawler will try to use the sitemap.xml if available for comprehensive coverage.
+It will also follow links on the pages up to the specified depth.
 
 You can exclude certain paths and control other crawling parameters:
   rlama crawl-rag llama3 my-docs https://docs.example.com --max-depth=2
-  rlama crawl-rag llama3 blog-rag https://blog.example.com --exclude-path=/archive,/tags`,
+  rlama crawl-rag llama3 blog-rag https://blog.example.com --exclude-path=/archive,/tags
+  rlama crawl-rag llama3 site-rag https://site.com --use-sitemap=false  # Désactive la recherche de sitemap`,
 	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		modelName := args[0]
@@ -51,6 +53,9 @@ You can exclude certain paths and control other crawling parameters:
 			return fmt.Errorf("error initializing web crawler: %w", err)
 		}
 
+		// Définir l'option de sitemap
+		webCrawler.SetUseSitemap(crawlUseSitemap)
+
 		// Display a message to indicate that the process has started
 		fmt.Printf("Creating RAG '%s' with model '%s' by crawling website '%s'...\n",
 			ragName, modelName, websiteURL)
@@ -68,6 +73,12 @@ You can exclude certain paths and control other crawling parameters:
 
 		fmt.Printf("Retrieved %d pages from website. Processing content...\n", len(documents))
 
+		// Convertir []domain.Document en []*domain.Document
+		var docPointers []*domain.Document
+		for i := range documents {
+			docPointers = append(docPointers, &documents[i])
+		}
+
 		// Create RAG service
 		ragService := service.NewRagService(ollamaClient)
 
@@ -79,7 +90,7 @@ You can exclude certain paths and control other crawling parameters:
 		}
 
 		// Create temporary directory to store crawled content
-		tempDir := createTempDirForDocuments(documents)
+		tempDir := createTempDirForDocuments(docPointers)
 		if tempDir != "" {
 			// Commentez cette ligne pour empêcher la suppression
 			// defer cleanupTempDir(tempDir)
@@ -113,6 +124,7 @@ func init() {
 	crawlRagCmd.Flags().IntVar(&crawlChunkSize, "chunk-size", 1000, "Character count per chunk (default: 1000)")
 	crawlRagCmd.Flags().IntVar(&crawlChunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters (default: 200)")
 	crawlRagCmd.Flags().StringVar(&crawlChunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy to use (options: \"fixed\", \"semantic\", \"hybrid\", \"hierarchical\", \"auto\"). The \"auto\" strategy will analyze each document and apply the optimal strategy automatically.")
+	crawlRagCmd.Flags().BoolVar(&crawlUseSitemap, "use-sitemap", true, "Use sitemap.xml if available for comprehensive coverage")
 }
 
 // Helper function to create a temporary directory and save crawled documents as files
