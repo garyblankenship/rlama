@@ -6,3 +6,4 @@ bin/
 hook-executed.log
 rlama.exe
 *.exe
+tests/
