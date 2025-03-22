@@ -17,35 +17,35 @@ const (
 	DefaultOllamaPort = "11434"
 )
 
-// OllamaClient est un client pour l'API Ollama
+// OllamaClient is a client for the Ollama API
 type OllamaClient struct {
 	BaseURL string
 	Client  *http.Client
 }
 
-// EmbeddingRequest est la structure de la requête pour l'API /api/embeddings
+// EmbeddingRequest is the structure of the request for the /api/embeddings API
 type EmbeddingRequest struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
 }
 
-// EmbeddingResponse est la structure de la réponse de l'API /api/embeddings
+// EmbeddingResponse is the structure of the response for the /api/embeddings API
 type EmbeddingResponse struct {
 	Embedding []float32 `json:"embedding"`
 }
 
-// GenerationRequest est la structure de la requête pour l'API /api/generate
+// GenerationRequest is the structure of the request for the /api/generate API
 type GenerationRequest struct {
-	Model    string   `json:"model"`
-	Prompt   string   `json:"prompt"`
-	Context  []int    `json:"context,omitempty"`
-	Options  Options  `json:"options,omitempty"`
-	Format   string   `json:"format,omitempty"`
-	Template string   `json:"template,omitempty"`
-	Stream   bool     `json:"stream"`
+	Model    string  `json:"model"`
+	Prompt   string  `json:"prompt"`
+	Context  []int   `json:"context,omitempty"`
+	Options  Options `json:"options,omitempty"`
+	Format   string  `json:"format,omitempty"`
+	Template string  `json:"template,omitempty"`
+	Stream   bool    `json:"stream"`
 }
 
-// Options pour l'API generate
+// Options for the /api/generate API
 type Options struct {
 	Temperature float64 `json:"temperature,omitempty"`
 	TopP        float64 `json:"top_p,omitempty"`
@@ -53,7 +53,7 @@ type Options struct {
 	NumPredict  int     `json:"num_predict,omitempty"`
 }
 
-// GenerationResponse est la structure de la réponse de l'API /api/generate
+// GenerationResponse is the structure of the response for the /api/generate API
 type GenerationResponse struct {
 	Model     string `json:"model"`
 	Response  string `json:"response"`
@@ -62,18 +62,18 @@ type GenerationResponse struct {
 	Done      bool   `json:"done"`
 }
 
-// NewOllamaClient crée un nouveau client Ollama
-// Si host ou port sont vides, les valeurs par défaut sont utilisées
-// Si OLLAMA_HOST est défini, il est utilisé comme valeur par défaut
+// NewOllamaClient creates a new Ollama client
+// If host or port are empty, the default values are used
+// If OLLAMA_HOST is defined, it is used as the default value
 func NewOllamaClient(host, port string) *OllamaClient {
 	// Check for OLLAMA_HOST environment variable
 	ollamaHostEnv := os.Getenv("OLLAMA_HOST")
-	
+
 	// Default values and protocol
 	defaultHost := DefaultOllamaHost
 	defaultPort := DefaultOllamaPort
 	protocol := "http://"
-	
+
 	// If OLLAMA_HOST is set, parse it
 	if ollamaHostEnv != "" {
 		// Handle if OLLAMA_HOST includes protocol
@@ -99,7 +99,7 @@ func NewOllamaClient(host, port string) *OllamaClient {
 			}
 		}
 	}
-	
+
 	// Command flags override environment variables
 	if host != "" {
 		// Check if host includes protocol
@@ -112,26 +112,26 @@ func NewOllamaClient(host, port string) *OllamaClient {
 	} else {
 		host = defaultHost
 	}
-	
+
 	if port != "" {
 		defaultPort = port
 	}
-	
+
 	baseURL := fmt.Sprintf("%s%s:%s", protocol, host, defaultPort)
-	
+
 	return &OllamaClient{
 		BaseURL: baseURL,
 		Client:  &http.Client{},
 	}
 }
 
-// NewDefaultOllamaClient crée un nouveau client Ollama avec les valeurs par défaut
-// Gardé pour compatibilité avec le code existant
+// NewDefaultOllamaClient creates a new Ollama client with the default values
+// Kept for compatibility with existing code
 func NewDefaultOllamaClient() *OllamaClient {
 	return NewOllamaClient(DefaultOllamaHost, DefaultOllamaPort)
 }
 
-// GenerateEmbedding génère un embedding pour le texte donné
+// GenerateEmbedding generates an embedding for the given text
 func (c *OllamaClient) GenerateEmbedding(model, text string) ([]float32, error) {
 	reqBody := EmbeddingRequest{
 		Model:  model,
@@ -166,7 +166,7 @@ func (c *OllamaClient) GenerateEmbedding(model, text string) ([]float32, error) 
 	return embeddingResp.Embedding, nil
 }
 
-// GenerateCompletion génère une réponse pour le prompt donné
+// GenerateCompletion generates a response for the given prompt
 func (c *OllamaClient) GenerateCompletion(model, prompt string) (string, error) {
 	reqBody := GenerationRequest{
 		Model:  model,
@@ -214,11 +214,11 @@ func (c *OllamaClient) IsOllamaRunning() (bool, error) {
 		return false, fmt.Errorf("Ollama is not accessible: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return false, fmt.Errorf("Ollama responded with error code: %d", resp.StatusCode)
 	}
-	
+
 	return true, nil
 }
 
@@ -227,20 +227,20 @@ func (c *OllamaClient) CheckOllamaAndModel(modelName string) error {
 	// Check if Ollama is running
 	running, err := c.IsOllamaRunning()
 	if err != nil {
-		return fmt.Errorf("⚠️ Ollama is not installed or not running.\n"+
-			"RLAMA requires Ollama to function.\n"+
-			"Please install Ollama with: curl -fsSL https://ollama.com/install.sh | sh\n"+
+		return fmt.Errorf("⚠️ Ollama is not installed or not running.\n" +
+			"RLAMA requires Ollama to function.\n" +
+			"Please install Ollama with: curl -fsSL https://ollama.com/install.sh | sh\n" +
 			"Then start it before using RLAMA.")
 	}
-	
+
 	if !running {
-		return fmt.Errorf("⚠️ Ollama is not running.\n"+
+		return fmt.Errorf("⚠️ Ollama is not running.\n" +
 			"Please start Ollama before using RLAMA.")
 	}
-	
+
 	// Check if model is available (optional)
 	// This check could be added here
-	
+
 	return nil
 }
 
@@ -250,12 +250,12 @@ func (c *OllamaClient) RunHuggingFaceModel(hfModelPath string, quantization stri
 	if quantization != "" {
 		modelRef += ":" + quantization
 	}
-	
+
 	cmd := exec.Command("ollama", "run", modelRef)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	
+
 	return cmd.Run()
 }
 
@@ -265,18 +265,18 @@ func (c *OllamaClient) PullHuggingFaceModel(hfModelPath string, quantization str
 	if quantization != "" {
 		modelRef += ":" + quantization
 	}
-	
+
 	cmd := exec.Command("ollama", "pull", modelRef)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	return cmd.Run()
 }
 
 // IsHuggingFaceModel checks if a model name is a Hugging Face model reference
 func IsHuggingFaceModel(modelName string) bool {
-	return strings.HasPrefix(modelName, "hf.co/") || 
-		   strings.HasPrefix(modelName, "huggingface.co/")
+	return strings.HasPrefix(modelName, "hf.co/") ||
+		strings.HasPrefix(modelName, "huggingface.co/")
 }
 
 // GetHuggingFaceModelName extracts the repository name from a Hugging Face model reference
@@ -288,12 +288,12 @@ func GetHuggingFaceModelName(modelRef string) string {
 	} else if strings.HasPrefix(modelRef, "huggingface.co/") {
 		modelName = strings.TrimPrefix(modelRef, "huggingface.co/")
 	}
-	
+
 	// Strip any quantization suffix
 	if colonIdx := strings.Index(modelName, ":"); colonIdx != -1 {
 		modelName = modelName[:colonIdx]
 	}
-	
+
 	return modelName
 }
 
@@ -303,4 +303,4 @@ func GetQuantizationFromModelRef(modelRef string) string {
 		return modelRef[colonIdx+1:]
 	}
 	return ""
-} 
+}

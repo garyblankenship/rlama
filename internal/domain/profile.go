@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// APIProfile représente un profil pour les clés API
+// APIProfile represents a profile for API keys
 type APIProfile struct {
 	Name       string    `json:"name"`
 	Provider   string    `json:"provider"` // "openai", "anthropic", etc.
@@ -14,7 +14,7 @@ type APIProfile struct {
 	LastUsedAt time.Time `json:"last_used_at,omitempty"`
 }
 
-// NewAPIProfile crée un nouveau profil API
+// NewAPIProfile creates a new API profile
 func NewAPIProfile(name, provider, apiKey string) *APIProfile {
 	now := time.Now()
 	return &APIProfile{
@@ -24,4 +24,4 @@ func NewAPIProfile(name, provider, apiKey string) *APIProfile {
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-} 
+}

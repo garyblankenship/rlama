@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRagRerankerTopK vérifie que le reranking est configuré correctement et limite les résultats à 5 par défaut
+// TestRagRerankerTopK checks that the reranking is configured correctly and limits the results to 5 by default
 func TestRagRerankerTopK(t *testing.T) {
-	// Créer un RAG avec un modèle personnalisé en utilisant le constructeur
+	// Create a RAG with a custom model using the constructor
 	rag := &domain.RagSystem{
 		Name:            "test-rag",
 		ModelName:       "test-model",
@@ -19,17 +19,17 @@ func TestRagRerankerTopK(t *testing.T) {
 		RerankerWeight:  0.7,
 	}
 
-	// Vérifier que les valeurs par défaut du reranking sont correctes
-	assert.True(t, rag.RerankerEnabled, "Le reranking devrait être activé par défaut")
-	assert.Equal(t, float64(0.7), rag.RerankerWeight, "Le poids du reranker devrait être 0.7 par défaut")
+	// Check that the default reranking values are correct
+	assert.True(t, rag.RerankerEnabled, "Reranking should be enabled by default")
+	assert.Equal(t, float64(0.7), rag.RerankerWeight, "The reranker weight should be 0.7 by default")
 	assert.Equal(t, "test-model", rag.RerankerModel, "Le modèle du reranker devrait être le même que le RAG par défaut")
 	assert.Equal(t, 5, rag.RerankerTopK, "TopK devrait être 5 par défaut")
 
-	// Vérifier que les valeurs par défaut des options de reranking sont cohérentes
+	// Check that the default reranking options are consistent
 	options := DefaultRerankerOptions()
-	assert.Equal(t, options.TopK, rag.RerankerTopK, "TopK dans le RAG et dans les options devraient être identiques")
+	assert.Equal(t, options.TopK, rag.RerankerTopK, "TopK in the RAG and in the options should be identical")
 
-	// Tester avec différentes valeurs de TopK
+	// Test with different TopK values
 	testCases := []struct {
 		name     string
 		topK     int
@@ -37,7 +37,7 @@ func TestRagRerankerTopK(t *testing.T) {
 	}{
 		{
 			name:     "DefaultTopK",
-			topK:     0, // 0 signifie utiliser la valeur par défaut
+			topK:     0, // 0 means use the default value
 			expected: 5,
 		},
 		{
@@ -47,60 +47,60 @@ func TestRagRerankerTopK(t *testing.T) {
 		},
 		{
 			name:     "ZeroTopK",
-			topK:     -1, // Valeur invalide, devrait utiliser le défaut du RAG
+			topK:     -1, // Invalid value, should use the default of the RAG
 			expected: 5,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Simuler la logique de Query() pour déterminer la taille du contexte
+			// Simulate the logic of Query() to determine the context size
 			contextSize := tc.topK
 
-			// Si contextSize est 0 (auto), utiliser:
-			// - RerankerTopK du RAG si défini
-			// - Sinon le TopK par défaut (5)
-			// - 20 si le reranking est désactivé
+			// If contextSize is 0 (auto), use:
+			// - RerankerTopK of the RAG if defined
+			// - Otherwise the default TopK (5)
+			// - 20 if reranking is disabled
 			if contextSize <= 0 {
 				if rag.RerankerEnabled {
 					if rag.RerankerTopK > 0 {
 						contextSize = rag.RerankerTopK
 					} else {
-						contextSize = options.TopK // 5 par défaut
+						contextSize = options.TopK // 5 by default
 					}
 				} else {
-					contextSize = 20 // 20 par défaut si le reranking est désactivé
+					contextSize = 20 // 20 by default if reranking is disabled
 				}
 			}
 
-			// Vérifier que contextSize correspond à la valeur attendue
+			// Check that contextSize corresponds to the expected value
 			assert.Equal(t, tc.expected, contextSize,
-				"La taille du contexte devrait correspondre à la valeur attendue")
+				"The context size should correspond to the expected value")
 		})
 	}
 
-	// Tester le cas où le reranking est désactivé
+	// Test the case where reranking is disabled
 	t.Run("DisabledReranking", func(t *testing.T) {
 		rag.RerankerEnabled = false
 
-		// Contextsize à 0 devrait donner 20 car le reranking est désactivé
+		// Context size set to 0 should default to 20 because reranking is disabled
 		contextSize := 0
 		if contextSize <= 0 {
 			if rag.RerankerEnabled {
 				if rag.RerankerTopK > 0 {
 					contextSize = rag.RerankerTopK
 				} else {
-					contextSize = options.TopK // 5 par défaut
+					contextSize = options.TopK // 5 by default
 				}
 			} else {
-				contextSize = 20 // 20 par défaut si le reranking est désactivé
+				contextSize = 20 // 20 by default if reranking is disabled
 			}
 		}
 
 		assert.Equal(t, 20, contextSize,
 			"La taille du contexte devrait être 20 par défaut si le reranking est désactivé")
 
-		// Restaurer l'état
+		// Restore the state
 		rag.RerankerEnabled = true
 	})
 }

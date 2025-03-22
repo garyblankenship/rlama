@@ -89,12 +89,12 @@ func (rs *RerankerService) Rerank(
 		return []RankedResult{}, nil
 	}
 
-	// Toujours utiliser BGE Reranker si disponible
+	// Always use BGE Reranker if available
 	if rs.bgeRerankerClient != nil {
-		// Utiliser le modèle BGE configuré dans le client
+		// Use the BGE model configured in the client
 		fmt.Printf("Using reranker model: %s (BGE Reranker)\n", rs.bgeRerankerClient.GetModelName())
 
-		// Code pour effectuer le reranking avec BGE
+		// Code to perform reranking with BGE
 		pairs := make([][]string, 0, len(initialResults))
 		resultMap := make(map[int]*domain.DocumentChunk)
 
@@ -109,13 +109,13 @@ func (rs *RerankerService) Rerank(
 			resultMap[i] = chunk
 		}
 
-		// Obtenir les scores
+		// Get scores
 		scores, err := rs.bgeRerankerClient.ComputeScores(pairs, true)
 		if err != nil {
-			// En cas d'échec, revenir au modèle standard
-			fmt.Printf("⚠️ Échec du BGE Reranker: %v. Retour au modèle standard.\n", err)
+			// In case of failure, return to standard model
+			fmt.Printf("⚠️ BGE Reranker failure: %v. Falling back to standard model.\n", err)
 		} else {
-			// Traiter les scores et retourner les résultats
+			// Process scores and return results
 			rankedResults := make([]RankedResult, 0, len(scores))
 			for i, score := range scores {
 				if i >= len(initialResults) {
@@ -158,8 +158,8 @@ func (rs *RerankerService) Rerank(
 		}
 	}
 
-	// Si BGE n'est pas disponible ou a échoué, revenir au modèle standard
-	// Utiliser le modèle spécifié dans les options ou celui du RAG
+	// If BGE is not available or failed, fall back to the standard model
+	// Use the model specified in options or the one from RAG
 	modelName := options.RerankerModel
 	if modelName == "" {
 		modelName = rag.ModelName

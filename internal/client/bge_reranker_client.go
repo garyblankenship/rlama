@@ -21,15 +21,15 @@ func NewBGERerankerClient(modelName string) *BGERerankerClient {
 		useFP16:   true,
 	}
 
-	// Vérifier les dépendances et le modèle
+	// Check dependencies and model
 	if err := client.CheckDependencies(); err != nil {
-		fmt.Printf("⚠️ Avertissement: %v\n", err)
-		fmt.Println("Pour installer les dépendances, exécutez: rlama install-dependencies")
+		fmt.Printf("⚠️ Warning: %v\n", err)
+		fmt.Println("To install dependencies, run: rlama install-dependencies")
 	} else {
 		// Only check model if dependencies are available
 		if err := client.CheckModelExists(); err != nil {
-			fmt.Printf("⚠️ Avertissement: %v\n", err)
-			fmt.Println("Le modèle BGE Reranker pourrait ne pas être accessible. Vérifiez la connexion internet et le nom du modèle.")
+			fmt.Printf("⚠️ Warning: %v\n", err)
+			fmt.Println("The BGE Reranker model might not be accessible. Check your internet connection and model name.")
 		}
 	}
 
@@ -150,7 +150,7 @@ func (c *BGERerankerClient) CheckDependencies() error {
 import importlib.util
 import sys
 
-# Vérifier si FlagEmbedding est installé
+# Check if FlagEmbedding is installed
 flag_spec = importlib.util.find_spec("FlagEmbedding")
 if flag_spec is None:
     print("not_installed")
@@ -162,12 +162,12 @@ else:
 	cmd := exec.Command("python", "-c", checkScript)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("erreur lors de la vérification des dépendances Python: %w", err)
+		return fmt.Errorf("error checking Python dependencies: %w", err)
 	}
 
 	result := strings.TrimSpace(string(output))
 	if result == "not_installed" {
-		return fmt.Errorf("la bibliothèque FlagEmbedding n'est pas installée. Exécutez 'rlama install-dependencies' pour l'installer")
+		return fmt.Errorf("FlagEmbedding library is not installed. Run 'rlama install-dependencies' to install it")
 	}
 
 	return nil

@@ -36,7 +36,7 @@ It will also follow links on the pages up to the specified depth.
 You can exclude certain paths and control other crawling parameters:
   rlama crawl-rag llama3 my-docs https://docs.example.com --max-depth=2
   rlama crawl-rag llama3 blog-rag https://blog.example.com --exclude-path=/archive,/tags
-  rlama crawl-rag llama3 site-rag https://site.com --use-sitemap=false  # Désactive la recherche de sitemap`,
+  rlama crawl-rag llama3 site-rag https://site.com --use-sitemap=false  # Disable sitemap search`,
 	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		modelName := args[0]
@@ -55,11 +55,11 @@ You can exclude certain paths and control other crawling parameters:
 			return fmt.Errorf("error initializing web crawler: %w", err)
 		}
 
-		// Définir les options de crawling
+		// Define crawling options
 		webCrawler.SetUseSitemap(crawlUseSitemap)
 		webCrawler.SetSingleURLMode(crawlSingleURL)
 
-		// Si liste d'URLs spécifiques, la définir
+		// If specific URL list, define it
 		if len(crawlURLsList) > 0 {
 			webCrawler.SetURLsList(crawlURLsList)
 		}
@@ -111,11 +111,11 @@ You can exclude certain paths and control other crawling parameters:
 		// Create temporary directory to store crawled content
 		tempDir := createTempDirForDocuments(docPointers)
 		if tempDir != "" {
-			// Commentez cette ligne pour empêcher la suppression
+			// Comment this line to prevent deletion
 			// defer cleanupTempDir(tempDir)
 
-			// Ajoutez ceci pour afficher clairement le chemin
-			fmt.Printf("\n📁 Les fichiers markdown se trouvent dans: %s\n", tempDir)
+			// Add this to clearly display the path
+			fmt.Printf("\n📁 The markdown files are located in: %s\n", tempDir)
 		}
 
 		// Create RAG system
@@ -129,6 +129,7 @@ You can exclude certain paths and control other crawling parameters:
 		}
 
 		fmt.Printf("RAG '%s' created successfully with content from %s.\n", ragName, websiteURL)
+
 		return nil
 	},
 }

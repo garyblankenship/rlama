@@ -247,8 +247,8 @@ func getLatestVersion() (string, error) {
 	return strings.TrimPrefix(release.TagName, "v"), nil
 }
 
-// downloadFile télécharge un fichier depuis une URL vers un chemin local
-// avec une meilleure gestion des erreurs et des tentatives de réessai
+// downloadFile downloads a file from a URL to a local path
+// with better error handling and retry attempts
 func downloadFile(url string, filepath string) error {
 	// Create an HTTP client with timeout
 	client := &http.Client{

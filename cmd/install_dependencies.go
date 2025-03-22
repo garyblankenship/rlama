@@ -12,8 +12,8 @@ import (
 
 var installDependenciesCmd = &cobra.Command{
 	Use:   "install-dependencies",
-	Short: "Installe les dépendances nécessaires pour RLAMA",
-	Long:  `Installe les dépendances système et Python pour le fonctionnement optimal de RLAMA, y compris le reranker BGE.`,
+	Short: "Install necessary dependencies for RLAMA",
+	Long:  `Install system and Python dependencies for optimal RLAMA performance, including the BGE reranker.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		installDependencies()
 	},
@@ -24,43 +24,43 @@ func init() {
 }
 
 func installDependencies() {
-	fmt.Println("Installation des dépendances...")
+	fmt.Println("Installing dependencies...")
 
-	// Trouver le chemin du script d'installation
+	// Find the installation script path
 	execPath, err := os.Executable()
 	if err != nil {
-		fmt.Printf("⚠️ Erreur lors de la détermination du chemin de l'exécutable: %v\n", err)
+		fmt.Printf("⚠️ Error determining executable path: %v\n", err)
 
-		// Utiliser une solution alternative
+		// Use an alternative solution
 		installDependenciesFallback()
 		return
 	}
 
-	// Le répertoire scripts est présumé être dans le même répertoire que l'exécutable
-	// ou dans le répertoire parent pour les environnements de développement
+	// The scripts directory is presumed to be in the same directory as the executable
+	// or in the parent directory for development environments
 	scriptDir := filepath.Join(filepath.Dir(execPath), "scripts")
 	scriptPath := filepath.Join(scriptDir, "install_deps.sh")
 
-	// Vérifier si le script existe
+	// Check if the script exists
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		// Essayer dans le répertoire parent (pour le développement)
+		// Try in the parent directory (for development)
 		scriptDir = filepath.Join(filepath.Dir(execPath), "..", "scripts")
 		scriptPath = filepath.Join(scriptDir, "install_deps.sh")
 
 		if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-			fmt.Println("⚠️ Script d'installation non trouvé. Utilisation de la méthode alternative.")
+			fmt.Println("⚠️ Installation script not found. Using alternative method.")
 			installDependenciesFallback()
 			return
 		}
 	}
 
-	// Exécuter le script
+	// Execute the script
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		// Sur Windows, utiliser bash.exe (WSL ou Git Bash)
+		// On Windows, use bash.exe (WSL or Git Bash)
 		cmd = exec.Command("bash.exe", scriptPath)
 	} else {
-		// Sur Unix-like, exécuter directement le script
+		// On Unix-like, execute the script directly
 		cmd = exec.Command("bash", scriptPath)
 	}
 
@@ -68,40 +68,40 @@ func installDependencies() {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("⚠️ Erreur lors de l'exécution du script d'installation: %v\n", err)
-		fmt.Println("Tentative d'installation directe des dépendances Python...")
+		fmt.Printf("⚠️ Error executing installation script: %v\n", err)
+		fmt.Println("Attempting direct installation of Python dependencies...")
 		installPythonDependencies()
 	}
 }
 
-// Cette fonction est utilisée si le script install_deps.sh n'est pas trouvé
+// This function is used if the install_deps.sh script is not found
 func installDependenciesFallback() {
-	fmt.Println("Installation des dépendances Python nécessaires...")
+	fmt.Println("Installing necessary Python dependencies...")
 	installPythonDependencies()
 }
 
 func installPythonDependencies() {
-	// Déterminer la commande Python à utiliser
+	// Determine the Python command to use
 	pythonCmd := "python3"
 	if _, err := exec.LookPath(pythonCmd); err != nil {
 		pythonCmd = "python"
 		if _, err := exec.LookPath(pythonCmd); err != nil {
-			fmt.Println("⚠️ Python n'est pas installé ou n'est pas dans le PATH.")
-			fmt.Println("Veuillez installer Python 3.x puis exécuter: pip install -U FlagEmbedding torch transformers")
+			fmt.Println("⚠️ Python is not installed or is not in the PATH.")
+			fmt.Println("Please install Python 3.x then run: pip install -U FlagEmbedding torch transformers")
 			return
 		}
 	}
 
-	// Installer les dépendances Python
-	fmt.Println("Installation de FlagEmbedding et des dépendances associées...")
+	// Install Python dependencies
+	fmt.Println("Installing FlagEmbedding and associated dependencies...")
 	installCmd := exec.Command(pythonCmd, "-m", "pip", "install", "--user", "-U", "FlagEmbedding", "torch", "transformers")
 	installCmd.Stdout = os.Stdout
 	installCmd.Stderr = os.Stderr
 
 	if err := installCmd.Run(); err != nil {
-		fmt.Printf("⚠️ Erreur lors de l'installation des dépendances Python: %v\n", err)
-		fmt.Println("Veuillez installer manuellement: pip install -U FlagEmbedding torch transformers")
+		fmt.Printf("⚠️ Error installing Python dependencies: %v\n", err)
+		fmt.Println("Please install manually: pip install -U FlagEmbedding torch transformers")
 	} else {
-		fmt.Println("✅ Dépendances Python installées avec succès!")
+		fmt.Println("✅ Python dependencies installed successfully!")
 	}
 }

@@ -8,21 +8,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRerankerOptionsDefaultValues vérifie que les valeurs par défaut sont correctes
+// TestRerankerOptionsDefaultValues checks that the default values are correct
 func TestRerankerOptionsDefaultValues(t *testing.T) {
-	// Obtenir les options par défaut
+	// Get the default options
 	options := DefaultRerankerOptions()
 
-	// Vérifier que les valeurs par défaut sont correctes
-	assert.Equal(t, 5, options.TopK, "La valeur par défaut pour TopK devrait être 5")
-	assert.Equal(t, 20, options.InitialK, "La valeur par défaut pour InitialK devrait être 20")
-	assert.Equal(t, float64(0.7), options.RerankerWeight, "La valeur par défaut pour RerankerWeight devrait être 0.7")
-	assert.Equal(t, float64(0.0), options.ScoreThreshold, "La valeur par défaut pour ScoreThreshold devrait être 0.0")
+	// Check that the default values are correct
+	assert.Equal(t, 5, options.TopK, "The default value for TopK should be 5")
+	assert.Equal(t, 20, options.InitialK, "The default value for InitialK should be 20")
+	assert.Equal(t, float64(0.7), options.RerankerWeight, "The default value for RerankerWeight should be 0.7")
+	assert.Equal(t, float64(0.0), options.ScoreThreshold, "The default value for ScoreThreshold should be 0.0")
 }
 
-// TestApplyTopKLimit teste que la limite TopK est correctement appliquée
+// TestApplyTopKLimit checks that the TopK limit is applied correctly
 func TestApplyTopKLimit(t *testing.T) {
-	// Créer des résultats déjà triés pour simuler la sortie avant application de TopK
+	// Create sorted results to simulate the output before applying TopK
 	testCases := []struct {
 		name     string
 		results  []RankedResult
@@ -45,7 +45,7 @@ func TestApplyTopKLimit(t *testing.T) {
 			name:     "HandlesTopKGreaterThanResults",
 			results:  createDummyRankedResults(15),
 			topK:     20,
-			expected: 15, // Ne peut pas retourner plus que ce qui existe
+			expected: 15, // Cannot return more than what exists
 		},
 		{
 			name:     "HandlesEmptyResults",
@@ -57,13 +57,13 @@ func TestApplyTopKLimit(t *testing.T) {
 			name:     "HandlesTopKZero",
 			results:  createDummyRankedResults(10),
 			topK:     0,
-			expected: 10, // Ne devrait pas limiter si TopK=0
+			expected: 10, // Should not limit if TopK=0
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Appliquer la limite TopK manuellement (reproduire la logique de Rerank)
+			// Apply the TopK limit manually (reproduce the logic of Rerank)
 			var limited []RankedResult
 			if tc.topK > 0 && len(tc.results) > tc.topK {
 				limited = tc.results[:tc.topK]
@@ -71,13 +71,13 @@ func TestApplyTopKLimit(t *testing.T) {
 				limited = tc.results
 			}
 
-			// Vérifier que le nombre est correct
-			assert.Equal(t, tc.expected, len(limited), "Le nombre de résultats devrait être limité à TopK si nécessaire")
+			// Check that the number is correct
+			assert.Equal(t, tc.expected, len(limited), "The number of results should be limited to TopK if necessary")
 		})
 	}
 }
 
-// createDummyRankedResults crée un ensemble de résultats factices pour les tests
+// createDummyRankedResults creates a set of dummy results for testing
 func createDummyRankedResults(count int) []RankedResult {
 	results := make([]RankedResult, count)
 
@@ -93,9 +93,9 @@ func createDummyRankedResults(count int) []RankedResult {
 	return results
 }
 
-// Reproduire la fonction de tri pour tester
+// Reproduce the sorting function to test
 func TestSortingByScore(t *testing.T) {
-	// Créer des résultats dans un ordre mélangé
+	// Create results in a mixed order
 	results := []RankedResult{
 		{FinalScore: 0.5},
 		{FinalScore: 0.9},
@@ -104,12 +104,12 @@ func TestSortingByScore(t *testing.T) {
 		{FinalScore: 0.1},
 	}
 
-	// Trier les résultats (même logique que dans Rerank)
+	// Sort the results (same logic as in Rerank)
 	// Sort by final score (descending)
 	sortedResults := make([]RankedResult, len(results))
 	copy(sortedResults, results)
 
-	// Tri par score final décroissant
+	// Sort by final score (descending)
 	for i := 0; i < len(sortedResults); i++ {
 		for j := i + 1; j < len(sortedResults); j++ {
 			if sortedResults[i].FinalScore < sortedResults[j].FinalScore {
@@ -118,13 +118,13 @@ func TestSortingByScore(t *testing.T) {
 		}
 	}
 
-	// Vérifier que les résultats sont triés correctement
+	// Check that the results are sorted correctly
 	for i := 1; i < len(sortedResults); i++ {
 		assert.GreaterOrEqual(t, sortedResults[i-1].FinalScore, sortedResults[i].FinalScore,
-			"Les résultats devraient être triés par score décroissant")
+			"The results should be sorted by descending score")
 	}
 
-	// Vérifier l'ordre exact
+	// Check the exact order
 	assert.Equal(t, float64(0.9), sortedResults[0].FinalScore)
 	assert.Equal(t, float64(0.7), sortedResults[1].FinalScore)
 	assert.Equal(t, float64(0.5), sortedResults[2].FinalScore)
@@ -132,12 +132,12 @@ func TestSortingByScore(t *testing.T) {
 	assert.Equal(t, float64(0.1), sortedResults[4].FinalScore)
 }
 
-// TestRerankerIntegration teste l'intégration du reranking dans le service RAG
+// TestRerankerIntegration checks the integration of reranking in the RAG service
 func TestRerankerIntegration(t *testing.T) {
-	// Ce test intégrera le reranking dans un service RAG complet
-	// Comme il nécessite des dépendances externes, il sera marqué comme un test d'intégration
-	t.Skip("Ce test nécessite une instance d'Ollama en cours d'exécution")
+	// This test will integrate reranking in a complete RAG service
+	// As it requires external dependencies, it will be marked as an integration test
+	t.Skip("This test requires an Ollama instance to be running")
 
-	// TODO: Implémenter un test d'intégration avec un vrai service RAG
-	// Cela peut être fait plus tard en utilisant les structs et fonctions existantes
+	// TODO: Implement an integration test with a real RAG service
+	// This can be done later by using the existing structs and functions
 }

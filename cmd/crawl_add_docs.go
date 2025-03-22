@@ -69,16 +69,16 @@ Control the crawling behavior with these flags:
 			return fmt.Errorf("error initializing web crawler: %w", err)
 		}
 
-		// Définir les options de crawling
+		// Define crawling options
 		webCrawler.SetUseSitemap(addCrawlUseSitemap)
 		webCrawler.SetSingleURLMode(addCrawlSingleURL)
 
-		// Si liste d'URLs spécifiques, la définir
+		// If specific URL list, define it
 		if len(addCrawlURLsList) > 0 {
 			webCrawler.SetURLsList(addCrawlURLsList)
 		}
 
-		// Afficher le mode de crawling
+		// Show the crawling mode
 		if len(addCrawlURLsList) > 0 {
 			fmt.Printf("URLs list mode: crawling %d specific URLs\n", len(addCrawlURLsList))
 		} else if addCrawlSingleURL {
@@ -103,7 +103,7 @@ Control the crawling behavior with these flags:
 
 		fmt.Printf("Retrieved %d pages from website. Processing content...\n", len(documents))
 
-		// Convertir []domain.Document en []*domain.Document
+		// Convert []domain.Document to []*domain.Document
 		var docPointers []*domain.Document
 		for i := range documents {
 			docPointers = append(docPointers, &documents[i])

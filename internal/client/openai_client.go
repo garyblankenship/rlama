@@ -12,14 +12,14 @@ import (
 	"github.com/dontizi/rlama/internal/repository"
 )
 
-// OpenAIClient est un client pour l'API OpenAI
+// OpenAIClient is a client for the OpenAI API
 type OpenAIClient struct {
 	BaseURL string
 	APIKey  string
 	Client  *http.Client
 }
 
-// OpenAICompletionRequest est la structure pour les requêtes de complétion à OpenAI
+// OpenAICompletionRequest is the structure for completion requests to OpenAI
 type OpenAICompletionRequest struct {
 	Model       string          `json:"model"`
 	Messages    []OpenAIMessage `json:"messages"`
@@ -27,13 +27,13 @@ type OpenAICompletionRequest struct {
 	MaxTokens   int             `json:"max_tokens,omitempty"`
 }
 
-// OpenAIMessage représente un message dans le format attendu par OpenAI
+// OpenAIMessage represents a message in the format expected by OpenAI
 type OpenAIMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-// OpenAICompletionResponse est la structure de la réponse de l'API OpenAI
+// OpenAICompletionResponse is the structure of the OpenAI API response
 type OpenAICompletionResponse struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
@@ -51,11 +51,11 @@ type OpenAICompletionResponse struct {
 	} `json:"usage"`
 }
 
-// NewOpenAIClient crée un nouveau client OpenAI
+// NewOpenAIClient creates a new OpenAI client
 func NewOpenAIClient() *OpenAIClient {
-	// Utiliser la clé API depuis l'environnement
+	// Use API key from environment
 	apiKey := os.Getenv("OPENAI_API_KEY")
-	
+
 	return &OpenAIClient{
 		BaseURL: "https://api.openai.com/v1",
 		APIKey:  apiKey,
@@ -63,12 +63,12 @@ func NewOpenAIClient() *OpenAIClient {
 	}
 }
 
-// NewOpenAIClientWithProfile crée un nouveau client OpenAI avec un profil spécifique
+// NewOpenAIClientWithProfile creates a new OpenAI client with a specific profile
 func NewOpenAIClientWithProfile(profileName string) (*OpenAIClient, error) {
-	// Créer un repository de profils
+	// Create a profile repository
 	profileRepo := repository.NewProfileRepository()
-	
-	// Si aucun profil n'est spécifié, utiliser la variable d'environnement
+
+	// If no profile is specified, use the environment variable
 	if profileName == "" {
 		apiKey := os.Getenv("OPENAI_API_KEY")
 		return &OpenAIClient{
@@ -77,22 +77,22 @@ func NewOpenAIClientWithProfile(profileName string) (*OpenAIClient, error) {
 			Client:  &http.Client{},
 		}, nil
 	}
-	
-	// Charger le profil spécifié
+
+	// Load the specified profile
 	profile, err := profileRepo.Load(profileName)
 	if err != nil {
 		return nil, fmt.Errorf("error loading profile '%s': %w", profileName, err)
 	}
-	
-	// Vérifier que c'est un profil OpenAI
+
+	// Check that it's an OpenAI profile
 	if profile.Provider != "openai" {
 		return nil, fmt.Errorf("profile '%s' is not an OpenAI profile", profileName)
 	}
-	
-	// Mettre à jour la date de dernière utilisation
+
+	// Update last used date
 	profile.LastUsedAt = time.Now()
 	profileRepo.Save(profile)
-	
+
 	return &OpenAIClient{
 		BaseURL: "https://api.openai.com/v1",
 		APIKey:  profile.APIKey,
@@ -100,13 +100,13 @@ func NewOpenAIClientWithProfile(profileName string) (*OpenAIClient, error) {
 	}, nil
 }
 
-// GenerateCompletion génère une réponse à partir d'un prompt avec OpenAI
+// GenerateCompletion generates a response from a prompt with OpenAI
 func (c *OpenAIClient) GenerateCompletion(model, prompt string) (string, error) {
 	if c.APIKey == "" {
 		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
 	}
 
-	// Construire la requête
+	// Build the request
 	reqBody := OpenAICompletionRequest{
 		Model: model,
 		Messages: []OpenAIMessage{
@@ -119,7 +119,7 @@ func (c *OpenAIClient) GenerateCompletion(model, prompt string) (string, error) 
 				Content: prompt,
 			},
 		},
-		Temperature: 0.7, // Valeur par défaut, peut être configurée
+		Temperature: 0.7, // Default value, can be configured
 	}
 
 	reqJSON, err := json.Marshal(reqBody)
@@ -127,53 +127,53 @@ func (c *OpenAIClient) GenerateCompletion(model, prompt string) (string, error) 
 		return "", err
 	}
 
-	// Créer la requête HTTP
+	// Create the HTTP request
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/chat/completions", c.BaseURL), bytes.NewBuffer(reqJSON))
 	if err != nil {
 		return "", err
 	}
 
-	// Ajouter les en-têtes nécessaires
+	// Add necessary headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.APIKey))
 
-	// Envoyer la requête
+	// Send the request
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	// Vérifier le code de statut
+	// Check status code
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
 		return "", fmt.Errorf("failed to generate completion: %s (status: %d)", string(bodyBytes), resp.StatusCode)
 	}
 
-	// Décoder la réponse
+	// Decode the response
 	var completionResp OpenAICompletionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&completionResp); err != nil {
 		return "", err
 	}
 
-	// Vérifier qu'il y a au moins un choix
+	// Check that there is at least one choice
 	if len(completionResp.Choices) == 0 {
 		return "", fmt.Errorf("no response generated")
 	}
 
-	// Retourner le contenu de la réponse
+	// Return the content of the response
 	return completionResp.Choices[0].Message.Content, nil
 }
 
-// CheckOpenAIAndModel vérifie si OpenAI est accessible et si le modèle est disponible
+// CheckOpenAIAndModel checks if OpenAI is accessible and if the model is available
 func (c *OpenAIClient) CheckOpenAIAndModel(modelName string) error {
 	if c.APIKey == "" {
 		return fmt.Errorf("⚠️ OPENAI_API_KEY environment variable not set.\n" +
 			"Please set your OpenAI API key before using OpenAI models.")
 	}
 
-	// On pourrait faire une vérification de la validité du modèle ici
-	// mais pour l'instant, on suppose que le modèle est valide si la clé API est définie
-	
+	// We could check the validity of the model here
+	// but for now, we assume the model is valid if the API key is set
+
 	return nil
-} 
+}

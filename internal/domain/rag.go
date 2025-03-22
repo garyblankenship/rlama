@@ -28,7 +28,7 @@ type RagSystem struct {
 	WebWatchInterval int             `json:"web_watch_interval,omitempty"` // In minutes
 	LastWebWatchAt   time.Time       `json:"last_web_watched_at,omitempty"`
 	WebWatchOptions  WebWatchOptions `json:"web_watch_options,omitempty"`
-	APIProfileName   string          `json:"api_profile_name,omitempty"`  // Nom du profil API à utiliser
+	APIProfileName   string          `json:"api_profile_name,omitempty"`  // Name of the API profile to use
 	ChunkingStrategy string          `json:"chunking_strategy,omitempty"` // Type of chunking strategy used
 	// Reranking settings
 	RerankerEnabled   bool    `json:"reranker_enabled,omitempty"`   // Whether to use reranking
@@ -76,7 +76,7 @@ func NewRagSystem(name, modelName string) *RagSystem {
 		Documents:       []*Document{},
 		Chunks:          []*DocumentChunk{},
 		RerankerEnabled: true,                      // Enable reranking by default
-		RerankerModel:   "BAAI/bge-reranker-v2-m3", // Utiliser BGE reranker par défaut
+		RerankerModel:   "BAAI/bge-reranker-v2-m3", // Use BGE reranker by default
 		RerankerWeight:  0.7,                       // Default: 70% reranker score, 30% vector similarity
 		RerankerTopK:    5,                         // Default: return only top 5 results after reranking
 	}
@@ -92,7 +92,7 @@ func (r *RagSystem) AddDocument(doc *Document) {
 	r.UpdatedAt = time.Now()
 }
 
-// GetDocumentByID récupère un document par son ID
+// GetDocumentByID retrieves a document by its ID
 func (r *RagSystem) GetDocumentByID(id string) *Document {
 	for _, doc := range r.Documents {
 		if doc.ID == id {

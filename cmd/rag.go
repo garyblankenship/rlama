@@ -60,11 +60,11 @@ OpenAI Models:
 		// Get Ollama client with configured host and port
 		ollamaClient := GetOllamaClient()
 
-		// Vérifier si c'est un modèle OpenAI
+		// Check if this is an OpenAI model
 		isOpenAIModel := client.IsOpenAIModel(modelName)
 
 		if isOpenAIModel {
-			// Pour les modèles OpenAI, vérifier le profil spécifié ou la clé API
+			// For OpenAI models, check the specified profile or API key
 			var openaiClient *client.OpenAIClient
 			var err error
 
@@ -165,14 +165,13 @@ func init() {
 	// Add profile option
 	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile name for OpenAI models")
 
-	// Ajoutez la logique pour utiliser le service de test si disponible
+	// Add logic to use the test service if available
 	if testService != nil {
-		// Utilisez le service de test
-		// Vous devrez adapter cela selon vos besoins
+		// Use the test service
 	}
 }
 
-// NewRagCommand retourne la commande rag
+// NewRagCommand returns the rag command
 func NewRagCommand() *cobra.Command {
 	return ragCmd
 }

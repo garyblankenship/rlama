@@ -22,9 +22,9 @@ type WebCrawler struct {
 	excludePaths []string
 	visited      map[string]bool
 	visitedMutex sync.Mutex
-	useSitemap   bool     // Option pour utiliser le sitemap
-	singleURL    bool     // Option pour ne traiter que l'URL spécifiée
-	urlsList     []string // Liste d'URLs personnalisée à crawler
+	useSitemap   bool     // Option to use sitemap
+	singleURL    bool     // Option to crawl only the specified URL
+	urlsList     []string // Custom list of URLs to crawl
 }
 
 // NewWebCrawler creates a new web crawler
@@ -41,9 +41,9 @@ func NewWebCrawler(urlStr string, maxDepth, concurrency int, excludePaths []stri
 		concurrency:  concurrency,
 		excludePaths: excludePaths,
 		visited:      make(map[string]bool),
-		useSitemap:   true,  // Par défaut, utiliser le sitemap si disponible
-		singleURL:    false, // Par défaut, faire du crawling normal
-		urlsList:     nil,   // Par défaut, pas de liste personnalisée
+		useSitemap:   true,  // By default, use sitemap if available
+		singleURL:    false, // By default, do normal crawling
+		urlsList:     nil,   // By default, no custom list
 	}, nil
 }
 
@@ -69,18 +69,18 @@ func isWebContent(urlStr string) bool {
 
 // CrawlWebsite crawls the website and returns the documents
 func (wc *WebCrawler) CrawlWebsite() ([]domain.Document, error) {
-	// Si mode URL unique, ne traiter que l'URL de base
+	// If single URL mode, only crawl the base URL
 	if wc.singleURL {
 		return wc.crawlSingleURL()
 	}
 
-	// Si liste d'URLs personnalisée, utiliser cette liste
+	// If custom list of URLs, use this list
 	if len(wc.urlsList) > 0 {
 		return wc.crawlURLsList()
 	}
 
-	// Sinon, comportement normal avec sitemap ou crawling standard
-	// Essayer d'abord de trouver un sitemap
+	// Otherwise, normal behavior with sitemap or standard crawling
+	// Try to find a sitemap first
 	if wc.useSitemap {
 		sitemapURLs := []string{
 			fmt.Sprintf("%s://%s/sitemap.xml", wc.baseURL.Scheme, wc.baseURL.Host),
@@ -97,7 +97,7 @@ func (wc *WebCrawler) CrawlWebsite() ([]domain.Document, error) {
 		fmt.Println("No sitemap found or error parsing sitemap, falling back to standard crawling")
 	}
 
-	// Si pas de sitemap ou option désactivée, continuer avec le crawling standard
+	// If no sitemap or option disabled, continue with standard crawling
 	return wc.crawlStandard()
 }
 
@@ -131,7 +131,7 @@ func (wc *WebCrawler) crawlURLsList() ([]domain.Document, error) {
 	errorChan := make(chan error, len(wc.urlsList))
 
 	for _, urlStr := range wc.urlsList {
-		// Vérifier si l'URL doit être exclue
+		// Check if the URL should be excluded
 		shouldExclude := false
 		for _, exclude := range wc.excludePaths {
 			if strings.Contains(urlStr, exclude) {
@@ -151,7 +151,7 @@ func (wc *WebCrawler) crawlURLsList() ([]domain.Document, error) {
 			defer wg.Done()
 			defer func() { <-semaphore }()
 
-			// Utiliser la fonction existante de crawling d'URL
+			// Use the existing URL crawling function
 			doc, err := wc.fetchAndParseURL(url)
 			if err != nil {
 				errorChan <- err
@@ -202,13 +202,13 @@ func (wc *WebCrawler) crawlStandard() ([]domain.Document, error) {
 			documents = append(documents, *doc)
 		}
 
-		// Ne pas crawler plus profond si on a atteint la profondeur maximale
+		// Don't crawl deeper if we've reached the maximum depth
 		urlDepth := strings.Count(url[len(wc.baseURL.String()):], "/")
 		if urlDepth >= wc.maxDepth {
 			continue
 		}
 
-		// Trouver les liens sur la page
+		// Find the links on the page
 		links, err := wc.extractLinks(url)
 		if err != nil {
 			fmt.Printf("Warning: Error extracting links from %s: %v\n", url, err)
@@ -241,18 +241,18 @@ func (wc *WebCrawler) extractLinks(urlStr string) ([]string, error) {
 			return
 		}
 
-		// Convertir en URL absolue
+		// Convert to absolute URL
 		absURL, err := wc.resolveURL(href)
 		if err != nil {
 			return
 		}
 
-		// Vérifier si l'URL est sur le même domaine
+		// Check if the URL is on the same domain
 		if !wc.isSameDomain(absURL) {
 			return
 		}
 
-		// Vérifier les exclusions
+		// Check the exclusions
 		for _, exclude := range wc.excludePaths {
 			if strings.Contains(absURL, exclude) {
 				return
@@ -345,7 +345,7 @@ func (wc *WebCrawler) fetchAndParseURL(urlStr string) (*domain.Document, error) 
 		title = urlStr
 	}
 
-	// Utiliser convertToMarkdown au lieu de extractMarkdownFromHTML
+	// Use convertToMarkdown instead of extractMarkdownFromHTML
 	content := wc.convertToMarkdown(doc)
 
 	document := &domain.Document{
@@ -412,7 +412,7 @@ func (wc *WebCrawler) parseSitemap(sitemapURL string) ([]string, error) {
 		return nil, fmt.Errorf("sitemap request returned status code %d", resp.StatusCode)
 	}
 
-	// Utiliser goquery pour parser le XML
+	// Use goquery to parse the XML
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return nil, err
@@ -420,7 +420,7 @@ func (wc *WebCrawler) parseSitemap(sitemapURL string) ([]string, error) {
 
 	var urls []string
 
-	// Trouver toutes les balises <loc> dans le sitemap
+	// Find all <loc> tags in the sitemap
 	doc.Find("url loc").Each(func(i int, s *goquery.Selection) {
 		url := strings.TrimSpace(s.Text())
 		if url != "" {
@@ -440,7 +440,7 @@ func (wc *WebCrawler) crawlURLsFromSitemap(urls []string) ([]domain.Document, er
 	errorChan := make(chan error, len(urls))
 
 	for _, urlStr := range urls {
-		// Vérifier si l'URL doit être exclue
+		// Check if the URL should be excluded
 		shouldExclude := false
 		for _, exclude := range wc.excludePaths {
 			if strings.Contains(urlStr, exclude) {
@@ -453,7 +453,7 @@ func (wc *WebCrawler) crawlURLsFromSitemap(urls []string) ([]domain.Document, er
 			continue
 		}
 
-		// Marquer comme visité
+		// Mark as visited
 		wc.visitedMutex.Lock()
 		wc.visited[urlStr] = true
 		wc.visitedMutex.Unlock()
@@ -465,7 +465,7 @@ func (wc *WebCrawler) crawlURLsFromSitemap(urls []string) ([]domain.Document, er
 			defer wg.Done()
 			defer func() { <-semaphore }()
 
-			// Utiliser la fonction existante de crawling d'URL
+			// Use the existing URL crawling function
 			doc, err := wc.fetchAndParseURL(url)
 			if err != nil {
 				errorChan <- err

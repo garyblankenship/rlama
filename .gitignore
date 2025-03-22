@@ -7,3 +7,6 @@ hook-executed.log
 rlama.exe
 *.exe
 tests/
+test-docs/
+go.mod
+go.sum

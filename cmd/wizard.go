@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Structure pour parser la sortie JSON d'Ollama list
+// Structure to parse the JSON output of Ollama list
 type OllamaModel struct {
 	Name       string `json:"name"`
 	Size       int64  `json:"size"`
@@ -25,7 +25,7 @@ type OllamaModel struct {
 }
 
 var (
-	// Variables pour le wizard local
+	// Variables for the local wizard
 	localWizardModel        string
 	localWizardName         string
 	localWizardPath         string
@@ -36,7 +36,8 @@ var (
 	localWizardProcessExts  []string
 )
 
-// Renommé pour éviter le conflit avec snowflake_wizard.go
+// Renamed to avoid conflict with snowflake_wizard.go
+
 var localWizardCmd = &cobra.Command{
 	Use:   "wizard",
 	Short: "Interactive wizard to create a local RAG",
@@ -55,34 +56,34 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			return fmt.Errorf("RAG name cannot be empty")
 		}
 
-		// Déclarer modelName au niveau de la fonction pour qu'il soit disponible partout
+		// Declare modelName at the function level so it's available everywhere
 		var modelName string
 
-		// Étape 2: Sélection du modèle
+		// Step 2: Model selection
 		fmt.Println("\nStep 2: Select a model")
 
-		// Récupérer la liste des modèles disponibles via la commande ollama list
+		// Get the list of available Ollama models via the ollama list command
 		fmt.Println("Retrieving available Ollama models...")
 
-		// Tester d'abord avec ollama list sans --json pour plus de compatibilité
-		// et capturer stderr pour le débogage
+		// First try with ollama list without --json for better compatibility
+		// and capture stderr for debugging
 		var stdout, stderr bytes.Buffer
 		ollamaCmd := exec.Command("ollama", "list")
 		ollamaCmd.Stdout = &stdout
 		ollamaCmd.Stderr = &stderr
 
-		// Configuration pour l'exécution de la commande
+		// Configuration for the command execution
 		ollamaHost := os.Getenv("OLLAMA_HOST")
 		if cmd.Flag("host").Changed {
 			ollamaHost = cmd.Flag("host").Value.String()
 		}
 
 		if ollamaHost != "" {
-			// Définir la variable d'environnement OLLAMA_HOST pour la commande
+			// Set the OLLAMA_HOST environment variable for the command
 			ollamaCmd.Env = append(os.Environ(), fmt.Sprintf("OLLAMA_HOST=%s", ollamaHost))
 		}
 
-		// Exécuter la commande
+		// Execute the command
 		err := ollamaCmd.Run()
 		if err != nil {
 			fmt.Println("❌ Failed to list Ollama models.")
@@ -93,16 +94,16 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			fmt.Println("Continuing without model list. You'll need to enter a model name manually.")
 		}
 
-		// Analyser la sortie de ollama list (format texte)
+		// Parse the output of ollama list (text format)
 		modelsOutput := stdout.String()
 		var modelNames []string
 
 		if modelsOutput != "" {
-			// Format typique:
+			// Typical format:
 			// NAME             ID            SIZE    MODIFIED
 			// llama3           xxx...xxx     4.7 GB  X days ago
 
-			// Ignorer la première ligne (en-têtes)
+			// Skip the first line (headers)
 			lines := strings.Split(modelsOutput, "\n")
 			for i, line := range lines {
 				if i == 0 || strings.TrimSpace(line) == "" {
@@ -115,37 +116,37 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				}
 			}
 
-			// Afficher les modèles dans notre format
+			// Display models in our format
 			if len(modelNames) > 0 {
 				fmt.Println("\nAvailable models:")
 				for i, name := range modelNames {
 					fmt.Printf("  %d. %s\n", i+1, name)
 				}
 
-				// Permettre à l'utilisateur de choisir un modèle
+				// Allow the user to choose a model
 				fmt.Print("\nChoose a model (number) or enter model name: ")
 				modelChoice, _ := reader.ReadString('\n')
 				modelChoice = strings.TrimSpace(modelChoice)
 
-				// Vérifier si l'utilisateur a entré un numéro
+				// Check if the user entered a number
 				var modelNumber int
-				modelName = "" // Initialiser ici aussi
+				modelName = "" // Initialize here too
 
 				if _, err := fmt.Sscanf(modelChoice, "%d", &modelNumber); err == nil {
-					// L'utilisateur a entré un numéro
+					// The user entered a number
 					if modelNumber > 0 && modelNumber <= len(modelNames) {
 						modelName = modelNames[modelNumber-1]
 					} else {
 						fmt.Println("Invalid selection. Please enter a valid model name manually.")
 					}
 				} else {
-					// L'utilisateur a entré un nom directement
+					// The user entered a name directly
 					modelName = modelChoice
 				}
 			}
 		}
 
-		// Si aucun modèle n'a été sélectionné, demander manuellement
+		// If no model was selected, ask manually
 		if modelName == "" {
 			fmt.Print("Enter model name [llama3]: ")
 			inputName, _ := reader.ReadString('\n')
@@ -157,7 +158,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			}
 		}
 
-		// Nouvelle Étape 3: Choisir entre documents locaux ou site web
+		// New Step 3: Choose between local documents or website
 		fmt.Println("\nStep 3: Choose document source")
 		fmt.Println("1. Local document folder")
 		fmt.Println("2. Crawl a website")
@@ -173,10 +174,10 @@ This makes it easy to set up a new RAG without remembering all command options.`
 		var useSitemap bool
 
 		if sourceChoice == "2" {
-			// Option crawler de site web
+			// Website crawler option
 			useWebCrawler = true
 
-			// Demander l'URL du site
+			// Ask for the website URL
 			fmt.Print("\nEnter website URL to crawl: ")
 			websiteURL, _ = reader.ReadString('\n')
 			websiteURL = strings.TrimSpace(websiteURL)
@@ -184,25 +185,25 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				return fmt.Errorf("website URL cannot be empty")
 			}
 
-			// Profondeur de crawling
+			// Maximum crawl depth
 			fmt.Print("Maximum crawl depth [2]: ")
 			depthStr, _ := reader.ReadString('\n')
 			depthStr = strings.TrimSpace(depthStr)
-			maxDepth = 2 // valeur par défaut
+			maxDepth = 2 // default value
 			if depthStr != "" {
 				fmt.Sscanf(depthStr, "%d", &maxDepth)
 			}
 
-			// Concurrence
+			// Concurrency
 			fmt.Print("Number of concurrent crawlers [5]: ")
 			concurrencyStr, _ := reader.ReadString('\n')
 			concurrencyStr = strings.TrimSpace(concurrencyStr)
-			concurrency = 5 // valeur par défaut
+			concurrency = 5 // default value
 			if concurrencyStr != "" {
 				fmt.Sscanf(concurrencyStr, "%d", &concurrency)
 			}
 
-			// Chemins à exclure
+			// Paths to exclude
 			fmt.Print("Paths to exclude (comma-separated): ")
 			excludePathsStr, _ := reader.ReadString('\n')
 			excludePathsStr = strings.TrimSpace(excludePathsStr)
@@ -213,9 +214,9 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				}
 			}
 
-			// Demander si l'utilisateur veut utiliser le sitemap
+			// Ask if the user wants to use the sitemap
 			useSitemapPrompt := &survey.Confirm{
-				Message: "Utiliser le sitemap.xml si disponible (recommandé pour une meilleure couverture) ?",
+				Message: "Use sitemap.xml if available (recommended for better coverage)?",
 				Default: true,
 			}
 			err = survey.AskOne(useSitemapPrompt, &useSitemap)
@@ -223,7 +224,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				return err
 			}
 		} else {
-			// Option dossier local (code existant)
+			// Option local folder (existing code)
 			useWebCrawler = false
 
 			fmt.Print("\nEnter path to document folder: ")
@@ -234,10 +235,10 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			}
 		}
 
-		// Étape 4: Options de chunking
+		// Step 4: Chunking options
 		fmt.Println("\nStep 4: Chunking options")
 
-		// Ajout de la sélection de stratégie de chunking
+		// Add chunking strategy selection
 		fmt.Println("\nChunking strategies:")
 		fmt.Println("  auto     - Automatically selects the best strategy for each document")
 		fmt.Println("  fixed    - Splits text into fixed-size chunks")
@@ -269,7 +270,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			fmt.Sscanf(overlapStr, "%d", &overlap)
 		}
 
-		// Étape 5: Filtrer les fichiers (optionnel)
+		// Step 5: File filtering (optional)
 		fmt.Println("\nStep 5: File filtering (optional)")
 
 		fmt.Print("Exclude directories (comma-separated): ")
@@ -305,7 +306,7 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			}
 		}
 
-		// Étape 6: Confirmation et création
+		// Step 6: Confirmation and creation
 		fmt.Println("\nStep 6: Review and create")
 		fmt.Println("RAG configuration:")
 		fmt.Printf("- Name: %s\n", ragName)
@@ -344,37 +345,37 @@ This makes it easy to set up a new RAG without remembering all command options.`
 			return nil
 		}
 
-		// Créer le RAG
+		// Create the RAG
 		fmt.Println("\nCreating RAG...")
 
-		// Obtenir le client Ollama configuré
+		// Get the configured Ollama client
 		ollamaClient := GetOllamaClient()
 
-		// Vérifier que le modèle est disponible avant de continuer
-		// Cette étape est importante pour éviter les erreurs plus tard
+		// Check that the model is available before continuing
+		// This step is important to avoid errors later
 		fmt.Printf("Checking if model '%s' is available...\n", modelName)
 		err = ollamaClient.CheckOllamaAndModel(modelName)
 		if err != nil {
 			return fmt.Errorf("model '%s' is not available: %w", modelName, err)
 		}
 
-		// Utiliser RagService pour créer le RAG
+		// Use RagService to create the RAG
 		ragService := service.NewRagService(ollamaClient)
 
 		if useWebCrawler {
-			// Utiliser le crawler
+			// Use the crawler
 			fmt.Printf("\nCrawling website '%s'...\n", websiteURL)
 
-			// Créer le crawler
+			// Create the crawler
 			webCrawler, err := crawler.NewWebCrawler(websiteURL, maxDepth, concurrency, excludePaths)
 			if err != nil {
 				return fmt.Errorf("error initializing web crawler: %w", err)
 			}
 
-			// Définir l'option de sitemap
+			// Set the sitemap option
 			webCrawler.SetUseSitemap(useSitemap)
 
-			// Démarrer le crawling
+			// Start the crawling
 			documents, err := webCrawler.CrawlWebsite()
 			if err != nil {
 				return fmt.Errorf("error crawling website: %w", err)
@@ -386,19 +387,19 @@ This makes it easy to set up a new RAG without remembering all command options.`
 
 			fmt.Printf("Retrieved %d pages from website. Processing content...\n", len(documents))
 
-			// Convertir les documents en pointeurs avant d'appeler createTempDirForDocuments
+			// Convert documents to pointers before calling createTempDirForDocuments
 			var docPointers []*domain.Document
 			for i := range documents {
 				docPointers = append(docPointers, &documents[i])
 			}
 
-			// Créer un répertoire temporaire pour les documents
+			// Create a temporary directory for the documents
 			tempDir := createTempDirForDocuments(docPointers)
 			if tempDir != "" {
 				defer cleanupTempDir(tempDir)
 			}
 
-			// Options pour le chargeur de documents
+			// Options for the document loader
 			loaderOptions := service.DocumentLoaderOptions{
 				ChunkSize:        chunkSize,
 				ChunkOverlap:     overlap,
@@ -406,13 +407,13 @@ This makes it easy to set up a new RAG without remembering all command options.`
 				EnableReranker:   true,
 			}
 
-			// Créer le RAG
+			// Create the RAG
 			err = ragService.CreateRagWithOptions(modelName, ragName, tempDir, loaderOptions)
 			if err != nil {
 				return err
 			}
 		} else {
-			// Utiliser le dossier local (code existant)
+			// Use the local folder (existing code)
 			loaderOptions := service.DocumentLoaderOptions{
 				ExcludeDirs:      excludeDirs,
 				ExcludeExts:      excludeExts,

@@ -10,8 +10,8 @@ import (
 
 var updateRerankerCmd = &cobra.Command{
 	Use:   "update-reranker [rag-name]",
-	Short: "Met à jour le modèle de reranking d'un RAG existant",
-	Long:  `Configure un RAG existant pour utiliser le modèle BGE Reranker par défaut.`,
+	Short: "Updates the reranking model of an existing RAG",
+	Long:  `Configures an existing RAG to use the default BGE Reranker model.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		updateReranker(args[0])
@@ -23,16 +23,16 @@ func init() {
 }
 
 func updateReranker(ragName string) {
-	// Charger le service RAG
+	// Load the RAG service
 	ollamaClient := client.NewDefaultOllamaClient()
 	ragService := service.NewRagService(ollamaClient)
 
-	// Mettre à jour le modèle de reranking
+	// Update the reranking model
 	err := ragService.UpdateRerankerModel(ragName, "BAAI/bge-reranker-v2-m3")
 	if err != nil {
-		fmt.Printf("Erreur lors de la mise à jour du modèle de reranking: %v\n", err)
+		fmt.Printf("Error updating the reranking model: %v\n", err)
 		return
 	}
 
-	fmt.Printf("✅ RAG '%s' mis à jour pour utiliser le modèle BGE Reranker.\n", ragName)
+	fmt.Printf("✅ RAG '%s' updated to use the BGE Reranker model.\n", ragName)
 }

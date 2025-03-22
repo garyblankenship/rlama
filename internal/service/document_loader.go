@@ -23,8 +23,8 @@ type DocumentLoaderOptions struct {
 	ProcessExts      []string
 	ChunkSize        int
 	ChunkOverlap     int
-	ChunkingStrategy string  // Stratégie de chunking: "fixed", "semantic", "hybrid", "hierarchical"
-	APIProfileName   string  // Nom du profil API à utiliser
+	ChunkingStrategy string  // Chunking strategy: "fixed", "semantic", "hybrid", "hierarchical"
+	APIProfileName   string  // Name of the API profile to use
 	EnableReranker   bool    // Whether to enable reranking - now true by default
 	RerankerModel    string  // Model to use for reranking
 	RerankerWeight   float64 // Weight for reranker scores (0-1)
