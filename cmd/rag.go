@@ -10,17 +10,18 @@ import (
 )
 
 var (
-	excludeDirs        []string
-	excludeExts        []string
-	processExts        []string
-	chunkSize          int
-	chunkOverlap       int
-	chunkingStrategy   string
-	profileName        string
-	ragDisableReranker bool
-	ragRerankerModel   string
-	ragRerankerWeight  float64
-	testService        interface{} // Pour les tests
+	excludeDirs          []string
+	excludeExts          []string
+	processExts          []string
+	chunkSize            int
+	chunkOverlap         int
+	chunkingStrategy     string
+	profileName          string
+	ragDisableReranker   bool
+	ragRerankerModel     string
+	ragRerankerWeight    float64
+	ragRerankerThreshold float64
+	testService          interface{} // Pour les tests
 )
 
 var ragCmd = &cobra.Command{
@@ -139,6 +140,24 @@ OpenAI Models:
 			return err
 		}
 
+		// Set reranker threshold if specified
+		if cmd.Flags().Changed("reranker-threshold") {
+			// Load the RAG that was just created
+			rag, err := ragService.LoadRag(ragName)
+			if err != nil {
+				return fmt.Errorf("error setting reranker threshold: %w", err)
+			}
+
+			// Set the threshold
+			rag.RerankerThreshold = ragRerankerThreshold
+
+			// Save the updated RAG
+			err = ragService.UpdateRag(rag)
+			if err != nil {
+				return fmt.Errorf("error updating reranker threshold: %w", err)
+			}
+		}
+
 		fmt.Printf("RAG '%s' created successfully.\n", ragName)
 		return nil
 	},
@@ -156,11 +175,13 @@ func init() {
 	ragCmd.Flags().IntVar(&chunkSize, "chunk-size", 1000, "Character count per chunk")
 	ragCmd.Flags().IntVar(&chunkOverlap, "chunk-overlap", 200, "Overlap between chunks in characters")
 	ragCmd.Flags().StringVar(&chunkingStrategy, "chunking", "hybrid", "Chunking strategy (options: fixed, semantic, hybrid, hierarchical)")
+	ragCmd.Flags().StringVar(&chunkingStrategy, "chunking-strategy", "hybrid", "Chunking strategy (options: fixed, semantic, hybrid, hierarchical)")
 
 	// Add reranking options - now with a flag to disable it instead
 	ragCmd.Flags().BoolVar(&ragDisableReranker, "disable-reranker", false, "Disable reranking (enabled by default)")
 	ragCmd.Flags().StringVar(&ragRerankerModel, "reranker-model", "", "Model to use for reranking (defaults to main model)")
 	ragCmd.Flags().Float64Var(&ragRerankerWeight, "reranker-weight", 0.7, "Weight for reranker scores vs vector scores (0-1)")
+	ragCmd.Flags().Float64Var(&ragRerankerThreshold, "reranker-threshold", 0.0, "Minimum score threshold for reranked results")
 
 	// Add profile option
 	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile name for OpenAI models")
