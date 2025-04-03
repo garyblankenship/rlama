@@ -13,15 +13,19 @@ import (
 )
 
 var (
-	crawlMaxDepth         int
-	crawlConcurrency      int
-	crawlExcludePaths     []string
-	crawlUseSitemap       bool
-	crawlSingleURL        bool
-	crawlURLsList         []string
-	crawlChunkSize        int
-	crawlChunkOverlap     int
-	crawlChunkingStrategy string
+	crawlMaxDepth          int
+	crawlConcurrency       int
+	crawlExcludePaths      []string
+	crawlUseSitemap        bool
+	crawlSingleURL         bool
+	crawlURLsList          []string
+	crawlChunkSize         int
+	crawlChunkOverlap      int
+	crawlChunkingStrategy  string
+	crawlDisableReranker   bool
+	crawlRerankerThreshold float64
+	crawlRerankerWeight    float64
+	crawlRerankerModel     string
 )
 
 var crawlRagCmd = &cobra.Command{
@@ -106,6 +110,9 @@ You can exclude certain paths and control other crawling parameters:
 			ChunkSize:        crawlChunkSize,
 			ChunkOverlap:     crawlChunkOverlap,
 			ChunkingStrategy: crawlChunkingStrategy,
+			EnableReranker:   !crawlDisableReranker,
+			RerankerWeight:   crawlRerankerWeight,
+			RerankerModel:    crawlRerankerModel,
 		}
 
 		// Create temporary directory to store crawled content
@@ -128,6 +135,24 @@ You can exclude certain paths and control other crawling parameters:
 			return err
 		}
 
+		// Set reranker threshold if specified
+		if cmd.Flags().Changed("reranker-threshold") {
+			// Load the RAG that was just created
+			rag, err := ragService.LoadRag(ragName)
+			if err != nil {
+				return fmt.Errorf("error setting reranker threshold: %w", err)
+			}
+
+			// Set the threshold
+			rag.RerankerThreshold = crawlRerankerThreshold
+
+			// Save the updated RAG
+			err = ragService.UpdateRag(rag)
+			if err != nil {
+				return fmt.Errorf("error updating reranker threshold: %w", err)
+			}
+		}
+
 		fmt.Printf("RAG '%s' created successfully with content from %s.\n", ragName, websiteURL)
 
 		return nil
@@ -147,6 +172,12 @@ func init() {
 	crawlRagCmd.Flags().BoolVar(&crawlUseSitemap, "use-sitemap", true, "Use sitemap.xml if available for comprehensive coverage")
 	crawlRagCmd.Flags().BoolVar(&crawlSingleURL, "single-url", false, "Process only the specified URL without following links")
 	crawlRagCmd.Flags().StringSliceVar(&crawlURLsList, "urls-list", nil, "Provide a comma-separated list of specific URLs to crawl")
+
+	// Add reranker flags
+	crawlRagCmd.Flags().BoolVar(&crawlDisableReranker, "disable-reranker", false, "Disable reranking (enabled by default)")
+	crawlRagCmd.Flags().Float64Var(&crawlRerankerThreshold, "reranker-threshold", 0.0, "Minimum score threshold for reranked results")
+	crawlRagCmd.Flags().Float64Var(&crawlRerankerWeight, "reranker-weight", 0.7, "Weight for reranker scores vs vector scores (0-1)")
+	crawlRagCmd.Flags().StringVar(&crawlRerankerModel, "reranker-model", "", "Model to use for reranking (defaults to main model)")
 }
 
 // Helper function to create a temporary directory and save crawled documents as files
