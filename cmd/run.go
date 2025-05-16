@@ -29,12 +29,15 @@ var runCmd = &cobra.Command{
 	Short: "Run a RAG system",
 	Long: `Run a previously created RAG system. 
 Starts an interactive session to interact with the RAG system.
-Example: rlama run rag1`,
+Example: rlama run rag1
+
+If the --prompt flag is provided with a value, the command will run non-interactively,
+process the given prompt, print the answer, and then exit.
+Example: rlama run rag1 --prompt "What is RLAMA?"`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
 
-		// Get Ollama client with configured host and port
 		ollamaClient := GetOllamaClient()
 		if err := ollamaClient.CheckOllamaAndModel(""); err != nil {
 			return err
@@ -47,6 +50,51 @@ Example: rlama run rag1`,
 		}
 
 		fmt.Printf("RAG '%s' loaded. Model: %s\n", rag.Name, rag.ModelName)
+
+		// Check if a non-interactive prompt is provided
+		questionFromFlag := strings.TrimSpace(promptTemplate) // promptTemplate is bound to --prompt
+
+		if questionFromFlag != "" {
+			// Non-interactive mode
+			fmt.Printf("Processing non-interactive prompt: \"%s\"\n", questionFromFlag)
+
+			fmt.Println("\nSearching documents for relevant information...")
+			checkWatchedResources(rag, ragService)
+
+			if showContext {
+				embeddingService := service.NewEmbeddingService(ollamaClient)
+				queryEmbedding, errEmb := embeddingService.GenerateQueryEmbedding(questionFromFlag, rag.ModelName)
+				if errEmb != nil {
+					fmt.Printf("Error generating embedding: %s\n", errEmb)
+				} else {
+					results := rag.HybridStore.Search(queryEmbedding, contextSize)
+					fmt.Printf("\n--- Debug: Retrieved %d chunks ---\n", len(results))
+					for i, result := range results {
+						chunk := rag.GetChunkByID(result.ID)
+						if chunk != nil {
+							fmt.Printf("%d. [Score: %.4f] %s\n", i+1, result.Score, chunk.GetMetadataString())
+							if i < 3 { // Show content for top 3 chunks
+								fmt.Printf("   Preview: %s\n", truncateString(chunk.Content, 100))
+							}
+						}
+					}
+					fmt.Println("--- End Debug ---")
+				}
+			}
+
+			answer, errQuery := ragService.Query(rag, questionFromFlag, contextSize)
+			if errQuery != nil {
+				// For non-interactive, return the error to indicate failure
+				return fmt.Errorf("error querying RAG: %w", errQuery)
+			}
+
+			fmt.Println("\n--- Answer ---")
+			fmt.Println(answer)
+			fmt.Println()
+			return nil // Exit after processing the single prompt
+		}
+
+		// Interactive mode (original behavior)
 		if showContext {
 			fmt.Printf("Debug info: RAG contains %d documents and %d total chunks\n",
 				len(rag.Documents), len(rag.Chunks))
