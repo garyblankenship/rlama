@@ -12,8 +12,9 @@ import (
 
 // EmbeddingService manages the generation of embeddings for documents
 type EmbeddingService struct {
-	llmClient  client.LLMClient
-	maxWorkers int // Number of parallel workers for embedding generation
+	llmClient          client.LLMClient
+	maxWorkers         int    // Number of parallel workers for embedding generation
+	preferredEmbedding string // Preferred embedding model to try first
 }
 
 // NewEmbeddingService creates a new instance of EmbeddingService
@@ -37,14 +38,31 @@ func (es *EmbeddingService) SetMaxWorkers(workers int) {
 	es.maxWorkers = workers
 }
 
+// GetLLMClient returns the underlying LLM client
+func (es *EmbeddingService) GetLLMClient() client.LLMClient {
+	return es.llmClient
+}
+
+// SetPreferredEmbeddingModel sets the preferred embedding model to try first
+func (es *EmbeddingService) SetPreferredEmbeddingModel(model string) {
+	es.preferredEmbedding = model
+}
+
 // GenerateEmbeddings generates embeddings for a list of documents
 func (es *EmbeddingService) GenerateEmbeddings(docs []*domain.Document, modelName string) error {
-	// Try to use snowflake-arctic-embed2 for embeddings first
-	embeddingModel := "snowflake-arctic-embed2"
+	// Determine which embedding model to try first
+	var embeddingModel string
+	if es.preferredEmbedding != "" {
+		embeddingModel = es.preferredEmbedding
+		fmt.Printf("Using preferred embedding model: %s\n", embeddingModel)
+	} else {
+		embeddingModel = "snowflake-arctic-embed2"
+		fmt.Printf("Using default embedding model: %s\n", embeddingModel)
+	}
 	
 	// Process all documents
 	for _, doc := range docs {
-		// Generate embedding with snowflake-arctic-embed2 first
+		// Generate embedding with the preferred/default model first
 		embedding, err := es.llmClient.GenerateEmbedding(embeddingModel, doc.Content)
 		
 		// If snowflake-arctic-embed2 fails, try to pull it automatically (Ollama only)
@@ -83,10 +101,15 @@ func (es *EmbeddingService) GenerateEmbeddings(docs []*domain.Document, modelNam
 
 // GenerateQueryEmbedding generates an embedding for a query
 func (es *EmbeddingService) GenerateQueryEmbedding(query string, modelName string) ([]float32, error) {
-	// Try to use snowflake-arctic-embed2 for embeddings first
-	embeddingModel := "snowflake-arctic-embed2"
+	// Determine which embedding model to try first
+	var embeddingModel string
+	if es.preferredEmbedding != "" {
+		embeddingModel = es.preferredEmbedding
+	} else {
+		embeddingModel = "snowflake-arctic-embed2"
+	}
 	
-	// Generate embedding with snowflake-arctic-embed2
+	// Generate embedding with the preferred/default model
 	embedding, err := es.llmClient.GenerateEmbedding(embeddingModel, query)
 	
 	// If snowflake-arctic-embed2 fails, try to pull it (but only if not already tried)
@@ -119,8 +142,13 @@ func (es *EmbeddingService) GenerateQueryEmbedding(query string, modelName strin
 
 // GenerateChunkEmbeddings generates embeddings for document chunks in parallel
 func (es *EmbeddingService) GenerateChunkEmbeddings(chunks []*domain.DocumentChunk, modelName string) error {
-	// Try to use snowflake-arctic-embed2 for embeddings first
-	embeddingModel := "snowflake-arctic-embed2"
+	// Determine which embedding model to try first
+	var embeddingModel string
+	if es.preferredEmbedding != "" {
+		embeddingModel = es.preferredEmbedding
+	} else {
+		embeddingModel = "snowflake-arctic-embed2"
+	}
 	
 	// Create a wait group to synchronize goroutines
 	var wg sync.WaitGroup

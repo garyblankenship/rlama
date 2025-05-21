@@ -21,6 +21,7 @@ type RagService interface {
 	UpdateRerankerModel(ragName string, model string) error
 	ListAllRags() ([]string, error)
 	GetOllamaClient() *client.OllamaClient
+	SetPreferredEmbeddingModel(model string)
 	// Directory watching methods
 	SetupDirectoryWatching(ragName string, dirPath string, watchInterval int, options DocumentLoaderOptions) error
 	DisableDirectoryWatching(ragName string) error
@@ -63,10 +64,6 @@ func NewRagService(ollamaClient *client.OllamaClient) RagService {
 
 // NewRagServiceWithClient creates a new instance of RagService with the specified LLM client
 func NewRagServiceWithClient(llmClient client.LLMClient, ollamaClient *client.OllamaClient) RagService {
-	if ollamaClient == nil {
-		ollamaClient = client.NewDefaultOllamaClient()
-	}
-
 	return &RagServiceImpl{
 		documentLoader:   NewDocumentLoader(),
 		embeddingService: NewEmbeddingService(llmClient),
@@ -96,11 +93,38 @@ func (rs *RagServiceImpl) GetOllamaClient() *client.OllamaClient {
 	return rs.ollamaClient
 }
 
+// SetPreferredEmbeddingModel sets the preferred embedding model to use
+func (rs *RagServiceImpl) SetPreferredEmbeddingModel(model string) {
+	rs.embeddingService.SetPreferredEmbeddingModel(model)
+}
+
 // CreateRagWithOptions creates a new RAG system with options
 func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath string, options DocumentLoaderOptions) error {
-	// Check if Ollama is available
-	if err := rs.ollamaClient.CheckOllamaAndModel(modelName); err != nil {
-		return err
+	// Check if model is available using the correct client
+	// The embedding service has the right LLM client (OpenAI or Ollama)
+	fmt.Printf("🔍 Debug: Checking model availability for '%s'\n", modelName)
+	if rs.embeddingService != nil {
+		llmClient := rs.embeddingService.GetLLMClient()
+		if llmClient != nil {
+			fmt.Printf("✓ Using embedding service LLM client for validation\n")
+			if err := llmClient.CheckLLMAndModel(modelName); err != nil {
+				fmt.Printf("❌ Model validation failed: %v\n", err)
+				return err
+			}
+			fmt.Printf("✓ Model validation successful\n")
+		} else {
+			fmt.Printf("⚠️ Embedding service has no LLM client, falling back to Ollama\n")
+			// Fallback to Ollama client if embedding service doesn't have a client
+			if err := rs.ollamaClient.CheckOllamaAndModel(modelName); err != nil {
+				return err
+			}
+		}
+	} else {
+		fmt.Printf("⚠️ No embedding service, falling back to Ollama\n")
+		// Fallback to Ollama client if embedding service is not properly configured
+		if err := rs.ollamaClient.CheckOllamaAndModel(modelName); err != nil {
+			return err
+		}
 	}
 
 	// Check if the RAG already exists
@@ -189,6 +213,12 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 	fmt.Printf("Generated %d chunks from %d documents. Generating embeddings...\n",
 		len(allChunks), len(docs))
 
+	// Set preferred embedding model if specified
+	if options.EmbeddingModel != "" {
+		rs.embeddingService.SetPreferredEmbeddingModel(options.EmbeddingModel)
+		fmt.Printf("Set preferred embedding model to: %s\n", options.EmbeddingModel)
+	}
+
 	// Generate embeddings for all chunks
 	err = rs.embeddingService.GenerateChunkEmbeddings(allChunks, modelName)
 	if err != nil {
@@ -244,21 +274,10 @@ func (rs *RagServiceImpl) LoadRag(ragName string) (*domain.RagSystem, error) {
 
 // Query performs a query on a RAG system
 func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize int) (string, error) {
-	// Check if Ollama is available
-	var llmClient client.LLMClient
+	// Use the embedding service's LLM client for consistency
+	llmClient := rs.embeddingService.GetLLMClient()
 
-	// Determine which client to use based on the model
-	if client.IsOpenAIModel(rag.ModelName) {
-		// For OpenAI, use the specified profile or default
-		openAIClient, err := client.NewOpenAIClientWithProfile(rag.APIProfileName)
-		if err != nil {
-			return "", err
-		}
-		llmClient = openAIClient
-	} else {
-		llmClient = rs.ollamaClient
-	}
-
+	// The embedding service already has the right client configured
 	if err := llmClient.CheckLLMAndModel(rag.ModelName); err != nil {
 		return "", err
 	}
