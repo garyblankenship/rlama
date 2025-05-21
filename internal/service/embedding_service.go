@@ -12,18 +12,18 @@ import (
 
 // EmbeddingService manages the generation of embeddings for documents
 type EmbeddingService struct {
-	ollamaClient *client.OllamaClient
-	maxWorkers   int // Number of parallel workers for embedding generation
+	llmClient  client.LLMClient
+	maxWorkers int // Number of parallel workers for embedding generation
 }
 
 // NewEmbeddingService creates a new instance of EmbeddingService
-func NewEmbeddingService(ollamaClient *client.OllamaClient) *EmbeddingService {
-	if ollamaClient == nil {
-		ollamaClient = client.NewDefaultOllamaClient()
+func NewEmbeddingService(llmClient client.LLMClient) *EmbeddingService {
+	if llmClient == nil {
+		llmClient = client.NewDefaultOllamaClient()
 	}
 	return &EmbeddingService{
-		ollamaClient: ollamaClient,
-		maxWorkers:   3, // Default to 3 workers
+		llmClient:  llmClient,
+		maxWorkers: 3, // Default to 3 workers
 	}
 }
 
@@ -45,25 +45,30 @@ func (es *EmbeddingService) GenerateEmbeddings(docs []*domain.Document, modelNam
 	// Process all documents
 	for _, doc := range docs {
 		// Generate embedding with snowflake-arctic-embed2 first
-		embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, doc.Content)
+		embedding, err := es.llmClient.GenerateEmbedding(embeddingModel, doc.Content)
 		
-		// If snowflake-arctic-embed2 fails, try to pull it automatically
+		// If snowflake-arctic-embed2 fails, try to pull it automatically (Ollama only)
 		if err != nil {
 			fmt.Printf("⚠️ Could not use %s for embeddings: %v\n", embeddingModel, err)
 			
-			// Attempt to pull the embedding model automatically
-			fmt.Printf("Attempting to pull %s automatically...\n", embeddingModel)
-			pullErr := es.pullEmbeddingModel(embeddingModel)
+			// Attempt to pull the embedding model automatically (only for Ollama clients)
+			var pullErr error
+			if _, isOllama := es.llmClient.(*client.OllamaClient); isOllama {
+				fmt.Printf("Attempting to pull %s automatically...\n", embeddingModel)
+				pullErr = es.pullEmbeddingModel(embeddingModel)
+			} else {
+				pullErr = fmt.Errorf("model pulling not supported for this client type")
+			}
 			
 			if pullErr == nil {
 				// Try again with the pulled model
-				embedding, err = es.ollamaClient.GenerateEmbedding(embeddingModel, doc.Content)
+				embedding, err = es.llmClient.GenerateEmbedding(embeddingModel, doc.Content)
 			}
 			
 			// If pulling failed or embedding still fails, fallback to the specified model
 			if pullErr != nil || err != nil {
 				fmt.Printf("Falling back to %s for embeddings.\n", modelName)
-				embedding, err = es.ollamaClient.GenerateEmbedding(modelName, doc.Content)
+				embedding, err = es.llmClient.GenerateEmbedding(modelName, doc.Content)
 				if err != nil {
 					return fmt.Errorf("error generating embedding for %s: %w", doc.Path, err)
 				}
@@ -82,22 +87,27 @@ func (es *EmbeddingService) GenerateQueryEmbedding(query string, modelName strin
 	embeddingModel := "snowflake-arctic-embed2"
 	
 	// Generate embedding with snowflake-arctic-embed2
-	embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, query)
+	embedding, err := es.llmClient.GenerateEmbedding(embeddingModel, query)
 	
 	// If snowflake-arctic-embed2 fails, try to pull it (but only if not already tried)
 	if err != nil {
 		// We don't need to show the warning again if already shown in GenerateEmbeddings
-		// Attempt to pull the model (this is a no-op if we already tried)
-		pullErr := es.pullEmbeddingModel(embeddingModel)
+		// Attempt to pull the model (this is a no-op if we already tried, and only for Ollama)
+		var pullErr error
+		if _, isOllama := es.llmClient.(*client.OllamaClient); isOllama {
+			pullErr = es.pullEmbeddingModel(embeddingModel)
+		} else {
+			pullErr = fmt.Errorf("model pulling not supported for this client type")
+		}
 		
 		if pullErr == nil {
 			// Try again with the pulled model
-			embedding, err = es.ollamaClient.GenerateEmbedding(embeddingModel, query)
+			embedding, err = es.llmClient.GenerateEmbedding(embeddingModel, query)
 		}
 		
 		// If pulling failed or embedding still fails, fallback to the specified model
 		if pullErr != nil || err != nil {
-			embedding, err = es.ollamaClient.GenerateEmbedding(modelName, query)
+			embedding, err = es.llmClient.GenerateEmbedding(modelName, query)
 			if err != nil {
 				return nil, fmt.Errorf("error generating embedding for query: %w", err)
 			}
@@ -143,7 +153,7 @@ func (es *EmbeddingService) GenerateChunkEmbeddings(chunks []*domain.DocumentChu
 			defer func() { <-semaphore }()
 			
 			// Generate embedding
-			embedding, err := es.ollamaClient.GenerateEmbedding(embeddingModel, ch.Content)
+			embedding, err := es.llmClient.GenerateEmbedding(embeddingModel, ch.Content)
 			
 			// If the model fails and we haven't checked it yet
 			if err != nil {
@@ -155,12 +165,18 @@ func (es *EmbeddingService) GenerateChunkEmbeddings(chunks []*domain.DocumentChu
 				if shouldCheck {
 					// Only print the warning and attempt to pull once
 					fmt.Printf("\n⚠️ Could not use %s for embeddings: %v\n", embeddingModel, err)
-					fmt.Printf("Attempting to pull %s automatically...\n", embeddingModel)
-					pullErr := es.pullEmbeddingModel(embeddingModel)
+					
+					var pullErr error
+					if _, isOllama := es.llmClient.(*client.OllamaClient); isOllama {
+						fmt.Printf("Attempting to pull %s automatically...\n", embeddingModel)
+						pullErr = es.pullEmbeddingModel(embeddingModel)
+					} else {
+						pullErr = fmt.Errorf("model pulling not supported for this client type")
+					}
 					
 					if pullErr == nil {
 						// Try again with the pulled model
-						embedding, err = es.ollamaClient.GenerateEmbedding(embeddingModel, ch.Content)
+						embedding, err = es.llmClient.GenerateEmbedding(embeddingModel, ch.Content)
 					}
 					
 					if pullErr != nil || err != nil {
@@ -170,7 +186,7 @@ func (es *EmbeddingService) GenerateChunkEmbeddings(chunks []*domain.DocumentChu
 				
 				// Use the specified model instead if the embedding model failed
 				if err != nil {
-					embedding, err = es.ollamaClient.GenerateEmbedding(modelName, ch.Content)
+					embedding, err = es.llmClient.GenerateEmbedding(modelName, ch.Content)
 					if err != nil {
 						errorChan <- fmt.Errorf("error generating embedding for chunk %s: %w", ch.ID, err)
 						return

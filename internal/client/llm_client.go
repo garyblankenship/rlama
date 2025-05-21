@@ -3,6 +3,7 @@ package client
 // LLMClient is a common interface for language model clients
 type LLMClient interface {
 	GenerateCompletion(model, prompt string) (string, error)
+	GenerateEmbedding(model, text string) ([]float32, error)
 	CheckLLMAndModel(modelName string) error
 }
 
@@ -47,4 +48,27 @@ func GetLLMClient(modelName string, ollamaClient *OllamaClient) LLMClient {
 		return NewOpenAIClient()
 	}
 	return ollamaClient
+}
+
+// GetLLMClientWithProfile returns the appropriate client based on profile or model
+func GetLLMClientWithProfile(modelName, profileName string, ollamaClient *OllamaClient) (LLMClient, error) {
+	// If a profile is specified, use it
+	if profileName != "" {
+		return GetLLMClientFromProfile(profileName)
+	}
+
+	// Otherwise fall back to model-based selection
+	if IsOpenAIModel(modelName) {
+		return NewOpenAIClient(), nil
+	}
+	return ollamaClient, nil
+}
+
+// GetLLMClientFromProfile returns a client based on the specified profile
+func GetLLMClientFromProfile(profileName string) (LLMClient, error) {
+	client, err := NewOpenAIClientWithProfile(profileName)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }

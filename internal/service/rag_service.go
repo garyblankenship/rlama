@@ -61,6 +61,21 @@ func NewRagService(ollamaClient *client.OllamaClient) RagService {
 	}
 }
 
+// NewRagServiceWithClient creates a new instance of RagService with the specified LLM client
+func NewRagServiceWithClient(llmClient client.LLMClient, ollamaClient *client.OllamaClient) RagService {
+	if ollamaClient == nil {
+		ollamaClient = client.NewDefaultOllamaClient()
+	}
+
+	return &RagServiceImpl{
+		documentLoader:   NewDocumentLoader(),
+		embeddingService: NewEmbeddingService(llmClient),
+		ragRepository:    repository.NewRagRepository(),
+		ollamaClient:     ollamaClient,
+		rerankerService:  NewRerankerService(ollamaClient),
+	}
+}
+
 // NewRagServiceWithEmbedding creates a new RagService with a specific embedding service
 func NewRagServiceWithEmbedding(ollamaClient *client.OllamaClient, embeddingService *EmbeddingService) RagService {
 	if ollamaClient == nil {

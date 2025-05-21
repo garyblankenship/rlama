@@ -61,30 +61,28 @@ OpenAI Models:
 		// Get Ollama client with configured host and port
 		ollamaClient := GetOllamaClient()
 
-		// Check if this is an OpenAI model
-		isOpenAIModel := client.IsOpenAIModel(modelName)
+		// Select the appropriate LLM client based on profile or model
+		llmClient, err := client.GetLLMClientWithProfile(modelName, profileName, ollamaClient)
+		if err != nil {
+			return fmt.Errorf("error getting LLM client: %w", err)
+		}
 
-		if isOpenAIModel {
-			// For OpenAI models, check the specified profile or API key
-			var openaiClient *client.OpenAIClient
-			var err error
+		// Check the client and model
+		if err := llmClient.CheckLLMAndModel(modelName); err != nil {
+			return err
+		}
 
-			if profileName != "" {
-				openaiClient, err = client.NewOpenAIClientWithProfile(profileName)
-				if err != nil {
-					return err
-				}
-				fmt.Printf("Using OpenAI model '%s' with profile '%s' for inference.\n",
-					modelName, profileName)
-			} else {
-				openaiClient = client.NewOpenAIClient()
-				if err := openaiClient.CheckOpenAIAndModel(modelName); err != nil {
-					return err
-				}
-				fmt.Printf("Using OpenAI model '%s' for inference. No profile specified, using environment variable.\n",
-					modelName)
-			}
-		} else if client.IsHuggingFaceModel(modelName) {
+		// Display which client/provider is being used
+		if profileName != "" {
+			fmt.Printf("Using model '%s' with profile '%s'.\n", modelName, profileName)
+		} else if client.IsOpenAIModel(modelName) {
+			fmt.Printf("Using OpenAI model '%s' (no profile specified, using environment variable).\n", modelName)
+		} else {
+			fmt.Printf("Using model '%s' with Ollama.\n", modelName)
+		}
+
+		// Handle Hugging Face models (Ollama-specific)
+		if client.IsHuggingFaceModel(modelName) {
 			// Check if this is a Hugging Face model
 			isHfModel := client.IsHuggingFaceModel(modelName)
 
@@ -129,8 +127,8 @@ OpenAI Models:
 			RerankerWeight:   ragRerankerWeight,
 		}
 
-		ragService := service.NewRagService(ollamaClient)
-		err := ragService.CreateRagWithOptions(modelName, ragName, folderPath, loaderOptions)
+		ragService := service.NewRagServiceWithClient(llmClient, ollamaClient)
+		err = ragService.CreateRagWithOptions(modelName, ragName, folderPath, loaderOptions)
 		if err != nil {
 			// Improve error messages related to Ollama
 			if strings.Contains(err.Error(), "connection refused") {

@@ -22,19 +22,29 @@ var profileAddCmd = &cobra.Command{
 	Use:   "add [name] [provider] [api-key]",
 	Short: "Add a new API profile",
 	Long: `Add a new API profile for a specific provider.
-Example: rlama profile add openai-work openai sk-...your-api-key...`,
+Examples: 
+  rlama profile add openai-work openai sk-...your-api-key...
+  rlama profile add lmstudio openai-api none --base-url http://localhost:1234/v1`,
 	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		provider := args[1]
 		apiKey := args[2]
 
+		// Get base URL flag
+		baseURL, _ := cmd.Flags().GetString("base-url")
+
 		// Validate the provider
 		switch provider {
 		case "openai":
-			// OK
+			// Official OpenAI API
+		case "openai-api":
+			// Generic OpenAI-compatible API
+			if baseURL == "" {
+				return fmt.Errorf("base-url is required for openai-api provider")
+			}
 		default:
-			return fmt.Errorf("unsupported provider: %s. Supported providers: openai", provider)
+			return fmt.Errorf("unsupported provider: %s. Supported providers: openai, openai-api", provider)
 		}
 
 		// Create the repository
@@ -47,11 +57,16 @@ Example: rlama profile add openai-work openai sk-...your-api-key...`,
 
 		// Create and save the profile
 		profile := domain.NewAPIProfile(name, provider, apiKey)
+		profile.BaseURL = baseURL
 		if err := profileRepo.Save(profile); err != nil {
 			return err
 		}
 
-		fmt.Printf("Profile '%s' for '%s' added successfully.\n", name, provider)
+		if baseURL != "" {
+			fmt.Printf("Profile '%s' for '%s' (base URL: %s) added successfully.\n", name, provider, baseURL)
+		} else {
+			fmt.Printf("Profile '%s' for '%s' added successfully.\n", name, provider)
+		}
 		return nil
 	},
 }
@@ -77,12 +92,12 @@ var profileListCmd = &cobra.Command{
 
 		// Use tabwriter to align the display
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "NAME\tPROVIDER\tCREATED ON\tLAST USED")
+		fmt.Fprintln(w, "NAME\tPROVIDER\tBASE URL\tCREATED ON\tLAST USED")
 
 		for _, name := range profiles {
 			profile, err := profileRepo.Load(name)
 			if err != nil {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", name, "error", "error", "error")
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", name, "error", "error", "error", "error")
 				continue
 			}
 
@@ -93,9 +108,14 @@ var profileListCmd = &cobra.Command{
 				lastUsed = profile.LastUsedAt.Format("2006-01-02 15:04:05")
 			}
 
+			baseURL := profile.BaseURL
+			if baseURL == "" {
+				baseURL = "default"
+			}
+
 			// Hide the API key
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-				profile.Name, profile.Provider, createdAt, lastUsed)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				profile.Name, profile.Provider, baseURL, createdAt, lastUsed)
 		}
 		w.Flush()
 
@@ -143,4 +163,7 @@ func init() {
 	profileCmd.AddCommand(profileAddCmd)
 	profileCmd.AddCommand(profileListCmd)
 	profileCmd.AddCommand(profileDeleteCmd)
+
+	// Add flags for profile add command
+	profileAddCmd.Flags().String("base-url", "", "Base URL for OpenAI-compatible endpoints (required for openai-api provider)")
 }
