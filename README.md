@@ -14,7 +14,7 @@
 <br>
 
 # RLAMA - User Guide
-RLAMA is a powerful AI-driven question-answering tool for your documents, seamlessly integrating with your local Ollama models. It enables you to create, manage, and interact with Retrieval-Augmented Generation (RAG) systems tailored to your documentation needs.
+RLAMA is a powerful AI-driven question-answering tool for your documents that works with multiple LLM providers. It seamlessly integrates with Ollama, OpenAI, and any OpenAI-compatible endpoints (like LM Studio, VLLM, Text Generation Inference, etc.). RLAMA enables you to create, manage, and interact with Retrieval-Augmented Generation (RAG) systems tailored to your documentation needs.
 
 
 [![RLAMA Demonstration](https://img.youtube.com/vi/EIsQnBqeQxQ/0.jpg)](https://www.youtube.com/watch?v=EIsQnBqeQxQ)
@@ -42,6 +42,7 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
   - [add-docs - Add documents to RAG](#add-docs---add-documents-to-rag)
   - [crawl-add-docs - Add website content to RAG](#crawl-add-docs---add-website-content-to-rag)
   - [update-model - Change LLM model](#update-model---change-llm-model)
+  - [profile - Manage API profiles](#profile---manage-api-profiles)
   - [update - Update RLAMA](#update---update-rlama)
   - [version - Display version](#version---display-version)
   - [hf-browse - Browse GGUF models on Hugging Face](#hf-browse---browse-gguf-models-on-hugging-face)
@@ -49,7 +50,8 @@ RLAMA is a powerful AI-driven question-answering tool for your documents, seamle
 - [Uninstallation](#uninstallation)
 - [Supported Document Formats](#supported-document-formats)
 - [Troubleshooting](#troubleshooting)
-- [Using OpenAI Models](#using-openai-models)
+- [Model Support & LLM Providers](#model-support--llm-providers)
+- [Managing API Profiles](#managing-api-profiles)
 
 ## Vision & Roadmap
 RLAMA aims to become the definitive tool for creating local RAG systems that work seamlessly for everyone—from individual developers to large enterprises. Here's our strategic roadmap:
@@ -103,7 +105,9 @@ RLAMA's core philosophy remains unchanged: to provide a simple, powerful, local 
 ## Installation
 
 ### Prerequisites
-- [Ollama](https://ollama.ai/) installed and running
+- **For Ollama models**: [Ollama](https://ollama.ai/) installed and running
+- **For OpenAI models**: OpenAI API key or API profile configured
+- **For OpenAI-compatible servers**: Local server running (e.g., LM Studio, VLLM, etc.)
 
 ### Installation from terminal
 
@@ -117,7 +121,7 @@ RLAMA is built with:
 
 - **Core Language**: Go (chosen for performance, cross-platform compatibility, and single binary distribution)
 - **CLI Framework**: Cobra (for command-line interface structure)
-- **LLM Integration**: Ollama API (for embeddings and completions)
+- **LLM Integration**: Multi-provider support (Ollama, OpenAI, OpenAI-compatible endpoints)
 - **Storage**: Local filesystem-based storage (JSON files for simplicity and portability)
 - **Vector Search**: Custom implementation of cosine similarity for embedding retrieval
 
@@ -683,6 +687,49 @@ rlama update-model [rag-name] [new-model]
 rlama update-model documentation deepseek-r1:7b-instruct
 ```
 
+### profile - Manage API profiles
+
+Manage API profiles for different LLM providers and endpoints.
+
+#### profile add - Create a new profile
+
+```bash
+rlama profile add [name] [provider] [api-key] [flags]
+```
+
+**Parameters:**
+- `name`: Unique name for the profile
+- `provider`: Provider type (`openai` or `openai-api`)
+- `api-key`: API key (use "none" for local servers without authentication)
+
+**Flags:**
+- `--base-url`: Custom base URL for OpenAI-compatible endpoints (required for `openai-api` provider)
+
+**Examples:**
+
+```bash
+# Traditional OpenAI profile
+rlama profile add openai-work openai sk-your-api-key
+
+# LM Studio local server
+rlama profile add lmstudio openai-api none --base-url http://localhost:1234/v1
+
+# VLLM server with authentication
+rlama profile add vllm openai-api your-token --base-url http://server:8000/v1
+```
+
+#### profile list - List all profiles
+
+```bash
+rlama profile list
+```
+
+#### profile delete - Delete a profile
+
+```bash
+rlama profile delete [name]
+```
+
 ### update - Update RLAMA
 
 Checks if a new version of RLAMA is available and installs it.
@@ -937,37 +984,128 @@ rlama rag hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF my-rag ./docs
 rlama rag hf.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF:Q5_K_M my-rag ./docs
 ```
 
-## Using OpenAI Models
+## Model Support & LLM Providers
 
-RLAMA now supports using OpenAI models for inference while keeping Ollama for embeddings:
+RLAMA supports multiple LLM providers for both **text generation** and **embeddings**:
 
-1. Set your OpenAI API key:
+### Supported Providers
+
+1. **Ollama** (default): Local models via Ollama server
+2. **OpenAI**: Official OpenAI API  
+3. **OpenAI-Compatible**: Any server implementing OpenAI API (LM Studio, VLLM, TGI, etc.)
+
+### How Models Are Used
+
+RLAMA uses models for two distinct purposes:
+
+- **Text Generation (Completions)**: Answering your questions using retrieved context
+- **Embeddings**: Converting documents and queries into vectors for similarity search
+
+### Model Selection Logic
+
+When you specify a model name, RLAMA automatically determines which provider to use:
+
+- **OpenAI models** (e.g., `gpt-4`, `gpt-3.5-turbo`): Uses OpenAI API for completions + embeddings
+- **Hugging Face models** (e.g., `hf.co/username/model`): Downloads via Ollama
+- **Other models** (e.g., `llama3`, `mistral`): Uses Ollama for completions + embeddings
+
+### Using OpenAI Models
+
+Set your OpenAI API key:
+```bash
+export OPENAI_API_KEY="your-api-key"
+```
+
+Create a RAG with OpenAI model:
+```bash
+rlama rag gpt-4 my-rag ./documents
+```
+
+Supported OpenAI models:
+- `gpt-4`, `gpt-4-turbo`, `gpt-4o`
+- `gpt-3.5-turbo`
+- `o3-mini` and newer models
+
+### Using OpenAI-Compatible Endpoints
+
+RLAMA can connect to any server that implements the OpenAI API specification, including:
+
+- **LM Studio**: Local model serving with OpenAI API
+- **VLLM**: High-performance inference server  
+- **Text Generation Inference (TGI)**: Hugging Face's inference server
+- **Ollama's OpenAI compatibility mode**: `ollama serve` with OpenAI endpoints
+- **Any custom OpenAI-compatible server**
+
+#### Setting Up Profiles for Custom Endpoints
+
+Create a profile for your OpenAI-compatible server:
+
+```bash
+# For LM Studio running locally
+rlama profile add lmstudio openai-api none --base-url http://localhost:1234/v1
+
+# For VLLM server (with authentication)
+rlama profile add vllm openai-api your-api-key --base-url http://your-server:8000/v1
+
+# For remote TGI server
+rlama profile add tgi openai-api dummy --base-url https://tgi.example.com/v1
+```
+
+#### Using Custom Endpoints
+
+Create a RAG with your custom endpoint:
+
+```bash
+# Use the profile when creating a RAG
+rlama rag llama-3-8b my-rag ./documents --profile lmstudio
+
+# The model name should match what your server expects
+rlama rag custom-model-name knowledge-base ./docs --profile vllm
+```
+
+#### Common OpenAI-Compatible Servers
+
+1. **LM Studio**:
    ```bash
-   export OPENAI_API_KEY="your-api-key"
+   # Start LM Studio with OpenAI API on default port 1234
+   rlama profile add lmstudio openai-api none --base-url http://localhost:1234/v1
+   rlama rag llama-3-8b-instruct my-docs ./documents --profile lmstudio
    ```
 
-2. Create a RAG system with an OpenAI model:
+2. **VLLM**:
    ```bash
-   rlama rag gpt-4-turbo my-rag ./documents
+   # VLLM typically runs on port 8000
+   rlama profile add vllm openai-api none --base-url http://localhost:8000/v1
+   rlama rag meta-llama/Llama-3-8B-Instruct my-rag ./docs --profile vllm
    ```
 
-3. Run your RAG as usual:
+3. **Ollama OpenAI Mode**:
    ```bash
-   rlama run my-rag
+   # If using Ollama's experimental OpenAI endpoints
+   rlama profile add ollama-openai openai-api none --base-url http://localhost:11434/v1
+   rlama rag llama3 my-rag ./docs --profile ollama-openai
    ```
 
-Supported OpenAI models include:
-- o3-mini
-- gpt-4o and more...
+#### Benefits of OpenAI-Compatible Mode
 
-Note: Only inference uses OpenAI API. Document embeddings still use Ollama for processing.
+- **Unified Interface**: Same API for different inference engines
+- **Easy Migration**: Switch between providers without changing RAG structure  
+- **Better Performance**: Use optimized inference servers (VLLM, TGI)
+- **Model Flexibility**: Access models not available through Ollama
+- **Embedding Support**: Full support for both completions and embeddings
 
 ## Managing API Profiles
 
-RLAMA allows you to create API profiles to manage multiple API keys for different providers:
+RLAMA allows you to create API profiles to manage multiple API keys and endpoints for different providers:
 
-### Creating a Profile
+### Profile Types
 
+- **`openai`**: Official OpenAI API profiles
+- **`openai-api`**: Generic OpenAI-compatible endpoints (LM Studio, VLLM, etc.)
+
+### Creating Profiles
+
+#### Traditional OpenAI Profiles
 ```bash
 # Create a profile for your OpenAI account
 rlama profile add openai-work openai "sk-your-api-key"
@@ -976,14 +1114,34 @@ rlama profile add openai-work openai "sk-your-api-key"
 rlama profile add openai-personal openai "sk-your-personal-api-key" 
 ```
 
+#### OpenAI-Compatible Endpoint Profiles
+```bash
+# LM Studio local server (no API key needed)
+rlama profile add lmstudio openai-api none --base-url http://localhost:1234/v1
+
+# VLLM server with authentication
+rlama profile add vllm-server openai-api your-token --base-url http://192.168.1.100:8000/v1
+
+# Remote TGI deployment
+rlama profile add tgi-prod openai-api api-key --base-url https://api.mycompany.com/v1
+```
+
 ### Listing Profiles
 
 ```bash
-# View all available profiles
+# View all available profiles with their base URLs
 rlama profile list
 ```
 
-### Deleting a Profile
+Output example:
+```
+NAME         PROVIDER    BASE URL                  CREATED ON           LAST USED
+openai-work  openai      default                   2024-01-15 10:30:25  2024-01-16 14:22:10
+lmstudio     openai-api  http://localhost:1234/v1  2024-01-16 09:15:33  never
+vllm-server  openai-api  http://server:8000/v1     2024-01-16 11:45:12  2024-01-16 15:30:25
+```
+
+### Deleting Profiles
 
 ```bash
 # Delete a profile
@@ -995,19 +1153,25 @@ rlama profile delete openai-old
 When creating a new RAG:
 
 ```bash
-# Create a RAG with a specific profile
+# Create a RAG with an OpenAI profile
 rlama rag gpt-4 my-rag ./documents --profile openai-work
+
+# Create a RAG with a custom endpoint
+rlama rag llama-3-8b local-rag ./docs --profile lmstudio
 ```
 
-When updating an existing RAG:
+When running existing RAGs:
 
 ```bash
-# Update a RAG to use a different model and profile
-rlama update-model my-rag gpt-4-turbo --profile openai-personal
+# RAGs remember their original configuration automatically
+rlama run my-rag
 ```
 
-Benefits of using profiles:
-- Manage multiple API keys for different projects
-- Easily switch between different accounts
-- Keep API keys secure (stored in ~/.rlama/profiles)
-- Track which profile was used last and when
+### Profile Benefits
+
+- **Multiple Endpoints**: Manage connections to different LLM servers
+- **Easy Switching**: Change between local and remote inference
+- **Secure Storage**: API keys stored safely in `~/.rlama/profiles`
+- **Usage Tracking**: See when profiles were last used
+- **Project Organization**: Use different profiles for different projects
+- **Development Workflow**: Test locally (LM Studio) → deploy remotely (VLLM)
