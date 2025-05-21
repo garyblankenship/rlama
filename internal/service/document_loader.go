@@ -25,6 +25,7 @@ type DocumentLoaderOptions struct {
 	ChunkOverlap     int
 	ChunkingStrategy string  // Chunking strategy: "fixed", "semantic", "hybrid", "hierarchical"
 	APIProfileName   string  // Name of the API profile to use
+	EmbeddingModel   string  // Model to use for embeddings
 	EnableReranker   bool    // Whether to enable reranking - now true by default
 	RerankerModel    string  // Model to use for reranking
 	RerankerWeight   float64 // Weight for reranker scores (0-1)
