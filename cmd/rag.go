@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/dontizi/rlama/internal/client"
@@ -17,6 +18,7 @@ var (
 	chunkOverlap         int
 	chunkingStrategy     string
 	profileName          string
+	embeddingModel       string
 	ragDisableReranker   bool
 	ragRerankerModel     string
 	ragRerankerWeight    float64
@@ -58,13 +60,32 @@ OpenAI Models:
 		ragName := args[1]
 		folderPath := args[2]
 
-		// Get Ollama client with configured host and port
-		ollamaClient := GetOllamaClient()
-
-		// Select the appropriate LLM client based on profile or model
+		// Select the appropriate LLM client based on profile or model 
+		// For profiles, create a minimal Ollama client to satisfy interface requirements
+		var ollamaClient *client.OllamaClient
+		if profileName != "" {
+			// Create a non-connecting Ollama client for profiles
+			ollamaClient = &client.OllamaClient{
+				BaseURL: "http://localhost:11434", 
+				Client:  &http.Client{},
+			}
+		} else {
+			// For non-profile usage, create normal Ollama client
+			ollamaClient = GetOllamaClient()
+		}
+		
 		llmClient, err := client.GetLLMClientWithProfile(modelName, profileName, ollamaClient)
 		if err != nil {
 			return fmt.Errorf("error getting LLM client: %w", err)
+		}
+
+		// Debug: Check what type of client we got
+		if profileName != "" {
+			if _, isOpenAI := llmClient.(*client.OpenAIClient); isOpenAI {
+				fmt.Printf("✓ Successfully created OpenAI-compatible client for profile '%s'\n", profileName)
+			} else {
+				fmt.Printf("⚠️ Warning: Expected OpenAI client but got different type for profile '%s'\n", profileName)
+			}
 		}
 
 		// Check the client and model
@@ -83,31 +104,24 @@ OpenAI Models:
 
 		// Handle Hugging Face models (Ollama-specific)
 		if client.IsHuggingFaceModel(modelName) {
-			// Check if this is a Hugging Face model
-			isHfModel := client.IsHuggingFaceModel(modelName)
-
-			if isHfModel {
-				// Extract quantization if specified
-				hfModelName := client.GetHuggingFaceModelName(modelName)
-				quantization := client.GetQuantizationFromModelRef(modelName)
-
-				// Pull the model from Hugging Face
-				fmt.Printf("Pulling Hugging Face model %s...\n", hfModelName)
-				if err := ollamaClient.PullHuggingFaceModel(hfModelName, quantization); err != nil {
-					return fmt.Errorf("error pulling Hugging Face model: %w", err)
-				}
-			} else {
-				// Regular Ollama model check
-				if err := ollamaClient.CheckOllamaAndModel(modelName); err != nil {
-					return err
-				}
+			// Hugging Face models require Ollama
+			if ollamaClient == nil {
+				return fmt.Errorf("Hugging Face models require Ollama to be available")
 			}
-		} else {
-			// Regular Ollama model check
-			if err := ollamaClient.CheckOllamaAndModel(modelName); err != nil {
-				return err
+
+			// Extract quantization if specified
+			hfModelName := client.GetHuggingFaceModelName(modelName)
+			quantization := client.GetQuantizationFromModelRef(modelName)
+
+			// Pull the model from Hugging Face
+			fmt.Printf("Pulling Hugging Face model %s...\n", hfModelName)
+			if err := ollamaClient.PullHuggingFaceModel(hfModelName, quantization); err != nil {
+				return fmt.Errorf("error pulling Hugging Face model: %w", err)
 			}
 		}
+		
+		// Note: We already checked the model using the correct client above,
+		// so no additional validation needed here
 
 		// Display a message to indicate that the process has started
 		fmt.Printf("Creating RAG '%s' with model '%s' from folder '%s'...\n",
@@ -122,6 +136,7 @@ OpenAI Models:
 			ChunkOverlap:     chunkOverlap,
 			ChunkingStrategy: chunkingStrategy,
 			APIProfileName:   profileName,
+			EmbeddingModel:   embeddingModel,
 			EnableReranker:   !ragDisableReranker,
 			RerankerModel:    ragRerankerModel,
 			RerankerWeight:   ragRerankerWeight,
@@ -183,6 +198,9 @@ func init() {
 
 	// Add profile option
 	ragCmd.Flags().StringVar(&profileName, "profile", "", "API profile name for OpenAI models")
+	
+	// Add embedding model option
+	ragCmd.Flags().StringVar(&embeddingModel, "embedding-model", "", "Model to use for embeddings (defaults to snowflake-arctic-embed2, then falls back to main model)")
 
 	// Add logic to use the test service if available
 	if testService != nil {
