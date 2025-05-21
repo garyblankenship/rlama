@@ -4,7 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/dontizi/rlama/internal/client"
+	"github.com/dontizi/rlama/internal/domain"
 	"github.com/dontizi/rlama/internal/repository"
 	"github.com/dontizi/rlama/internal/service"
 	"github.com/stretchr/testify/assert"
@@ -118,5 +121,100 @@ func TestRagServiceOperations(t *testing.T) {
 		// Verify that all mock expectations were met
 		mockOllama.AssertExpectations(t)
 		mockEmbeddingService.AssertExpectations(t)
+	})
+}
+
+func TestRagServiceWithCustomClient(t *testing.T) {
+	// Create a test profile for custom OpenAI-compatible endpoint
+	profileRepo := repository.NewProfileRepository()
+	testProfileName := "test-rag-service-custom-client"
+	
+	// Cleanup beforehand
+	_ = profileRepo.Delete(testProfileName)
+	
+	// Create a test profile
+	profile := &domain.APIProfile{
+		Name:      testProfileName,
+		Provider:  "openai-api",
+		APIKey:    "test-key",
+		BaseURL:   "http://localhost:8080/v1",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	
+	err := profileRepo.Save(profile)
+	assert.NoError(t, err)
+	
+	defer func() {
+		_ = profileRepo.Delete(testProfileName)
+	}()
+	
+	t.Run("NewRagServiceWithClient", func(t *testing.T) {
+		// Create a client based on the profile name
+		llmClient, err := client.GetLLMClientFromProfile(testProfileName)
+		assert.NoError(t, err)
+		assert.NotNil(t, llmClient)
+		
+		// Create RAG service with custom client (providing a default Ollama client)
+		ollamaClient := client.NewDefaultOllamaClient()
+		ragService := service.NewRagServiceWithClient(llmClient, ollamaClient)
+		assert.NotNil(t, ragService)
+		
+		// Verify the service was created successfully
+		assert.NotNil(t, ragService)
+	})
+	
+	t.Run("SetPreferredEmbeddingModel", func(t *testing.T) {
+		// Create a client based on the profile name
+		llmClient, err := client.GetLLMClientFromProfile(testProfileName)
+		assert.NoError(t, err)
+		
+		// Create RAG service with custom client
+		ollamaClient := client.NewDefaultOllamaClient()
+		ragService := service.NewRagServiceWithClient(llmClient, ollamaClient)
+		
+		// Set preferred embedding model
+		customEmbeddingModel := "custom-embedding-model"
+		ragService.SetPreferredEmbeddingModel(customEmbeddingModel)
+		
+		// The test passes if no error occurs (SetPreferredEmbeddingModel is void)
+		assert.NotNil(t, ragService)
+	})
+	
+	t.Run("NewRagServiceWithClient_MultipleProviders", func(t *testing.T) {
+		// Test with traditional OpenAI profile
+		openaiProfile := &domain.APIProfile{
+			Name:      "test-traditional-openai",
+			Provider:  "openai",
+			APIKey:    "sk-test-key",
+			BaseURL:   "",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		
+		err := profileRepo.Save(openaiProfile)
+		assert.NoError(t, err)
+		defer func() { _ = profileRepo.Delete("test-traditional-openai") }()
+		
+		// Create client for traditional OpenAI
+		openaiClient, err := client.GetLLMClientFromProfile("test-traditional-openai")
+		assert.NoError(t, err)
+		
+		// Create RAG service with OpenAI client
+		ollamaClientA := client.NewDefaultOllamaClient()
+		ragServiceOpenAI := service.NewRagServiceWithClient(openaiClient, ollamaClientA)
+		assert.NotNil(t, ragServiceOpenAI)
+		
+		// Create client for custom endpoint
+		customClient, err := client.GetLLMClientFromProfile(testProfileName)
+		assert.NoError(t, err)
+		
+		// Create RAG service with custom client
+		ollamaClientB := client.NewDefaultOllamaClient()
+		ragServiceCustom := service.NewRagServiceWithClient(customClient, ollamaClientB)
+		assert.NotNil(t, ragServiceCustom)
+		
+		// Both services should be created successfully but be different instances
+		assert.NotEqual(t, ragServiceOpenAI, ragServiceCustom)
 	})
 }
