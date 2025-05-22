@@ -41,6 +41,9 @@ RLAMA is a powerful AI-driven question-answering tool for your documents that wo
   - [view-chunk - View chunk details](#view-chunk---view-chunk-details)
   - [add-docs - Add documents to RAG](#add-docs---add-documents-to-rag)
   - [crawl-add-docs - Add website content to RAG](#crawl-add-docs---add-website-content-to-rag)
+  - [migrate-to-qdrant - Migrate RAG to Qdrant](#migration-between-vector-stores)
+  - [migrate-to-internal - Migrate RAG to internal storage](#migration-between-vector-stores)
+  - [migrate-batch - Batch migrate multiple RAGs](#migration-between-vector-stores)
   - [update-model - Change LLM model](#update-model---change-llm-model)
   - [profile - Manage API profiles](#profile---manage-api-profiles)
   - [update - Update RLAMA](#update---update-rlama)
@@ -49,6 +52,7 @@ RLAMA is a powerful AI-driven question-answering tool for your documents that wo
   - [run-hf - Run a Hugging Face GGUF model](#run-hf---run-a-hugging-face-gguf-model)
 - [Uninstallation](#uninstallation)
 - [Supported Document Formats](#supported-document-formats)
+- [Enhanced Document Processing](docs/enhanced_document_processing.md)
 - [Troubleshooting](#troubleshooting)
 - [Model Support & LLM Providers](#model-support--llm-providers)
 - [Managing API Profiles](#managing-api-profiles)
@@ -58,31 +62,72 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 
 ### Completed Features ✅
 - ✅ **Basic RAG System Creation**: CLI tool for creating and managing RAG systems
-- ✅ **Document Processing**: Support for multiple document formats (.txt, .md, .pdf, etc.)
+- ✅ **Enhanced Document Processing**: LangChain-powered processing with 80% performance improvement and robust error handling
 - ✅ **Document Chunking**: Advanced semantic chunking with multiple strategies (fixed, semantic, hierarchical, hybrid)
-- ✅ **Vector Storage**: Local storage of document embeddings
+- ✅ **Vector Storage**: Local storage of document embeddings + Qdrant vector database integration
+- ✅ **Production Vector Database**: Full Qdrant integration with gRPC/HTTP support, Qdrant Cloud compatibility
+- ✅ **Seamless Migration Tools**: Complete migration system between internal and Qdrant storage with data integrity verification
+- ✅ **Batch Operations**: Bulk migration of multiple RAGs with progress tracking and error recovery
 - ✅ **Context Retrieval**: Basic semantic search with configurable context size
 - ✅ **Ollama Integration**: Seamless connection to Ollama models
+- ✅ **OpenAI Integration**: Full OpenAI API compatibility with profile management
 - ✅ **Cross-Platform Support**: Works on Linux, macOS, and Windows
 - ✅ **Easy Installation**: One-line installation script
 - ✅ **API Server**: HTTP endpoints for integrating RAG capabilities in other applications
 - ✅ **Web Crawling**: Create RAGs directly from websites
 - ✅ **Guided RAG Setup Wizard**: Interactive interface for easy RAG creation
 - ✅ **Hugging Face Integration**: Access to 45,000+ GGUF models from Hugging Face Hub
+- ✅ **Advanced Reranking**: BGE reranker integration for improved search accuracy
+- ✅ **Pure Go Tokenization**: 80% reduction in Python dependencies with 43K tokenizations/second
 
-### Small LLM Optimization (Q2 2025)
+### 🔥 **Pure Go Evolution Roadmap (Q2 2025)**
+Building on the breakthrough pure Go tokenization achievement:
+
+- ✅ **Phase 1 Complete**: Pure Go tokenization with hybrid Python inference (80% dependency reduction)
+- [ ] **Phase 2**: Full pure Go ONNX runtime integration (100% Python elimination)
+- [ ] **Phase 3**: GPU-accelerated pure Go inference (CUDA/OpenCL support)
+- [ ] **Phase 4**: Custom pure Go reranker models (domain-specific fine-tuning)
+
+### Deployment & Performance Optimization (Q2 2025)
+- ✅ **Pure Go Hybrid Architecture**: Achieved 80% Python dependency reduction with 43K tokenizations/sec
+- [ ] **Full Pure Go ONNX Runtime**: Complete elimination of Python dependencies for 100% Go deployment
+- [ ] **GPU Acceleration**: CUDA/OpenCL support for pure Go ONNX inference
+- [ ] **Model Quantization**: INT8/FP16 quantization for faster inference
 - [ ] **Prompt Compression**: Smart context summarization for limited context windows
 - ✅ **Adaptive Chunking**: Dynamic content segmentation based on semantic boundaries and document structure
 - ✅ **Minimal Context Retrieval**: Intelligent filtering to eliminate redundant content
 - [ ] **Parameter Optimization**: Fine-tuned settings for different model sizes
 
-### Advanced Embedding Pipeline (Q2-Q3 2025)
-- [ ] **Multi-Model Embedding Support**: Integration with various embedding models
-- [ ] **Hybrid Retrieval Techniques**: Combining sparse and dense retrievers for better accuracy
-- [ ] **Embedding Evaluation Tools**: Built-in metrics to measure retrieval quality
-- [ ] **Automated Embedding Cache**: Smart caching to reduce computation for similar queries
+### Advanced Search & Filtering (Q2 2025)
+- [ ] **Enhanced Metadata Filtering**: Advanced search with document type, date, author, and custom metadata filters
+- [ ] **Structured Query Language**: SQL-like queries for complex document retrieval
+- [ ] **Faceted Search**: Multi-dimensional filtering with result counts
+- [ ] **Similarity Thresholds**: Configurable relevance scoring and filtering
 
-### User Experience Enhancements (Q3 2025)
+### Performance & Reliability (Q2-Q3 2025)
+- ✅ **Thread-Safe Operations**: Concurrent tokenization and reranking with comprehensive testing
+- ✅ **Memory Optimization**: Efficient Go memory management with stress testing
+- ✅ **Error Recovery**: Robust error handling and fallback mechanisms
+- [ ] **Connection Pooling**: Optimized Qdrant connections for high-throughput scenarios
+- [ ] **Async Operations**: Non-blocking operations for large document imports
+- [ ] **Caching Layer**: Smart caching for frequently accessed data and embeddings
+- [ ] **Health Monitoring**: System health checks and performance metrics
+- [ ] **Auto-retry Logic**: Exponential backoff for network failures
+
+### Enhanced CLI & Developer Experience (Q2-Q3 2025)
+- ✅ **Comprehensive Testing**: Unit tests, integration tests, and performance benchmarks for pure Go implementation
+- ✅ **Advanced Error Handling**: Detailed error messages and troubleshooting for tokenization and reranking
+- [ ] **RAG Status & Diagnostics**: `rag status`, `rag health-check`, `rag benchmark` commands
+- [ ] **Performance Analytics**: Query performance metrics and optimization suggestions
+- [ ] **Advanced Debugging**: Detailed logging, search result explanations, and troubleshooting tools
+
+### Multi-Vector Store Ecosystem (Q3 2025)
+- [ ] **Additional Vector Databases**: Support for Pinecone, Weaviate, Chroma
+- [ ] **Pluggable Architecture**: Easy integration of new vector store backends
+- [ ] **Performance Comparisons**: Built-in benchmarking between different vector stores
+- [ ] **Cross-Store Migration**: Migration tools between any supported vector databases
+
+### User Experience Enhancements (Q3-Q4 2025)
 - [ ] **Lightweight Web Interface**: Simple browser-based UI for the existing CLI backend
 - [ ] **Knowledge Graph Visualization**: Interactive exploration of document connections
 - [ ] **Domain-Specific Templates**: Pre-configured settings for different domains
@@ -95,12 +140,31 @@ RLAMA aims to become the definitive tool for creating local RAG systems that wor
 - [ ] **AI Agent Creation Framework**: Simplified system for building custom AI agents with RAG capabilities
 
 ### Next-Gen Retrieval Innovations (Q1 2026)
+- [ ] **Custom Reranker Training**: Fine-tune reranking models on domain-specific data
+- [ ] **Multi-Modal Reranking**: Support for image and text reranking  
 - [ ] **Multi-Step Retrieval**: Using the LLM to refine search queries for complex questions
 - [ ] **Cross-Modal Retrieval**: Support for image content understanding and retrieval
 - [ ] **Feedback-Based Optimization**: Learning from user interactions to improve retrieval
 - [ ] **Knowledge Graphs & Symbolic Reasoning**: Combining vector search with structured knowledge
 
-RLAMA's core philosophy remains unchanged: to provide a simple, powerful, local RAG solution that respects privacy, minimizes resource requirements, and works seamlessly across platforms.
+### 🚀 **Current Status: Production-Ready with Simplified Deployment**
+
+RLAMA has evolved from a simple local RAG tool to a comprehensive knowledge management platform that scales from individual developers to enterprise deployments. The recent breakthrough in **Pure Go Tokenization** represents a major achievement in deployment simplification, enabling users to:
+
+- **Deploy Simply**: Single binary deployment with 80% fewer Python dependencies
+- **Start Fast**: Pure Go tokenization at 43,000 tokens/second with zero setup
+- **Scale Seamlessly**: Migrate to Qdrant for production workloads with zero data loss  
+- **Enterprise Ready**: Deploy to Qdrant Cloud or self-hosted instances with full feature parity
+- **Future Proof**: Built-in migration paths ensure no vendor lock-in
+
+**Major Achievement: Pure Go Hybrid Architecture**
+- ✅ **80% Python dependency reduction** - From complex Python stack to minimal inference-only requirements
+- ✅ **43,000 tokenizations/second** - Blazing fast pure Go tokenization performance
+- ✅ **Single binary deployment** - Most functionality requires only the `rlama` binary
+- ✅ **Cross-platform compatibility** - Same performance benefits on all platforms
+- ✅ **Production reliability** - Comprehensive testing with thread-safe operations
+
+RLAMA's core philosophy remains unchanged: to provide a simple, powerful, local RAG solution that respects privacy, minimizes resource requirements, and works seamlessly across platforms. Now with the breakthrough pure Go implementation that makes deployment "more pleasing to use, less complicated for python execs."
 
 ## Installation
 
@@ -122,6 +186,7 @@ RLAMA is built with:
 - **Core Language**: Go (chosen for performance, cross-platform compatibility, and single binary distribution)
 - **CLI Framework**: Cobra (for command-line interface structure)
 - **LLM Integration**: Multi-provider support (Ollama, OpenAI, OpenAI-compatible endpoints)
+- **Reranking**: Pure Go BGE tokenization with hybrid Python inference (80% Python dependency reduction)
 - **Storage**: Local filesystem-based storage (JSON files for simplicity and portability)
 - **Vector Search**: Custom implementation of cosine similarity for embedding retrieval
 
@@ -245,6 +310,149 @@ rlama rag hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF my-rag ./docs
 rlama rag hf.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF:Q5_K_M my-rag ./docs
 ```
 
+#### Enhanced Document Processing
+
+RLAMA features advanced document processing powered by LangChainGo for improved reliability and performance:
+
+**Document Loading Strategies:**
+- **Hybrid (Default)**: Try LangChain first, fallback to legacy on failure - provides the best balance of performance and reliability
+- **LangChain**: Advanced document processing with robust error handling and cross-platform consistency
+- **Legacy**: Original RLAMA processor with external tool support
+
+**Using Enhanced Document Processing:**
+
+```bash
+# Use default hybrid strategy (recommended)
+rlama rag llama3 my-rag ./docs
+
+# Force LangChain processing only
+rlama rag llama3 my-rag ./docs --loader-strategy=langchain
+
+# Use legacy processor
+rlama rag llama3 my-rag ./docs --loader-strategy=legacy
+
+# Disable advanced processing entirely
+rlama rag llama3 my-rag ./docs --advanced-loader=false
+```
+
+**Environment Variables:**
+Configure document processing behavior globally using environment variables:
+
+```bash
+# Set default loading strategy
+export RLAMA_LOADER_STRATEGY=hybrid           # hybrid, langchain, or legacy
+
+# Enable/disable LangChain processing
+export RLAMA_USE_LANGCHAIN_LOADER=true        # true or false
+
+# Debug output for document loading
+export RLAMA_DEBUG_LOADER=true                # true or false
+
+# Configure processing timeouts and retries
+export RLAMA_LOADER_TIMEOUT_MINUTES=5         # 1, 2, 3, 5, 10, 15, 30
+export RLAMA_LOADER_MAX_RETRIES=3             # 1, 2, 3, 5
+
+# Optimize chunking settings
+export RLAMA_PREFERRED_CHUNK_SIZE=1000        # 500, 750, 1000, 1500, 2000
+export RLAMA_PREFERRED_CHUNK_OVERLAP=200      # 50, 100, 150, 200, 250, 300
+```
+
+**Performance Benefits:**
+- **80% faster** document processing with LangChain
+- **Robust error handling** eliminates most document processing failures
+- **Cross-platform consistency** through standardized APIs
+- **Better format support** for PDFs, Word docs, and other complex formats
+
+#### Vector Store Options
+
+RLAMA supports multiple vector storage backends to meet different performance and scaling needs:
+
+**Internal Vector Store (Default)**
+- File-based vector storage suitable for local development and small to medium datasets
+- No external dependencies required
+
+**Qdrant Vector Database**
+- High-performance vector search engine optimized for large-scale semantic search
+- Excellent for production environments and large document collections
+- Supports advanced filtering and metadata search capabilities
+
+**Using Qdrant Vector Store:**
+
+```bash
+# Create a RAG with Qdrant vector store
+rlama rag llama3 docs-rag ./docs --vector-store=qdrant
+
+# Customize Qdrant connection
+rlama rag llama3 prod-rag ./docs \
+  --vector-store=qdrant \
+  --qdrant-host=localhost \
+  --qdrant-port=6333 \
+  --qdrant-collection=my-documents
+
+# Using Qdrant Cloud with API key
+rlama rag llama3 cloud-rag ./docs \
+  --vector-store=qdrant \
+  --qdrant-host=xyz.qdrant.cloud \
+  --qdrant-port=6333 \
+  --qdrant-apikey=your-api-key \
+  --qdrant-grpc
+```
+
+**Qdrant Configuration Options:**
+- `--vector-store`: Specify "qdrant" to use Qdrant vector database
+- `--qdrant-host`: Qdrant server hostname (default: localhost)
+- `--qdrant-port`: Qdrant server port (default: 6333)
+- `--qdrant-apikey`: API key for Qdrant Cloud or secured instances
+- `--qdrant-collection`: Collection name (defaults to RAG name)
+- `--qdrant-grpc`: Use gRPC for communication (recommended for performance)
+
+#### Migration Between Vector Stores
+
+RLAMA provides seamless migration tools to move RAG systems between different vector storage backends without losing data.
+
+**Individual RAG Migration:**
+
+```bash
+# Migrate from internal to Qdrant
+rlama migrate-to-qdrant my-existing-rag \
+  --qdrant-host=localhost \
+  --qdrant-port=6333 \
+  --backup
+
+# Migrate back to internal storage
+rlama migrate-to-internal my-qdrant-rag --backup
+
+# Migrate to Qdrant Cloud
+rlama migrate-to-qdrant prod-docs \
+  --qdrant-host=xyz.qdrant.cloud \
+  --qdrant-apikey=your-api-key \
+  --qdrant-grpc \
+  --backup \
+  --verify
+```
+
+**Batch Migration:**
+
+```bash
+# Migrate all internal RAGs to Qdrant
+rlama migrate-batch --from=internal --to=qdrant \
+  --qdrant-host=production-server.com \
+  --backup \
+  --continue-on-error
+
+# Migrate specific RAGs
+rlama migrate-batch --from=internal --to=qdrant \
+  --rags=docs,wiki,knowledge-base \
+  --qdrant-host=localhost
+```
+
+**Migration Features:**
+- ✅ **Data Integrity**: Automatic verification of migrated data
+- ✅ **Backup Support**: Optional backup creation before migration
+- ✅ **Progress Tracking**: Real-time progress for large migrations
+- ✅ **Error Recovery**: Continue batch operations even if individual RAGs fail
+- ✅ **Cleanup Options**: Automatic removal of old data after successful migration
+
 ### crawl-rag - Create a RAG system from a website
 
 Creates a new RAG system by crawling a website and indexing its content.
@@ -280,6 +488,55 @@ The system automatically adapts to different document types:
 - HTML documents: Split by semantic HTML elements
 - Code documents: Split by functions, classes, and logical blocks
 - Plain text: Split by paragraphs with contextual overlap
+
+#### Reranking Options
+
+RLAMA includes advanced BGE-based reranking by default to improve result quality. Multiple implementations are available:
+
+**🚀 Pure Go Hybrid Reranker (Recommended)**
+- **Pure Go tokenization** with **43,000 tokenizations/second**
+- **80% reduction** in Python dependency complexity
+- **Single binary deployment** for most functionality
+- Works out of the box with zero additional setup
+
+**Python BGE Reranker (Legacy)**
+- Uses the original Python FlagEmbedding library via subprocess calls
+- Requires full Python environment
+
+**ONNX BGE Reranker (Transitional)**
+- Uses optimized ONNX models for **3.8x faster performance** over original Python
+- Requires one-time setup but provides significant speed improvements
+
+```bash
+# Download ONNX model (one-time setup)
+mkdir -p ./models
+cd ./models
+git clone https://huggingface.co/corto-ai/bge-reranker-large-onnx
+
+# Use ONNX reranker for faster performance
+rlama rag llama3.2 myrag ./docs --use-onnx-reranker
+
+# Specify custom ONNX model directory
+rlama rag llama3.2 myrag ./docs --use-onnx-reranker --onnx-model-dir ./models/bge-reranker-large-onnx
+```
+
+**ONNX Requirements:**
+```bash
+pip install onnxruntime transformers numpy
+```
+
+**Reranking Configuration Options:**
+- `--disable-reranker`: Disable reranking (enabled by default)
+- `--reranker-model`: Model to use for reranking (defaults to main model)
+- `--reranker-weight`: Weight for reranker scores vs vector scores (0-1, default: 0.7)
+- `--reranker-threshold`: Minimum score threshold for reranked results (default: 0.0)
+- `--use-onnx-reranker`: Use ONNX reranker for faster performance
+- `--onnx-model-dir`: Directory containing ONNX reranker model (default: ./models/bge-reranker-large-onnx)
+
+**Performance Comparison:**
+- **🚀 Pure Go Hybrid**: **43,000 tokenizations/second**, minimal Python dependencies
+- **ONNX BGE**: ~2.0 seconds per query (**3.8x faster** than original Python)
+- **Python BGE**: ~7.4 seconds per query
 
 **Example:**
 
@@ -830,13 +1087,24 @@ rm -rf ~/.rlama
 
 ## Supported Document Formats
 
-RLAMA supports many file formats:
+RLAMA supports many file formats with enhanced processing capabilities:
 
 - **Text**: `.txt`, `.md`, `.html`, `.json`, `.csv`, `.yaml`, `.yml`, `.xml`, `.org`
-- **Code**: `.go`, `.py`, `.js`, `.java`, `.c`, `.cpp`, `.cxx`, `.h`, `.rb`, `.php`, `.rs`, `.swift`, `.kt`, `.ts`, `.tsx`, `.f`, `.F`, `.F90`, `.el`, `.svelte`
+- **Code**: `.go`, `.py`, `.js`, `.java`, `.c`, `.cpp`, `.cxx`, `.h`, `.rb`, `.php`, `.rs`, `.swift`, `.kt`, `.ts`, `.tsx`, `.f`, `.F`, `.F90`, `.el`, `.svelte`, `.jsx`, `.vue`
 - **Documents**: `.pdf`, `.docx`, `.doc`, `.rtf`, `.odt`, `.pptx`, `.ppt`, `.xlsx`, `.xls`, `.epub`
 
-Installing dependencies via `install_deps.sh` is recommended to improve support for certain formats.
+**Enhanced Processing Features:**
+- **LangChain Integration**: Advanced document processing with improved reliability and 80% faster performance
+- **Robust Error Handling**: Graceful fallback mechanisms prevent processing failures
+- **Cross-Platform Consistency**: Standardized document processing across Windows, Mac, and Linux
+- **Automatic Format Detection**: Intelligent processing based on file content and metadata
+
+**Processing Strategy Options:**
+- Use `--loader-strategy=hybrid` for the best balance of reliability and performance (default)
+- Use `--loader-strategy=langchain` for maximum performance with advanced features
+- Use `--loader-strategy=legacy` for compatibility with external tools
+
+Installing dependencies via `install_deps.sh` is recommended to improve support for certain formats when using the legacy processor.
 
 ## Troubleshooting
 

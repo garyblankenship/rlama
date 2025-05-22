@@ -29,6 +29,15 @@ type DocumentLoaderOptions struct {
 	EnableReranker   bool    // Whether to enable reranking - now true by default
 	RerankerModel    string  // Model to use for reranking
 	RerankerWeight   float64 // Weight for reranker scores (0-1)
+	UseONNXReranker  bool    // Whether to use ONNX reranker instead of Python
+	ONNXModelDir     string  // Directory containing ONNX model files
+	// Qdrant configuration
+	VectorStore          string // "internal" or "qdrant"
+	QdrantHost           string
+	QdrantPort           int
+	QdrantAPIKey         string
+	QdrantCollectionName string
+	QdrantGRPC           bool
 }
 
 // NewDocumentLoaderOptions creates default document loader options with reranking enabled
@@ -40,6 +49,12 @@ func NewDocumentLoaderOptions() DocumentLoaderOptions {
 		EnableReranker:   true, // Enable reranking by default
 		RerankerWeight:   0.7,  // 70% reranker, 30% vector
 		RerankerModel:    "",   // Will use the same model as RAG by default
+		UseONNXReranker:  false, // Default to Python implementation
+		ONNXModelDir:     "./models/bge-reranker-large-onnx",
+		VectorStore:      "internal", // Default to internal vector store
+		QdrantHost:       "localhost",
+		QdrantPort:       6333,
+		QdrantGRPC:       false,
 	}
 }
 
@@ -810,4 +825,60 @@ func (dl *DocumentLoader) CreateRagWithOptions(options DocumentLoaderOptions) (*
 	}
 
 	return rag, nil
+}
+
+// CreateTempDirForDocuments creates a temporary directory and saves crawled documents as files
+func CreateTempDirForDocuments(documents []*domain.Document) string {
+	// Create a temporary directory
+	tempDir, err := os.MkdirTemp("", "rlama-crawl-*")
+	if err != nil {
+		fmt.Printf("Error creating temporary directory: %v\n", err)
+		return ""
+	}
+
+	fmt.Printf("Created temporary directory for documents: %s\n", tempDir)
+
+	// Save each document as a file in the temporary directory
+	for i, doc := range documents {
+		// Default to index-based filename
+		filename := fmt.Sprintf("page_%d.md", i+1)
+
+		// Try to use Path if available (more likely to exist than URL)
+		if doc.Path != "" {
+			// Create a safe filename from the Path
+			safePath := strings.Map(func(r rune) rune {
+				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+					return r
+				}
+				return '-'
+			}, doc.Path)
+
+			// Trim leading/trailing dashes
+			safePath = strings.Trim(safePath, "-")
+			if safePath != "" {
+				filename = fmt.Sprintf("%s.md", safePath)
+			}
+		}
+
+		// Full path to the file
+		filePath := filepath.Join(tempDir, filename)
+
+		// Write the document content to the file
+		err := os.WriteFile(filePath, []byte(doc.Content), 0644)
+		if err != nil {
+			fmt.Printf("Error writing document to file %s: %v\n", filePath, err)
+			continue
+		}
+	}
+
+	return tempDir
+}
+
+// CleanupTempDir removes a temporary directory and all its contents
+func CleanupTempDir(path string) {
+	if path != "" {
+		if err := os.RemoveAll(path); err != nil {
+			fmt.Printf("Warning: Failed to clean up temporary directory %s: %v\n", path, err)
+		}
+	}
 }

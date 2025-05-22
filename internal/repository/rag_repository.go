@@ -73,10 +73,12 @@ func (r *RagRepository) Save(rag *domain.RagSystem) error {
 		return fmt.Errorf("unable to save RAG information: %w", err)
 	}
 	
-	// Save the Vector Store
-	err = rag.HybridStore.Save(r.getRagVectorStorePath(rag.Name))
-	if err != nil {
-		return fmt.Errorf("unable to save Vector Store: %w", err)
+	// Save the Vector Store (only for internal stores, Qdrant handles its own persistence)
+	if ragInfo.VectorStoreType != "qdrant" {
+		err = rag.HybridStore.Save(r.getRagVectorStorePath(rag.Name))
+		if err != nil {
+			return fmt.Errorf("unable to save Vector Store: %w", err)
+		}
 	}
 	
 	return nil
@@ -101,13 +103,42 @@ func (r *RagRepository) Load(ragName string) (*domain.RagSystem, error) {
 		return nil, fmt.Errorf("unable to deserialize RAG information: %w", err)
 	}
 	
-	// Create a new Vector Store and load it from the file
-	hybridStore, _ := vector.NewEnhancedHybridStore(":memory:", 1536)
-	ragInfo.HybridStore = hybridStore
-	err = ragInfo.HybridStore.Load(r.getRagVectorStorePath(ragName))
-	if err != nil {
-		return nil, fmt.Errorf("unable to load Vector Store: %w", err)
+	// Create a new Vector Store with the correct dimensions and configuration
+	dimensions := ragInfo.EmbeddingDimension
+	if dimensions == 0 {
+		dimensions = 1536 // Default fallback for older RAGs
 	}
+	
+	var hybridStore *vector.EnhancedHybridStore
+	if ragInfo.VectorStoreType == "qdrant" {
+		// Create hybrid store with Qdrant configuration
+		hybridConfig := vector.HybridStoreConfig{
+			IndexPath:            ":memory:",
+			Dimensions:           dimensions,
+			VectorStoreType:      ragInfo.VectorStoreType,
+			QdrantHost:           ragInfo.QdrantHost,
+			QdrantPort:           ragInfo.QdrantPort,
+			QdrantAPIKey:         ragInfo.QdrantAPIKey,
+			QdrantCollectionName: ragInfo.QdrantCollectionName,
+			QdrantGRPC:           ragInfo.QdrantGRPC,
+		}
+		hybridStore, err = vector.NewEnhancedHybridStoreWithConfig(hybridConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create Qdrant hybrid store: %w", err)
+		}
+	} else {
+		// Create internal hybrid store and load from file
+		hybridStore, err = vector.NewEnhancedHybridStore(":memory:", dimensions)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create internal hybrid store: %w", err)
+		}
+		err = hybridStore.Load(r.getRagVectorStorePath(ragName))
+		if err != nil {
+			return nil, fmt.Errorf("unable to load Vector Store: %w", err)
+		}
+	}
+	
+	ragInfo.HybridStore = hybridStore
 	
 	return &ragInfo, nil
 }

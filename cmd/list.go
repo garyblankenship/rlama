@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/repository"
+	"github.com/dontizi/rlama/internal/util"
 )
 
 var listCmd = &cobra.Command{
@@ -48,7 +49,7 @@ var listCmd = &cobra.Command{
 			}
 			
 			// Format the size
-			sizeStr := formatSize(totalSize)
+			sizeStr := util.FormatSize(totalSize)
 			
 			fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\n", 
 				rag.Name, rag.ModelName, createdAt, len(rag.Documents), sizeStr)

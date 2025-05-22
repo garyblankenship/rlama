@@ -47,11 +47,9 @@ Use rlama watch-off [rag-name] to disable watching.`,
 			}
 		}
 		
-		// Get Ollama client from root command
-		ollamaClient := GetOllamaClient()
-		
-		// Create RAG service
-		ragService := service.NewRagService(ollamaClient)
+		// Get service provider
+		provider := GetServiceProvider()
+		ragService := provider.GetRagService()
 		
 		// Set up loader options based on flags
 		loaderOptions := service.DocumentLoaderOptions{
@@ -101,11 +99,9 @@ var watchOffCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
 		
-		// Get Ollama client from root command
-		ollamaClient := GetOllamaClient()
-		
-		// Create RAG service
-		ragService := service.NewRagService(ollamaClient)
+		// Get service provider
+		provider := GetServiceProvider()
+		ragService := provider.GetRagService()
 		
 		// Disable directory watching
 		err := ragService.DisableDirectoryWatching(ragName)
@@ -126,11 +122,9 @@ var checkWatchedCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
 		
-		// Get Ollama client from root command
-		ollamaClient := GetOllamaClient()
-		
-		// Create RAG service
-		ragService := service.NewRagService(ollamaClient)
+		// Get service provider
+		provider := GetServiceProvider()
+		ragService := provider.GetRagService()
 		
 		// Check the watched directory
 		docsAdded, err := ragService.CheckWatchedDirectory(ragName)

@@ -62,15 +62,33 @@ func NewRagService(ollamaClient *client.OllamaClient) RagService {
 	}
 }
 
-// NewRagServiceWithClient creates a new instance of RagService with the specified LLM client
-func NewRagServiceWithClient(llmClient client.LLMClient, ollamaClient *client.OllamaClient) RagService {
+// NewRagServiceWithConfig creates a new instance of RagService with service configuration
+func NewRagServiceWithConfig(ollamaClient *client.OllamaClient, config *ServiceConfig) RagService {
+	if ollamaClient == nil {
+		ollamaClient = client.NewDefaultOllamaClient()
+	}
+
+	// Create reranker service with ONNX configuration if specified
+	var rerankerService *RerankerService
+	if config.UseONNXReranker {
+		rerankerService = NewRerankerServiceWithOptions(ollamaClient, true, config.ONNXModelDir)
+	} else {
+		rerankerService = NewRerankerService(ollamaClient)
+	}
+
 	return &RagServiceImpl{
 		documentLoader:   NewDocumentLoader(),
-		embeddingService: NewEmbeddingService(llmClient),
+		embeddingService: NewEmbeddingService(ollamaClient),
 		ragRepository:    repository.NewRagRepository(),
 		ollamaClient:     ollamaClient,
-		rerankerService:  NewRerankerService(ollamaClient),
+		rerankerService:  rerankerService,
 	}
+}
+
+// NewRagServiceWithClient creates a new instance of RagService with the specified LLM client
+func NewRagServiceWithClient(llmClient client.LLMClient, ollamaClient *client.OllamaClient) RagService {
+	// Use the new composite service architecture
+	return NewCompositeRagService(llmClient, ollamaClient)
 }
 
 // NewRagServiceWithEmbedding creates a new RagService with a specific embedding service
@@ -144,8 +162,39 @@ func (rs *RagServiceImpl) CreateRagWithOptions(modelName, ragName, folderPath st
 
 	fmt.Printf("Successfully loaded %d documents. Chunking documents...\n", len(docs))
 
-	// Create the RAG system
-	rag := domain.NewRagSystem(ragName, modelName)
+	// Detect embedding dimension
+	embeddingDim, err := rs.embeddingService.DetectEmbeddingDimension(modelName)
+	if err != nil {
+		return fmt.Errorf("error detecting embedding dimension: %w", err)
+	}
+	fmt.Printf("Detected embedding dimension: %d\n", embeddingDim)
+
+	// Create the RAG system with detected dimensions and vector store configuration
+	var rag *domain.RagSystem
+	if options.VectorStore == "qdrant" {
+		rag = domain.NewRagSystemWithVectorStore(
+			ragName, 
+			modelName, 
+			embeddingDim,
+			options.VectorStore,
+			options.QdrantHost,
+			options.QdrantPort,
+			options.QdrantAPIKey,
+			options.QdrantCollectionName,
+			options.QdrantGRPC,
+		)
+		if rag == nil {
+			return fmt.Errorf("failed to create RAG system with Qdrant configuration")
+		}
+		fmt.Printf("Created RAG system with Qdrant vector store at %s:%d\n", options.QdrantHost, options.QdrantPort)
+	} else {
+		rag = domain.NewRagSystemWithDimensions(ragName, modelName, embeddingDim)
+		if rag == nil {
+			return fmt.Errorf("failed to create RAG system with internal vector store")
+		}
+		fmt.Printf("Created RAG system with internal vector store\n")
+	}
+	
 	rag.ChunkingStrategy = options.ChunkingStrategy
 	rag.APIProfileName = options.APIProfileName
 
@@ -302,10 +351,12 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 			} else {
 				contextSize = rerankerOpts.TopK // 5 par défaut
 			}
-			fmt.Printf("Using default context size of %d for reranked results\n", contextSize)
+			if !rag.RerankerSilent {
+				fmt.Printf("Using default context size of %d for reranked results\n", contextSize)
+			}
 		} else {
 			contextSize = 20 // 20 par défaut si le reranking est désactivé
-			fmt.Printf("Using context size of %d (reranking disabled)\n", contextSize)
+			fmt.Printf("Using context size of %d (reranking disabled)\n", contextSize) // Always show this message since reranking is disabled
 		}
 	}
 
@@ -318,7 +369,9 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 		if initialRetrievalCount < contextSize {
 			initialRetrievalCount = contextSize * 2 // Ensure we get enough documents for reranking
 		}
-		fmt.Printf("Retrieving %d initial results for reranking...\n", initialRetrievalCount)
+		if !rag.RerankerSilent {
+			fmt.Printf("Retrieving %d initial results for reranking...\n", initialRetrievalCount)
+		}
 	}
 
 	// Search for the most relevant chunks
@@ -338,6 +391,7 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 			ScoreThreshold:    0.3,                       // Minimum relevance threshold
 			RerankerWeight:    rag.RerankerWeight,
 			AdaptiveFiltering: true, // Enable adaptive filtering
+			Silent:            rag.RerankerSilent, // Use the silent setting from the RAG
 		}
 
 		// If a specific BGE reranker model is defined in the RAG, use that one
@@ -346,8 +400,10 @@ func (rs *RagServiceImpl) Query(rag *domain.RagSystem, query string, contextSize
 			options.RerankerModel = rag.RerankerModel
 		}
 
-		// Display the effective model being used
-		fmt.Printf("Reranking and filtering results for relevance using model '%s'...\n", options.RerankerModel)
+		// Display the effective model being used (if not in silent mode)
+		if !options.Silent {
+			fmt.Printf("Reranking and filtering results for relevance using model '%s'...\n", options.RerankerModel)
+		}
 
 		// Perform reranking with adaptive filtering
 		rerankedResults, err := rs.rerankerService.Rerank(query, rag, results, options)

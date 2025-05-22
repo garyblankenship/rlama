@@ -110,9 +110,9 @@ Control the crawling behavior with these flags:
 		}
 
 		// Create temporary directory to store crawled content
-		tempDir := createTempDirForDocuments(docPointers)
+		tempDir := service.CreateTempDirForDocuments(docPointers)
 		if tempDir != "" {
-			defer cleanupTempDir(tempDir)
+			defer service.CleanupTempDir(tempDir)
 		}
 
 		// Set up loader options

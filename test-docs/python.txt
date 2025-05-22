@@ -1,1 +1,0 @@
-Python is a programming language with simple syntax. It's widely used for AI and data science.

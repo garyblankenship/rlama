@@ -1,0 +1,225 @@
+# RLAMA Configuration File
+# This file provides structured configuration for RLAMA with enhanced document processing
+
+# =============================================================================
+# Enhanced Document Processing Configuration
+# =============================================================================
+document_processing:
+  # Strategy for document loading: hybrid, langchain, legacy
+  strategy: "hybrid"
+  
+  # Enable LangChain processing
+  enable_langchain: true
+  
+  # Performance settings
+  performance:
+    timeout_minutes: 5
+    max_retries: 3
+    enable_parallel_processing: true
+    worker_pool_size: 4
+  
+  # Chunking configuration
+  chunking:
+    default_chunk_size: 1000
+    default_chunk_overlap: 200
+    strategies:
+      - "fixed"
+      - "semantic" 
+      - "hybrid"
+      - "hierarchical"
+  
+  # File type specific settings
+  file_types:
+    text_files:
+      extensions: [".txt", ".md", ".log", ".org"]
+      chunk_size: 1000
+      chunk_overlap: 200
+    
+    code_files:
+      extensions: [".go", ".py", ".js", ".java", ".c", ".cpp", ".rs"]
+      chunk_size: 1500
+      chunk_overlap: 150
+      preserve_syntax: true
+    
+    documents:
+      extensions: [".pdf", ".docx", ".doc", ".rtf"]
+      chunk_size: 2000
+      chunk_overlap: 300
+      extract_metadata: true
+
+# =============================================================================
+# Vector Storage Configuration
+# =============================================================================
+vector_storage:
+  # Default vector store: internal, qdrant
+  default_type: "internal"
+  
+  # Internal vector store settings
+  internal:
+    storage_path: "~/.rlama/vectors"
+    compression: true
+    backup_enabled: true
+  
+  # Qdrant configuration
+  qdrant:
+    host: "localhost"
+    port: 6333
+    use_grpc: false
+    api_key: ""
+    collection_prefix: "rlama_"
+    vector_size: 384
+    distance_metric: "cosine"
+
+# =============================================================================
+# LLM Provider Configuration
+# =============================================================================
+llm_providers:
+  # Ollama configuration
+  ollama:
+    host: "http://localhost:11434"
+    timeout: 30
+    default_model: "llama3.2"
+    models:
+      - "llama3.2"
+      - "mistral"
+      - "gemma"
+  
+  # OpenAI configuration
+  openai:
+    api_base: "https://api.openai.com/v1"
+    timeout: 30
+    default_model: "gpt-4-turbo"
+    models:
+      - "gpt-4-turbo"
+      - "gpt-3.5-turbo"
+      - "text-embedding-ada-002"
+
+# =============================================================================
+# RAG System Defaults
+# =============================================================================
+rag_defaults:
+  # Chunking strategy for new RAGs
+  chunking_strategy: "hybrid"
+  
+  # Reranking configuration
+  reranking:
+    enabled: true
+    model: "bge-reranker-large"
+    weight: 0.7
+    threshold: 0.0
+    use_onnx: false
+  
+  # Context retrieval settings
+  retrieval:
+    max_context_length: 4000
+    similarity_threshold: 0.7
+    max_results: 5
+
+# =============================================================================
+# Monitoring and Logging
+# =============================================================================
+monitoring:
+  # Telemetry collection
+  enable_telemetry: true
+  telemetry_file: "~/.rlama/telemetry.json"
+  
+  # Logging configuration
+  logging:
+    level: "info"  # debug, info, warn, error
+    file: "~/.rlama/rlama.log"
+    max_size_mb: 100
+    max_backups: 5
+    
+  # Performance metrics
+  metrics:
+    enable_timing: true
+    enable_memory_tracking: false
+    export_prometheus: false
+
+# =============================================================================
+# Development and Debug Settings
+# =============================================================================
+development:
+  # Debug mode settings
+  debug_mode: false
+  verbose_logging: false
+  
+  # Development features
+  enable_experimental_features: false
+  profile_performance: false
+  
+  # Testing configuration
+  test_data_path: "./test-data"
+  enable_mock_providers: false
+
+# =============================================================================
+# Security Configuration
+# =============================================================================
+security:
+  # API security
+  api_key_required: false
+  rate_limiting:
+    enabled: false
+    requests_per_minute: 60
+  
+  # File access security
+  restricted_paths: []
+  allowed_file_extensions: []  # Empty means all supported extensions allowed
+  
+  # Data privacy
+  anonymize_logs: false
+  data_retention_days: 90
+
+# =============================================================================
+# Migration and Compatibility
+# =============================================================================
+migration:
+  # Automatic migration settings
+  auto_migrate_on_startup: true
+  backup_before_migration: true
+  
+  # Compatibility settings
+  legacy_support: true
+  migration_batch_size: 100
+
+# =============================================================================
+# Example Profiles for Different Use Cases
+# =============================================================================
+
+# Uncomment one of these sections to use predefined configurations:
+
+# # High Performance Profile
+# profiles:
+#   high_performance:
+#     document_processing:
+#       strategy: "langchain"
+#       performance:
+#         timeout_minutes: 3
+#         max_retries: 2
+#       chunking:
+#         default_chunk_size: 1500
+#         default_chunk_overlap: 250
+    
+# # Maximum Compatibility Profile  
+# profiles:
+#   max_compatibility:
+#     document_processing:
+#       strategy: "legacy"
+#       performance:
+#         timeout_minutes: 10
+#         max_retries: 5
+#       chunking:
+#         default_chunk_size: 800
+#         default_chunk_overlap: 150
+
+# # Development Profile
+# profiles:
+#   development:
+#     document_processing:
+#       strategy: "hybrid"
+#     monitoring:
+#       logging:
+#         level: "debug"
+#     development:
+#       debug_mode: true
+#       verbose_logging: true

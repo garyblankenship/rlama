@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rg:*)",
+      "Bash(sed:*)",
+      "Bash(go build:*)",
+      "Bash(./rlama profile add:*)",
+      "Bash(./rlama profile list)",
+      "Bash(go test:*)",
+      "Bash(./rlama profile delete:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(grep:*)",
+      "Bash(./rlama rag:*)",
+      "Bash(go vet:*)",
+      "Bash(./rlama:*)",
+      "Bash(curl:*)",
+      "Bash(git push:*)",
+      "Bash(ls:*)",
+      "Bash(rlama run:*)",
+      "Bash(rlama list:*)",
+      "Bash(python -m pip:*)",
+      "Bash(python:*)",
+      "Bash(go get:*)",
+      "Bash(go mod:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(find:*)",
+      "Bash(mv:*)",
+      "Bash(go run:*)",
+      "Bash(go list:*)",
+      "Bash(mkdir:*)",
+      "Bash(git clone:*)",
+      "WebFetch(domain:pkg.go.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(tar:*)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/build.sh:*)",
+      "Bash(go doc:*)"
+    ],
+    "deny": []
+  }
+}

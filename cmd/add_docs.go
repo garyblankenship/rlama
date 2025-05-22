@@ -32,11 +32,9 @@ and add them to the existing RAG system.`,
 		ragName := args[0]
 		folderPath := args[1]
 
-		// Get Ollama client from root command
-		ollamaClient := GetOllamaClient()
-
-		// Create necessary services
-		ragService := service.NewRagService(ollamaClient)
+		// Get service provider
+		provider := GetServiceProvider()
+		ragService := provider.GetRagService()
 
 		// Set up loader options based on flags
 		loaderOptions := service.DocumentLoaderOptions{

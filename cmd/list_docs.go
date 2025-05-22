@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/dontizi/rlama/internal/service"
+	"github.com/dontizi/rlama/internal/util"
 )
 
 var listDocsCmd = &cobra.Command{
@@ -42,7 +43,7 @@ Example: rlama list-docs my-docs`,
 		fmt.Fprintln(w, "ID\tPATH\tSIZE\tCONTENT TYPE")
 		
 		for _, doc := range rag.Documents {
-			sizeStr := formatSize(doc.Size)
+			sizeStr := util.FormatSize(doc.Size)
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", doc.ID, doc.Name, sizeStr, doc.ContentType)
 		}
 		w.Flush()
@@ -55,23 +56,3 @@ func init() {
 	rootCmd.AddCommand(listDocsCmd)
 }
 
-// formatSize returns a human-readable string for the size
-func formatSize(size int64) string {
-	const (
-		_  = iota
-		KB = 1 << (10 * iota)
-		MB
-		GB
-	)
-
-	switch {
-	case size >= GB:
-		return fmt.Sprintf("%.2f GB", float64(size)/float64(GB))
-	case size >= MB:
-		return fmt.Sprintf("%.2f MB", float64(size)/float64(MB))
-	case size >= KB:
-		return fmt.Sprintf("%.2f KB", float64(size)/float64(KB))
-	default:
-		return fmt.Sprintf("%d B", size)
-	}
-}

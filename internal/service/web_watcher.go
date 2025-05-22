@@ -2,8 +2,6 @@ package service
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -208,61 +206,6 @@ func getContentHash(content string) string {
 	// For longer content, take the beginning and the end
 	// for better identification
 	return simplified[:100] + "..." + simplified[len(simplified)-100:]
-}
-
-// Add this to the file file_watcher.go or implement it here if it's a new file
-func createTempDirForDocuments(documents []*domain.Document) string {
-	// Create a temporary directory
-	tempDir, err := os.MkdirTemp("", "rlama-crawl-*")
-	if err != nil {
-		fmt.Printf("Error creating temporary directory: %v\n", err)
-		return ""
-	}
-
-	fmt.Printf("Created temporary directory for documents: %s\n", tempDir)
-
-	// Save each document as a file in the temporary directory
-	for i, doc := range documents {
-		// Default to index-based filename
-		filename := fmt.Sprintf("page_%d.md", i+1)
-
-		// Try to use Path if available (more likely to exist than URL)
-		if doc.Path != "" {
-			// Create a safe filename from the Path
-			safePath := strings.Map(func(r rune) rune {
-				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-					return r
-				}
-				return '-'
-			}, doc.Path)
-
-			// Trim leading/trailing dashes
-			safePath = strings.Trim(safePath, "-")
-			if safePath != "" {
-				filename = fmt.Sprintf("%s.md", safePath)
-			}
-		}
-
-		// Full path to the file
-		filePath := filepath.Join(tempDir, filename)
-
-		// Write the document content to the file
-		err := os.WriteFile(filePath, []byte(doc.Content), 0644)
-		if err != nil {
-			fmt.Printf("Error writing document to file %s: %v\n", filePath, err)
-			continue
-		}
-	}
-
-	return tempDir
-}
-
-func cleanupTempDir(path string) {
-	if path != "" {
-		if err := os.RemoveAll(path); err != nil {
-			fmt.Printf("Warning: Failed to clean up temporary directory %s: %v\n", path, err)
-		}
-	}
 }
 
 // StartWebWatcherDaemon starts a background daemon to watch websites

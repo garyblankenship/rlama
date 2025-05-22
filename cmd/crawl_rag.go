@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/dontizi/rlama/internal/crawler"
@@ -116,10 +114,10 @@ You can exclude certain paths and control other crawling parameters:
 		}
 
 		// Create temporary directory to store crawled content
-		tempDir := createTempDirForDocuments(docPointers)
+		tempDir := service.CreateTempDirForDocuments(docPointers)
 		if tempDir != "" {
 			// Comment this line to prevent deletion
-			// defer cleanupTempDir(tempDir)
+			// defer service.CleanupTempDir(tempDir)
 
 			// Add this to clearly display the path
 			fmt.Printf("\n📁 The markdown files are located in: %s\n", tempDir)
@@ -180,57 +178,3 @@ func init() {
 	crawlRagCmd.Flags().StringVar(&crawlRerankerModel, "reranker-model", "", "Model to use for reranking (defaults to main model)")
 }
 
-// Helper function to create a temporary directory and save crawled documents as files
-func createTempDirForDocuments(documents []*domain.Document) string {
-	// Create a temporary directory
-	tempDir, err := os.MkdirTemp("", "rlama-crawl-*")
-	if err != nil {
-		fmt.Printf("Error creating temporary directory: %v\n", err)
-		return ""
-	}
-
-	fmt.Printf("Created temporary directory for documents: %s\n", tempDir)
-
-	// Save each document as a file in the temporary directory
-	for i, doc := range documents {
-		// Default to index-based filename
-		filename := fmt.Sprintf("page_%d.md", i+1)
-
-		// Try to use Path if available (more likely to exist than URL)
-		if doc.Path != "" {
-			// Create a safe filename from the Path
-			safePath := strings.Map(func(r rune) rune {
-				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-					return r
-				}
-				return '-'
-			}, doc.Path)
-
-			// Trim leading/trailing dashes
-			safePath = strings.Trim(safePath, "-")
-			if safePath != "" {
-				filename = fmt.Sprintf("%s.md", safePath)
-			}
-		}
-
-		// Full path to the file
-		filePath := filepath.Join(tempDir, filename)
-
-		// Write the document content to the file
-		err := os.WriteFile(filePath, []byte(doc.Content), 0644)
-		if err != nil {
-			fmt.Printf("Error writing document to file %s: %v\n", filePath, err)
-			continue
-		}
-	}
-
-	return tempDir
-}
-
-func cleanupTempDir(path string) {
-	if path != "" {
-		if err := os.RemoveAll(path); err != nil {
-			fmt.Printf("Warning: Failed to clean up temporary directory %s: %v\n", path, err)
-		}
-	}
-}

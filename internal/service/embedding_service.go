@@ -99,6 +99,31 @@ func (es *EmbeddingService) GenerateEmbeddings(docs []*domain.Document, modelNam
 	return nil
 }
 
+// DetectEmbeddingDimension detects the dimension of embeddings from the model
+func (es *EmbeddingService) DetectEmbeddingDimension(modelName string) (int, error) {
+	// Generate a test embedding to detect dimension
+	testText := "test"
+	
+	// Try preferred embedding model first
+	var embeddingModel string
+	if es.preferredEmbedding != "" {
+		embeddingModel = es.preferredEmbedding
+	} else {
+		embeddingModel = "snowflake-arctic-embed2"
+	}
+	
+	embedding, err := es.llmClient.GenerateEmbedding(embeddingModel, testText)
+	if err != nil {
+		// Fallback to the main model
+		embedding, err = es.llmClient.GenerateEmbedding(modelName, testText)
+		if err != nil {
+			return 0, fmt.Errorf("failed to detect embedding dimension: %w", err)
+		}
+	}
+	
+	return len(embedding), nil
+}
+
 // GenerateQueryEmbedding generates an embedding for a query
 func (es *EmbeddingService) GenerateQueryEmbedding(query string, modelName string) ([]float32, error) {
 	// Determine which embedding model to try first

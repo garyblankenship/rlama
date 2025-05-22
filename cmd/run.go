@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dontizi/rlama/internal/client"
 	"github.com/dontizi/rlama/internal/domain"
 	"github.com/dontizi/rlama/internal/service"
 	"github.com/spf13/cobra"
@@ -35,52 +34,14 @@ Example: rlama run rag1`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
 
-		// Create RAG service - first load the RAG to get the model name
-		// We need a temporary service just to load the RAG config
-		var rag *domain.RagSystem
-		var err error
-		
-		if apiProfileName != "" {
-			// If using a profile, we can try to create the service without checking Ollama
-			tempClient, tempErr := client.GetLLMClientFromProfile(apiProfileName)
-			if tempErr != nil {
-				return fmt.Errorf("error creating client with profile '%s': %w", apiProfileName, tempErr)
-			}
-			tempRagService := service.NewRagServiceWithClient(tempClient, nil)
-			rag, err = tempRagService.LoadRag(ragName)
-		} else {
-			// Only check Ollama if not using profiles
-			ollamaClient := GetOllamaClient()
-			if err := ollamaClient.CheckOllamaAndModel(""); err != nil {
-				return err
-			}
-			tempRagService := service.NewRagService(ollamaClient)
-			rag, err = tempRagService.LoadRag(ragName)
-		}
-		
+		// Get service provider
+		provider := GetServiceProvider()
+		ragService := provider.GetRagService()
+
+		// Load the RAG system
+		rag, err := ragService.LoadRag(ragName)
 		if err != nil {
 			return err
-		}
-
-		// Create appropriate client based on profile or model
-		var ragService service.RagService
-		if apiProfileName != "" {
-			// Use profile-based client selection
-			llmClient, err := client.GetLLMClientFromProfile(apiProfileName)
-			if err != nil {
-				return fmt.Errorf("error creating client with profile '%s': %w", apiProfileName, err)
-			}
-			// Create a minimal Ollama client for reranker service (which may not be used)
-			ollamaClient := client.NewDefaultOllamaClient()
-			ragService = service.NewRagServiceWithClient(llmClient, ollamaClient)
-		} else {
-			// Use model-based client selection
-			ollamaClient := GetOllamaClient()
-			llmClient, err := client.GetLLMClientWithProfile(rag.ModelName, "", ollamaClient)
-			if err != nil {
-				return fmt.Errorf("error creating client for model '%s': %w", rag.ModelName, err)
-			}
-			ragService = service.NewRagServiceWithClient(llmClient, ollamaClient)
 		}
 
 		fmt.Printf("RAG '%s' loaded. Model: %s\n", rag.Name, rag.ModelName)
@@ -128,16 +89,8 @@ Example: rlama run rag1`,
 
 			// If debug mode is enabled, get the chunks manually first
 			if showContext {
-				// Call embeddingService directly through ragService to generate embedding
-				// Use the same client that the ragService is using
-				var embeddingClient client.LLMClient
-				if apiProfileName != "" {
-					embeddingClient, _ = client.GetLLMClientFromProfile(apiProfileName)
-				} else {
-					ollamaClientForDebug := GetOllamaClient()
-					embeddingClient, _ = client.GetLLMClientWithProfile(rag.ModelName, "", ollamaClientForDebug)
-				}
-				embeddingService := service.NewEmbeddingService(embeddingClient)
+				// Use embedding service from provider
+				embeddingService := provider.GetEmbeddingService()
 				queryEmbedding, err := embeddingService.GenerateQueryEmbedding(question, rag.ModelName)
 				if err != nil {
 					fmt.Printf("Error generating embedding: %s\n", err)
@@ -199,10 +152,12 @@ func init() {
 }
 
 func checkWatchedResources(rag *domain.RagSystem, ragService service.RagService) {
+	provider := GetServiceProvider()
+	
 	// Check watched directory if enabled with on-use check
 	if rag.WatchEnabled && rag.WatchInterval == 0 {
-		fileWatcher := service.NewFileWatcher(ragService)
-		docsAdded, err := fileWatcher.CheckAndUpdateRag(rag)
+		watchService := provider.GetWatchService()
+		docsAdded, err := watchService.CheckWatchedDirectory(rag.Name)
 		if err != nil {
 			fmt.Printf("Error checking watched directory: %v\n", err)
 		} else if docsAdded > 0 {
@@ -212,8 +167,8 @@ func checkWatchedResources(rag *domain.RagSystem, ragService service.RagService)
 
 	// Check watched website if enabled with on-use check
 	if rag.WebWatchEnabled && rag.WebWatchInterval == 0 {
-		webWatcher := service.NewWebWatcher(ragService)
-		pagesAdded, err := webWatcher.CheckAndUpdateRag(rag)
+		watchService := provider.GetWatchService()
+		pagesAdded, err := watchService.CheckWatchedWebsite(rag.Name)
 		if err != nil {
 			fmt.Printf("Error checking watched website: %v\n", err)
 		} else if pagesAdded > 0 {

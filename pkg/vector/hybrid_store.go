@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/blevesearch/bleve/v2"
 )
@@ -15,7 +16,7 @@ type DocumentData struct {
 	Metadata string `json:"metadata"`
 }
 
-// EnhancedHybridStore combines HNSW vector search and BM25 text search
+// EnhancedHybridStore combines vector search and BM25 text search
 type EnhancedHybridStore struct {
 	VectorStore VectorStoreInterface `json:"-"`
 	TextIndex   bleve.Index          `json:"-"`
@@ -28,11 +29,33 @@ type EnhancedHybridStore struct {
 // Ensure EnhancedHybridStore implements VectorStoreInterface
 var _ VectorStoreInterface = (*EnhancedHybridStore)(nil)
 
+// HybridStoreConfig holds configuration for creating an EnhancedHybridStore
+type HybridStoreConfig struct {
+	IndexPath            string
+	Dimensions           int
+	VectorStoreType      string // "internal", "qdrant"
+	QdrantHost           string
+	QdrantPort           int
+	QdrantAPIKey         string
+	QdrantCollectionName string
+	QdrantGRPC           bool
+}
+
 // NewEnhancedHybridStore creates a new enhanced hybrid store
 func NewEnhancedHybridStore(indexPath string, dimensions int) (*EnhancedHybridStore, error) {
+	config := HybridStoreConfig{
+		IndexPath:       indexPath,
+		Dimensions:      dimensions,
+		VectorStoreType: "internal",
+	}
+	return NewEnhancedHybridStoreWithConfig(config)
+}
+
+// NewEnhancedHybridStoreWithConfig creates a new enhanced hybrid store with full configuration
+func NewEnhancedHybridStoreWithConfig(config HybridStoreConfig) (*EnhancedHybridStore, error) {
 	// Create index directory if needed
-	if indexPath != "" && indexPath != ":memory:" {
-		err := os.MkdirAll(filepath.Dir(indexPath), 0755)
+	if config.IndexPath != "" && config.IndexPath != ":memory:" {
+		err := os.MkdirAll(filepath.Dir(config.IndexPath), 0755)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create index directory: %w", err)
 		}
@@ -42,20 +65,20 @@ func NewEnhancedHybridStore(indexPath string, dimensions int) (*EnhancedHybridSt
 	var textIndex bleve.Index
 	var err error
 
-	if indexPath == "" || indexPath == ":memory:" {
+	if config.IndexPath == "" || config.IndexPath == ":memory:" {
 		// In-memory index
 		indexMapping := bleve.NewIndexMapping()
 		textIndex, err = bleve.NewMemOnly(indexMapping)
 	} else {
 		// Check if index already exists
-		_, err := os.Stat(indexPath)
+		_, err := os.Stat(config.IndexPath)
 		if os.IsNotExist(err) {
 			// Create new index
 			indexMapping := bleve.NewIndexMapping()
-			textIndex, err = bleve.New(indexPath, indexMapping)
+			textIndex, err = bleve.New(config.IndexPath, indexMapping)
 		} else {
 			// Open existing index
-			textIndex, err = bleve.Open(indexPath)
+			textIndex, err = bleve.Open(config.IndexPath)
 		}
 	}
 
@@ -63,8 +86,29 @@ func NewEnhancedHybridStore(indexPath string, dimensions int) (*EnhancedHybridSt
 		return nil, fmt.Errorf("error creating/opening Bleve index: %w", err)
 	}
 
+	// Create vector store based on configuration
+	var vectorStore VectorStoreInterface
+	if config.VectorStoreType == "qdrant" {
+		vectorStore, err = NewQdrantStore(
+			config.QdrantHost,
+			config.QdrantPort,
+			config.QdrantCollectionName,
+			config.Dimensions,
+			config.QdrantAPIKey,
+			config.QdrantGRPC,
+			true, // createCollectionIfNotExists
+		)
+		if err != nil {
+			textIndex.Close()
+			return nil, fmt.Errorf("failed to create Qdrant store: %w", err)
+		}
+	} else {
+		// Default to internal vector store
+		vectorStore = NewInternalVectorStore(config.Dimensions)
+	}
+
 	return &EnhancedHybridStore{
-		VectorStore:   NewHNSWStore(dimensions),
+		VectorStore:   vectorStore,
 		TextIndex:     textIndex,
 		WeightBM25:    0.3, // 30% BM25, 70% vector by default
 		contentCache:  make(map[string]string),
@@ -74,8 +118,20 @@ func NewEnhancedHybridStore(indexPath string, dimensions int) (*EnhancedHybridSt
 
 // AddDocument adds a document to both the vector and text indexes
 func (hs *EnhancedHybridStore) AddDocument(id string, content string, metadata string, vector []float32) error {
-	// Add to vector store
-	hs.VectorStore.Add(id, vector)
+	// Add to vector store with payload if it's a QdrantStore
+	if qStore, ok := hs.VectorStore.(*QdrantStore); ok {
+		payload := map[string]interface{}{
+			"content":  content,
+			"metadata": metadata,
+		}
+		err := qStore.UpsertPointWithPayload(id, vector, payload)
+		if err != nil {
+			return fmt.Errorf("error upserting to Qdrant: %w", err)
+		}
+	} else {
+		// For internal stores, use the standard Add method
+		hs.VectorStore.Add(id, vector)
+	}
 
 	// Add to cache
 	hs.contentCache[id] = content
@@ -257,13 +313,9 @@ func (hs *EnhancedHybridStore) Close() error {
 	return hs.TextIndex.Close()
 }
 
-// SortHybridResults trie les résultats par score combiné décroissant
+// SortHybridResults sorts results by combined score in descending order
 func SortHybridResults(results []HybridSearchResult) {
-	for i := 0; i < len(results); i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[j].CombinedScore > results[i].CombinedScore {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].CombinedScore > results[j].CombinedScore
+	})
 } 

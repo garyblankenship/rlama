@@ -48,11 +48,9 @@ Use rlama web-watch-off [rag-name] to disable watching.`,
 			}
 		}
 		
-		// Get Ollama client from root command
-		ollamaClient := GetOllamaClient()
-		
-		// Create RAG service
-		ragService := service.NewRagService(ollamaClient)
+		// Get service provider
+		provider := GetServiceProvider()
+		ragService := provider.GetRagService()
 		
 		// Set up web watch options
 		webWatchOptions := domain.WebWatchOptions{

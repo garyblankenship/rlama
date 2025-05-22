@@ -36,6 +36,17 @@ type RagSystem struct {
 	RerankerWeight    float64 `json:"reranker_weight,omitempty"`    // Weight for reranker scores vs vector scores (0-1)
 	RerankerThreshold float64 `json:"reranker_threshold,omitempty"` // Minimum score threshold for reranked results
 	RerankerTopK      int     `json:"reranker_top_k,omitempty"`     // Default: return only top 5 results after reranking
+	RerankerSilent    bool    `json:"reranker_silent,omitempty"`    // Whether to suppress warnings and output from the reranker
+	// Embedding settings
+	EmbeddingDimension int `json:"embedding_dimension,omitempty"` // Dimension of the embedding vectors
+	
+	// Vector Store Configuration
+	VectorStoreType      string `json:"vector_store_type,omitempty"`      // e.g., "internal_hnsw", "qdrant"
+	QdrantHost           string `json:"qdrant_host,omitempty"`
+	QdrantPort           int    `json:"qdrant_port,omitempty"`            // e.g., 6333 for HTTP, 6334 for gRPC
+	QdrantAPIKey         string `json:"qdrant_api_key,omitempty"`         // For Qdrant Cloud or secured instances
+	QdrantCollectionName string `json:"qdrant_collection_name,omitempty"` // Typically derived from ragName
+	QdrantGRPC           bool   `json:"qdrant_grpc,omitempty"`            // True to use gRPC, false for HTTP REST
 }
 
 // DocumentWatchOptions stores settings for directory watching
@@ -60,25 +71,76 @@ type WebWatchOptions struct {
 
 // NewRagSystem creates a new instance of RagSystem
 func NewRagSystem(name, modelName string) *RagSystem {
+	return NewRagSystemWithDimensions(name, modelName, 1536) // Default to 1536 dimensions
+}
+
+// NewRagSystemWithDimensions creates a new instance of RagSystem with specified embedding dimensions
+func NewRagSystemWithDimensions(name, modelName string, dimensions int) *RagSystem {
 	now := time.Now()
-	hybridStore, err := vector.NewEnhancedHybridStore(":memory:", 1536) // Assuming 1536 dimensions for embeddings
+	hybridStore, err := vector.NewEnhancedHybridStore(":memory:", dimensions)
 	if err != nil {
 		// Handle error appropriately
 		return nil
 	}
 
 	return &RagSystem{
-		Name:            name,
-		ModelName:       modelName,
-		CreatedAt:       now,
-		UpdatedAt:       now,
-		HybridStore:     hybridStore,
-		Documents:       []*Document{},
-		Chunks:          []*DocumentChunk{},
-		RerankerEnabled: true,                      // Enable reranking by default
-		RerankerModel:   "BAAI/bge-reranker-v2-m3", // Use BGE reranker by default
-		RerankerWeight:  0.7,                       // Default: 70% reranker score, 30% vector similarity
-		RerankerTopK:    5,                         // Default: return only top 5 results after reranking
+		Name:               name,
+		ModelName:          modelName,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+		HybridStore:        hybridStore,
+		Documents:          []*Document{},
+		Chunks:             []*DocumentChunk{},
+		RerankerEnabled:    true,                      // Enable reranking by default
+		RerankerModel:      "BAAI/bge-reranker-v2-m3", // Use BGE reranker by default
+		RerankerWeight:     0.7,                       // Default: 70% reranker score, 30% vector similarity
+		RerankerTopK:       5,                         // Default: return only top 5 results after reranking
+		EmbeddingDimension: dimensions,                // Store the embedding dimension
+		VectorStoreType:    "internal",                // Default to internal vector store
+	}
+}
+
+// NewRagSystemWithVectorStore creates a new instance of RagSystem with vector store configuration
+func NewRagSystemWithVectorStore(name, modelName string, dimensions int, vectorStoreType, qdrantHost string, qdrantPort int, qdrantAPIKey, qdrantCollection string, qdrantGRPC bool) *RagSystem {
+	now := time.Now()
+	
+	// Create hybrid store config
+	hybridConfig := vector.HybridStoreConfig{
+		IndexPath:            ":memory:",
+		Dimensions:           dimensions,
+		VectorStoreType:      vectorStoreType,
+		QdrantHost:           qdrantHost,
+		QdrantPort:           qdrantPort,
+		QdrantAPIKey:         qdrantAPIKey,
+		QdrantCollectionName: qdrantCollection,
+		QdrantGRPC:           qdrantGRPC,
+	}
+	
+	hybridStore, err := vector.NewEnhancedHybridStoreWithConfig(hybridConfig)
+	if err != nil {
+		// Handle error appropriately
+		return nil
+	}
+
+	return &RagSystem{
+		Name:                 name,
+		ModelName:            modelName,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+		HybridStore:          hybridStore,
+		Documents:            []*Document{},
+		Chunks:               []*DocumentChunk{},
+		RerankerEnabled:      true,                      // Enable reranking by default
+		RerankerModel:        "BAAI/bge-reranker-v2-m3", // Use BGE reranker by default
+		RerankerWeight:       0.7,                       // Default: 70% reranker score, 30% vector similarity
+		RerankerTopK:         5,                         // Default: return only top 5 results after reranking
+		EmbeddingDimension:   dimensions,                // Store the embedding dimension
+		VectorStoreType:      vectorStoreType,
+		QdrantHost:           qdrantHost,
+		QdrantPort:           qdrantPort,
+		QdrantAPIKey:         qdrantAPIKey,
+		QdrantCollectionName: qdrantCollection,
+		QdrantGRPC:           qdrantGRPC,
 	}
 }
 

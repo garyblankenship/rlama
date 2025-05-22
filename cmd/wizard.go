@@ -348,19 +348,18 @@ This makes it easy to set up a new RAG without remembering all command options.`
 		// Create the RAG
 		fmt.Println("\nCreating RAG...")
 
-		// Get the configured Ollama client
-		ollamaClient := GetOllamaClient()
+		// Get service provider
+		provider := GetServiceProvider()
+		ragService := provider.GetRagService()
 
 		// Check that the model is available before continuing
 		// This step is important to avoid errors later
 		fmt.Printf("Checking if model '%s' is available...\n", modelName)
+		ollamaClient := provider.GetOllamaClient()
 		err = ollamaClient.CheckOllamaAndModel(modelName)
 		if err != nil {
 			return fmt.Errorf("model '%s' is not available: %w", modelName, err)
 		}
-
-		// Use RagService to create the RAG
-		ragService := service.NewRagService(ollamaClient)
 
 		if useWebCrawler {
 			// Use the crawler
@@ -387,16 +386,16 @@ This makes it easy to set up a new RAG without remembering all command options.`
 
 			fmt.Printf("Retrieved %d pages from website. Processing content...\n", len(documents))
 
-			// Convert documents to pointers before calling createTempDirForDocuments
+			// Convert documents to pointers before calling CreateTempDirForDocuments
 			var docPointers []*domain.Document
 			for i := range documents {
 				docPointers = append(docPointers, &documents[i])
 			}
 
 			// Create a temporary directory for the documents
-			tempDir := createTempDirForDocuments(docPointers)
+			tempDir := service.CreateTempDirForDocuments(docPointers)
 			if tempDir != "" {
-				defer cleanupTempDir(tempDir)
+				defer service.CleanupTempDir(tempDir)
 			}
 
 			// Options for the document loader

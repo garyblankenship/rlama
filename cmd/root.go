@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -43,24 +41,45 @@ var (
 	dataDir     string
 )
 
+// Global service provider instance
+var serviceProvider *service.ServiceProvider
+
 // Execute executes the root command
 func Execute() error {
 	return rootCmd.Execute()
 }
 
-// GetOllamaClient returns an Ollama client configured with host and port from command flags
-func GetOllamaClient() *client.OllamaClient {
-	// Windows may use different environment variable handling
-	if runtime.GOOS == "windows" {
-		// Ensure Ollama can be found if running via WSL
-		if ollamaHost == "" && ollamaPort == "" && os.Getenv("OLLAMA_HOST") == "" {
-			// Check if WSL access is needed and Ollama is not running natively
-			// This is just an example approach - actual implementation would need to check
-			// if Ollama is accessible on localhost first
+// GetServiceProvider returns the global service provider, creating it if necessary
+func GetServiceProvider() *service.ServiceProvider {
+	if serviceProvider == nil {
+		config := service.NewServiceConfig()
+		
+		// Override with command-line flags if provided
+		if ollamaHost != "" {
+			config.OllamaHost = ollamaHost
+		}
+		if ollamaPort != "" {
+			config.OllamaPort = ollamaPort
+		}
+		if dataDir != "" {
+			config.DataDirectory = dataDir
+		}
+		config.Verbose = verbose
+		
+		var err error
+		serviceProvider, err = service.NewServiceProvider(config)
+		if err != nil {
+			// Fallback to default config in case of error
+			serviceProvider, _ = service.NewServiceProvider(service.NewServiceConfig())
 		}
 	}
+	return serviceProvider
+}
 
-	return client.NewOllamaClient(ollamaHost, ollamaPort)
+// GetOllamaClient returns an Ollama client configured with host and port from command flags
+// Deprecated: Use GetServiceProvider().GetOllamaClient() instead
+func GetOllamaClient() *client.OllamaClient {
+	return GetServiceProvider().GetOllamaClient()
 }
 
 func init() {
@@ -97,9 +116,9 @@ func startFileWatcherDaemon() {
 	// Wait a bit for application initialization
 	time.Sleep(2 * time.Second)
 
-	// Create the services
-	ollamaClient := GetOllamaClient()
-	ragService := service.NewRagService(ollamaClient)
+	// Get services from the service provider
+	provider := GetServiceProvider()
+	ragService := provider.GetRagService()
 	fileWatcher := service.NewFileWatcher(ragService)
 
 	// Start the daemon with a 1-minute check interval for its internal operations

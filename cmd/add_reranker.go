@@ -13,6 +13,7 @@ var (
 	rerankerThreshold float64
 	rerankerTopK      int
 	disableReranker   bool
+	rerankerSilent    bool
 )
 
 var addRerankerCmd = &cobra.Command{
@@ -76,12 +77,20 @@ Use --disable flag to turn off reranking if needed.`,
 				// Set default if not already set
 				rag.RerankerTopK = 5
 			}
+			
+			// Set silent mode if specified
+			if cmd.Flags().Changed("silent") {
+				rag.RerankerSilent = rerankerSilent
+			}
 
 			fmt.Printf("Reranking enabled for RAG '%s'\n", ragName)
 			fmt.Printf("  Model: %s\n", rag.RerankerModel)
 			fmt.Printf("  Weight: %.2f\n", rag.RerankerWeight)
 			fmt.Printf("  Threshold: %.2f\n", rag.RerankerThreshold)
 			fmt.Printf("  Max results: %d\n", rag.RerankerTopK)
+			if rag.RerankerSilent {
+				fmt.Printf("  Silent mode: enabled (warnings and info messages suppressed)\n")
+			}
 		}
 
 		// Update the RAG
@@ -103,4 +112,5 @@ func init() {
 	addRerankerCmd.Flags().Float64Var(&rerankerThreshold, "threshold", 0.0, "Minimum score threshold for reranked results")
 	addRerankerCmd.Flags().IntVar(&rerankerTopK, "topk", 5, "Maximum number of results to return after reranking")
 	addRerankerCmd.Flags().BoolVar(&disableReranker, "disable", false, "Disable reranking for this RAG")
+	addRerankerCmd.Flags().BoolVar(&rerankerSilent, "silent", false, "Suppress warnings and output from the reranker")
 }

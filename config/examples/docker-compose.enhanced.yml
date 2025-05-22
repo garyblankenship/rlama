@@ -1,0 +1,126 @@
+# Docker Compose configuration for RLAMA with Enhanced Document Processing
+# This configuration optimizes RLAMA for different deployment scenarios
+
+version: '3.8'
+
+services:
+  # RLAMA with Ollama backend and enhanced processing
+  rlama-ollama:
+    image: rlama:latest
+    container_name: rlama-enhanced
+    environment:
+      # Enhanced Document Processing Configuration
+      - RLAMA_LOADER_STRATEGY=hybrid
+      - RLAMA_USE_LANGCHAIN_LOADER=true
+      - RLAMA_DEBUG_LOADER=false
+      - RLAMA_COLLECT_TELEMETRY=true
+      - RLAMA_LOADER_TIMEOUT_MINUTES=5
+      - RLAMA_LOADER_MAX_RETRIES=3
+      - RLAMA_PREFERRED_CHUNK_SIZE=1000
+      - RLAMA_PREFERRED_CHUNK_OVERLAP=200
+      
+      # Ollama connection
+      - OLLAMA_HOST=http://ollama:11434
+      
+      # Optional: Vector database configuration
+      - RLAMA_VECTOR_STORE=qdrant
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    volumes:
+      - ./documents:/app/documents:ro
+      - ./rlama-data:/app/data
+    depends_on:
+      - ollama
+      - qdrant
+    networks:
+      - rlama-network
+
+  # Ollama service for local LLM hosting
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama-server
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - rlama-network
+
+  # Qdrant vector database for production-grade vector storage
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-vector-db
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    networks:
+      - rlama-network
+
+  # RLAMA API server with enhanced processing
+  rlama-api:
+    image: rlama:latest
+    container_name: rlama-api-server
+    command: ["rlama", "api", "--port", "8080", "--host", "0.0.0.0"]
+    environment:
+      # High-performance configuration for API usage
+      - RLAMA_LOADER_STRATEGY=langchain
+      - RLAMA_USE_LANGCHAIN_LOADER=true
+      - RLAMA_PREFERRED_CHUNK_SIZE=1500
+      - RLAMA_PREFERRED_CHUNK_OVERLAP=250
+      - RLAMA_LOADER_TIMEOUT_MINUTES=3
+      - RLAMA_COLLECT_TELEMETRY=true
+      
+      # Backend configuration
+      - OLLAMA_HOST=http://ollama:11434
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./rlama-data:/app/data
+    depends_on:
+      - ollama
+      - qdrant
+    networks:
+      - rlama-network
+
+volumes:
+  ollama-data:
+    driver: local
+  qdrant-data:
+    driver: local
+
+networks:
+  rlama-network:
+    driver: bridge
+
+# Additional configurations for different scenarios:
+
+# Development environment with debugging
+x-development-config: &dev-config
+  environment:
+    - RLAMA_LOADER_STRATEGY=hybrid
+    - RLAMA_DEBUG_LOADER=true
+    - RLAMA_COLLECT_TELEMETRY=true
+    - RLAMA_LOADER_MAX_RETRIES=1
+    - RLAMA_PREFERRED_CHUNK_SIZE=500
+
+# Production environment with optimized performance
+x-production-config: &prod-config
+  environment:
+    - RLAMA_LOADER_STRATEGY=langchain
+    - RLAMA_USE_LANGCHAIN_LOADER=true
+    - RLAMA_DEBUG_LOADER=false
+    - RLAMA_COLLECT_TELEMETRY=true
+    - RLAMA_LOADER_TIMEOUT_MINUTES=10
+    - RLAMA_LOADER_MAX_RETRIES=5
+    - RLAMA_PREFERRED_CHUNK_SIZE=2000
+    - RLAMA_PREFERRED_CHUNK_OVERLAP=300
+
+# To use these configurations, override the service environment:
+# docker-compose -f docker-compose.enhanced.yml up rlama-ollama

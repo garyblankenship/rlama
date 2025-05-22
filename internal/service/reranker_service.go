@@ -34,6 +34,9 @@ type RerankerOptions struct {
 	// AdaptiveFiltering when true, uses content relevance to select chunks
 	// rather than a fixed top-k approach
 	AdaptiveFiltering bool
+	
+	// Silent suppresses warnings and informational output from the reranker
+	Silent bool
 }
 
 // DefaultRerankerOptions returns the default options for reranking
@@ -45,13 +48,27 @@ func DefaultRerankerOptions() RerankerOptions {
 		ScoreThreshold:    0.0,
 		RerankerWeight:    0.7, // 70% reranker score, 30% vector similarity
 		AdaptiveFiltering: false,
+		Silent:            false,
 	}
+}
+
+// RerankerClient interface for different reranker implementations
+type RerankerClient interface {
+	ComputeScores(pairs [][]string, normalize bool) ([]float64, error)
+	GetModelName() string
+}
+
+// CleanupableRerankerClient interface for clients that need cleanup
+type CleanupableRerankerClient interface {
+	RerankerClient
+	Cleanup() error
 }
 
 // RerankerService handles document reranking using cross-encoder models
 type RerankerService struct {
 	ollamaClient      *client.OllamaClient
-	bgeRerankerClient *client.BGERerankerClient
+	bgeRerankerClient RerankerClient
+	useONNX           bool
 }
 
 // NewRerankerService creates a new instance of RerankerService
@@ -60,12 +77,42 @@ func NewRerankerService(ollamaClient *client.OllamaClient) *RerankerService {
 		ollamaClient = client.NewDefaultOllamaClient()
 	}
 
-	// Create the BGE reranker client with the default model
+	// Create the BGE reranker client with the default model (Python implementation)
 	bgeRerankerClient := client.NewBGERerankerClient("BAAI/bge-reranker-v2-m3")
 
 	return &RerankerService{
 		ollamaClient:      ollamaClient,
 		bgeRerankerClient: bgeRerankerClient,
+		useONNX:           false,
+	}
+}
+
+// NewRerankerServiceWithOptions creates a new instance of RerankerService with configuration options
+func NewRerankerServiceWithOptions(ollamaClient *client.OllamaClient, useONNX bool, onnxModelDir string) *RerankerService {
+	if ollamaClient == nil {
+		ollamaClient = client.NewDefaultOllamaClient()
+	}
+
+	var bgeRerankerClient RerankerClient
+	if useONNX {
+		// Create ONNX-based reranker client
+		onnxClient, err := client.NewBGEONNXRerankerClient(onnxModelDir)
+		if err != nil {
+			fmt.Printf("⚠️ Warning: Failed to create ONNX reranker: %v. Falling back to Python implementation.\n", err)
+			bgeRerankerClient = client.NewBGERerankerClient("BAAI/bge-reranker-v2-m3")
+			useONNX = false
+		} else {
+			bgeRerankerClient = onnxClient
+		}
+	} else {
+		// Create Python-based reranker client
+		bgeRerankerClient = client.NewBGERerankerClient("BAAI/bge-reranker-v2-m3")
+	}
+
+	return &RerankerService{
+		ollamaClient:      ollamaClient,
+		bgeRerankerClient: bgeRerankerClient,
+		useONNX:           useONNX,
 	}
 }
 
@@ -92,7 +139,9 @@ func (rs *RerankerService) Rerank(
 	// Always use BGE Reranker if available
 	if rs.bgeRerankerClient != nil {
 		// Use the BGE model configured in the client
-		fmt.Printf("Using reranker model: %s (BGE Reranker)\n", rs.bgeRerankerClient.GetModelName())
+		if !options.Silent {
+			fmt.Printf("Using reranker model: %s (BGE Reranker)\n", rs.bgeRerankerClient.GetModelName())
+		}
 
 		// Code to perform reranking with BGE
 		pairs := make([][]string, 0, len(initialResults))
@@ -150,7 +199,9 @@ func (rs *RerankerService) Rerank(
 
 			// Only apply Top-K limit if we're not using adaptive filtering
 			if !options.AdaptiveFiltering && options.TopK > 0 && len(rankedResults) > options.TopK {
-				fmt.Printf("Limiting reranked results from %d to top %d\n", len(rankedResults), options.TopK)
+				if !options.Silent {
+					fmt.Printf("Limiting reranked results from %d to top %d\n", len(rankedResults), options.TopK)
+				}
 				rankedResults = rankedResults[:options.TopK]
 			}
 
@@ -165,7 +216,9 @@ func (rs *RerankerService) Rerank(
 		modelName = rag.ModelName
 	}
 
-	fmt.Printf("Using reranker model: %s\n", modelName)
+	if !options.Silent {
+		fmt.Printf("Using reranker model: %s\n", modelName)
+	}
 
 	// Check if the model is a BGE reranker model
 	isBGEReranker := strings.Contains(strings.ToLower(modelName), "bge-reranker")
@@ -173,6 +226,9 @@ func (rs *RerankerService) Rerank(
 	var rankedResults []RankedResult
 
 	if isBGEReranker {
+		// Always recreate the BGE client with the current silent setting
+		rs.bgeRerankerClient = client.NewBGERerankerClientWithOptions(rs.bgeRerankerClient.GetModelName(), options.Silent)
+		
 		// Use BGE reranker for BGE models
 		pairs := make([][]string, 0, len(initialResults))
 		resultMap := make(map[int]*domain.DocumentChunk)
@@ -307,9 +363,24 @@ Relevance score (output only a single number between 0 and 1):
 
 	// Only apply Top-K limit if we're not using adaptive filtering
 	if !options.AdaptiveFiltering && options.TopK > 0 && len(rankedResults) > options.TopK {
-		fmt.Printf("Limiting reranked results from %d to top %d\n", len(rankedResults), options.TopK)
+		if !options.Silent {
+			fmt.Printf("Limiting reranked results from %d to top %d\n", len(rankedResults), options.TopK)
+		}
 		rankedResults = rankedResults[:options.TopK]
 	}
 
 	return rankedResults, nil
+}
+
+// Cleanup properly cleans up resources if the reranker client supports it
+func (rs *RerankerService) Cleanup() error {
+	if cleanupClient, ok := rs.bgeRerankerClient.(CleanupableRerankerClient); ok {
+		return cleanupClient.Cleanup()
+	}
+	return nil
+}
+
+// IsUsingONNX returns true if the service is using ONNX implementation
+func (rs *RerankerService) IsUsingONNX() bool {
+	return rs.useONNX
 }
