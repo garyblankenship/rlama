@@ -25,15 +25,28 @@ var agentRunCmd = &cobra.Command{
 	Long: `Run an agent that can use various tools including RAG search.
 If a RAG name is provided, the agent will have access to that knowledge base.
 
+Agent Modes:
+- conversation: Simple conversational agent for basic queries
+- autonomous: Autonomous agent (not yet implemented)
+- orchestrated: Advanced agent that decomposes complex queries into tasks (DEFAULT)
+
+The orchestrated mode is perfect for complex queries like:
+"When is the next Snowflake Summit and how much would it cost to attend from Montreal?"
+
 For web search functionality:
 1. Enable with -w or --web flag
 2. Set GOOGLE_SEARCH_API_KEY environment variable or use --search-api-key flag
 3. Set GOOGLE_SEARCH_ENGINE_ID environment variable or use --search-engine-id flag
 
-Example:
-  rlama agent run -w -q "What's the weather?" \
-    --search-api-key="your_api_key" \
-    --search-engine-id="your_engine_id"`,
+Examples:
+  # Simple query with orchestrated mode (default)
+  rlama agent run -w -q "When is the next Snowflake Summit and how much to attend from Montreal?"
+
+  # Complex query with explicit orchestrated mode
+  rlama agent run -w -m orchestrated -q "Find Python security issues in my code and suggest fixes"
+
+  # Simple conversational mode
+  rlama agent run -w -m conversation -q "What's the weather today?"`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get flags
@@ -56,6 +69,8 @@ Example:
 			agentMode = agent.ConversationalMode
 		case "autonomous":
 			agentMode = agent.AutonomousMode
+		case "orchestrated":
+			agentMode = agent.OrchestratedMode
 		default:
 			return fmt.Errorf("invalid mode: %s", mode)
 		}
@@ -149,7 +164,7 @@ func init() {
 	agentCmd.AddCommand(agentRunCmd)
 
 	// Add flags
-	agentRunCmd.Flags().StringP("mode", "m", "conversation", "Agent mode (conversation or autonomous)")
+	agentRunCmd.Flags().StringP("mode", "m", "orchestrated", "Agent mode (conversation, autonomous, or orchestrated)")
 	agentRunCmd.Flags().BoolP("web", "w", false, "Enable web search capability")
 	agentRunCmd.Flags().StringP("query", "q", "", "Query or goal for the agent")
 	agentRunCmd.Flags().StringP("model", "l", "", "Model to use for the agent (overrides global model)")

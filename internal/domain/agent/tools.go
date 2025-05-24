@@ -1272,3 +1272,114 @@ func (t *RagAutoDetectionTool) executeWithSpecificRag(ctx context.Context, query
 	// Since we don't have access to the full RAG service here, we need to suggest using the correct command
 	return fmt.Sprintf("RAG system '%s' is available with %d documents. However, this tool cannot directly query RAG systems. Please run:\n\nrlama agent run %s -q \"%s\"\n\nThis will give you access to the RAG search capabilities you're looking for.", ragName, len(rag.Documents), ragName, query), nil
 }
+
+// FlightSearchTool provides flight search capability using web search
+type FlightSearchTool struct {
+	webSearchTool *WebSearchTool
+}
+
+// NewFlightSearchTool creates a new FlightSearchTool
+func NewFlightSearchTool(apiKey string) *FlightSearchTool {
+	return &FlightSearchTool{
+		webSearchTool: NewWebSearchTool(apiKey),
+	}
+}
+
+func (t *FlightSearchTool) Name() string {
+	return "flight_search"
+}
+
+func (t *FlightSearchTool) Description() string {
+	return "Search for flight information between two cities. Input should be in format: 'from_city to destination_city' or 'from_city to destination_city on date'. This tool will search for flight options, prices, and availability."
+}
+
+func (t *FlightSearchTool) Schema() map[string]interface{} {
+	return map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"explanation": map[string]interface{}{
+				"description": "One sentence explanation as to why this tool is being used, and how it contributes to the goal.",
+				"type":        "string",
+			},
+			"from_city": map[string]interface{}{
+				"description": "The departure city or airport code",
+				"type":        "string",
+			},
+			"to_city": map[string]interface{}{
+				"description": "The destination city or airport code",
+				"type":        "string",
+			},
+			"date": map[string]interface{}{
+				"description": "Optional: travel date in YYYY-MM-DD format or relative format like 'next week'",
+				"type":        "string",
+			},
+		},
+		"required": []string{"from_city", "to_city"},
+	}
+}
+
+func (t *FlightSearchTool) ExecuteWithParams(ctx context.Context, params map[string]interface{}) (string, error) {
+	fromCity, ok := params["from_city"].(string)
+	if !ok {
+		return "", fmt.Errorf("from_city parameter is required and must be a string")
+	}
+
+	toCity, ok := params["to_city"].(string)
+	if !ok {
+		return "", fmt.Errorf("to_city parameter is required and must be a string")
+	}
+
+	date, _ := params["date"].(string)
+
+	var input string
+	if date != "" {
+		input = fmt.Sprintf("%s to %s on %s", fromCity, toCity, date)
+	} else {
+		input = fmt.Sprintf("%s to %s", fromCity, toCity)
+	}
+
+	return t.Execute(ctx, input)
+}
+
+func (t *FlightSearchTool) Execute(ctx context.Context, input string) (string, error) {
+	// Parse the input to extract cities and optional date
+	parts := strings.Split(strings.ToLower(input), " to ")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid input format. Expected 'from_city to destination_city' or 'from_city to destination_city on date'")
+	}
+
+	fromCity := strings.TrimSpace(parts[0])
+
+	// Check if there's a date specified
+	toParts := strings.Split(parts[1], " on ")
+	toCity := strings.TrimSpace(toParts[0])
+	var date string
+	if len(toParts) > 1 {
+		date = strings.TrimSpace(toParts[1])
+	}
+
+	// Build search query for flights
+	var searchQuery string
+	if date != "" {
+		searchQuery = fmt.Sprintf("flights from %s to %s %s price booking", fromCity, toCity, date)
+	} else {
+		searchQuery = fmt.Sprintf("flights from %s to %s price booking cheap tickets", fromCity, toCity)
+	}
+
+	// Use web search to find flight information
+	result, err := t.webSearchTool.Execute(ctx, searchQuery)
+	if err != nil {
+		return "", fmt.Errorf("failed to search for flights: %w", err)
+	}
+
+	// Format the response specifically for flights
+	response := fmt.Sprintf("🛫 Flight search results for %s to %s", fromCity, toCity)
+	if date != "" {
+		response += fmt.Sprintf(" on %s", date)
+	}
+	response += ":\n\n"
+	response += result
+	response += "\n\n💡 Tip: For the best prices and to book flights, visit the airline websites or travel booking sites mentioned above."
+
+	return response, nil
+}

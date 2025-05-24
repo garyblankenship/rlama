@@ -13,7 +13,7 @@ import (
 
 const (
 	// Version is the current version of RLAMA
-	Version = "0.1.37"
+	Version = "0.1.38"
 	// Default Ollama connection settings
 	defaultHost = "localhost"
 	defaultPort = "11434"

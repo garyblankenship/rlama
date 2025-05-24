@@ -12,6 +12,8 @@ const (
 	ConversationalMode AgentMode = "conversational"
 	// AutonomousMode represents an agent that operates autonomously
 	AutonomousMode AgentMode = "autonomous"
+	// OrchestratedMode represents an agent that uses task orchestration for complex queries
+	OrchestratedMode AgentMode = "orchestrated"
 )
 
 // Tool interface is defined in tool.go
