@@ -19,14 +19,16 @@ const (
 
 // OllamaClient is a client for the Ollama API
 type OllamaClient struct {
-	BaseURL string
-	Client  *http.Client
+	BaseURL   string
+	Client    *http.Client
+	NumThread int
 }
 
 // EmbeddingRequest is the structure of the request for the /api/embeddings API
 type EmbeddingRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
+	Model   string   `json:"model"`
+	Prompt  string   `json:"prompt"`
+	Options *Options `json:"options,omitempty"`
 }
 
 // EmbeddingResponse is the structure of the response for the /api/embeddings API
@@ -51,6 +53,7 @@ type Options struct {
 	TopP        float64 `json:"top_p,omitempty"`
 	TopK        int     `json:"top_k,omitempty"`
 	NumPredict  int     `json:"num_predict,omitempty"`
+	NumThread   int     `json:"num_thread,omitempty"`
 }
 
 // GenerationResponse is the structure of the response for the /api/generate API
@@ -65,7 +68,8 @@ type GenerationResponse struct {
 // NewOllamaClient creates a new Ollama client
 // If host or port are empty, the default values are used
 // If OLLAMA_HOST is defined, it is used as the default value
-func NewOllamaClient(host, port string) *OllamaClient {
+// numThread sets the number of threads for Ollama to use (0 means use default)
+func NewOllamaClient(host, port string, numThread int) *OllamaClient {
 	// Check for OLLAMA_HOST environment variable
 	ollamaHostEnv := os.Getenv("OLLAMA_HOST")
 
@@ -120,15 +124,16 @@ func NewOllamaClient(host, port string) *OllamaClient {
 	baseURL := fmt.Sprintf("%s%s:%s", protocol, host, defaultPort)
 
 	return &OllamaClient{
-		BaseURL: baseURL,
-		Client:  &http.Client{},
+		BaseURL:   baseURL,
+		Client:    &http.Client{},
+		NumThread: numThread,
 	}
 }
 
 // NewDefaultOllamaClient creates a new Ollama client with the default values
 // Kept for compatibility with existing code
 func NewDefaultOllamaClient() *OllamaClient {
-	return NewOllamaClient(DefaultOllamaHost, DefaultOllamaPort)
+	return NewOllamaClient(DefaultOllamaHost, DefaultOllamaPort, 0)
 }
 
 // GenerateEmbedding generates an embedding for the given text
@@ -136,6 +141,13 @@ func (c *OllamaClient) GenerateEmbedding(model, text string) ([]float32, error) 
 	reqBody := EmbeddingRequest{
 		Model:  model,
 		Prompt: text,
+	}
+
+	// Add thread configuration for embeddings if configured
+	if c.NumThread > 0 {
+		reqBody.Options = &Options{
+			NumThread: c.NumThread,
+		}
 	}
 
 	reqJSON, err := json.Marshal(reqBody)
@@ -168,15 +180,22 @@ func (c *OllamaClient) GenerateEmbedding(model, text string) ([]float32, error) 
 
 // GenerateCompletion generates a response for the given prompt
 func (c *OllamaClient) GenerateCompletion(model, prompt string) (string, error) {
+	options := Options{
+		Temperature: 0.7,
+		TopP:        0.9,
+		NumPredict:  1024,
+	}
+
+	// Only set NumThread if it's configured (> 0)
+	if c.NumThread > 0 {
+		options.NumThread = c.NumThread
+	}
+
 	reqBody := GenerationRequest{
-		Model:  model,
-		Prompt: prompt,
-		Stream: false,
-		Options: Options{
-			Temperature: 0.7,
-			TopP:        0.9,
-			NumPredict:  1024,
-		},
+		Model:   model,
+		Prompt:  prompt,
+		Stream:  false,
+		Options: options,
 	}
 
 	reqJSON, err := json.Marshal(reqBody)
@@ -197,6 +216,55 @@ func (c *OllamaClient) GenerateCompletion(model, prompt string) (string, error) 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
 		return "", fmt.Errorf("failed to generate completion: %s (status: %d)", string(bodyBytes), resp.StatusCode)
+	}
+
+	var genResp GenerationResponse
+	if err := json.NewDecoder(resp.Body).Decode(&genResp); err != nil {
+		return "", err
+	}
+
+	return genResp.Response, nil
+}
+
+// GenerateStructuredCompletion generates a structured JSON response using Ollama's structured outputs
+func (c *OllamaClient) GenerateStructuredCompletion(model, prompt string, schema map[string]interface{}) (string, error) {
+	options := Options{
+		Temperature: 0.0, // Use 0 temperature for more deterministic structured output
+		TopP:        0.9,
+		NumPredict:  1024,
+	}
+
+	// Only set NumThread if it's configured (> 0)
+	if c.NumThread > 0 {
+		options.NumThread = c.NumThread
+	}
+
+	reqBody := map[string]interface{}{
+		"model":   model,
+		"prompt":  prompt,
+		"stream":  false,
+		"format":  schema, // Ollama structured outputs format
+		"options": options,
+	}
+
+	reqJSON, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := c.Client.Post(
+		fmt.Sprintf("%s/api/generate", c.BaseURL),
+		"application/json",
+		bytes.NewBuffer(reqJSON),
+	)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		return "", fmt.Errorf("failed to generate structured completion: %s (status: %d)", string(bodyBytes), resp.StatusCode)
 	}
 
 	var genResp GenerationResponse

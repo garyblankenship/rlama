@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/dontizi/rlama/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -81,26 +82,71 @@ func installDependenciesFallback() {
 }
 
 func installPythonDependencies() {
-	// Determine the Python command to use
+	pythonExecutor := utils.NewPythonExecutor()
+
+	// Create virtual environment
+	fmt.Println("Setting up Python virtual environment...")
+	if err := pythonExecutor.CreateVirtualEnvironment(); err != nil {
+		fmt.Printf("⚠️ Error creating virtual environment: %v\n", err)
+		fmt.Println("Falling back to system-wide installation...")
+		installSystemWide()
+		return
+	}
+
+	// Install required packages in virtual environment
+	packages := []string{"FlagEmbedding", "torch", "transformers", "pdfminer.six", "docx2txt", "xlsx2csv"}
+
+	for _, pkg := range packages {
+		if !pythonExecutor.CheckPackageInstalled(pkg) {
+			if err := pythonExecutor.InstallPackage(pkg); err != nil {
+				fmt.Printf("⚠️ Error installing %s: %v\n", pkg, err)
+				continue
+			}
+		} else {
+			fmt.Printf("✅ %s is already installed\n", pkg)
+		}
+	}
+
+	fmt.Println("✅ All Python dependencies installed successfully in virtual environment!")
+	fmt.Printf("Virtual environment location: %s\n", pythonExecutor.GetVirtualEnvPath())
+}
+
+// installSystemWide tries to install packages system-wide as a fallback
+func installSystemWide() {
 	pythonCmd := "python3"
 	if _, err := exec.LookPath(pythonCmd); err != nil {
 		pythonCmd = "python"
 		if _, err := exec.LookPath(pythonCmd); err != nil {
 			fmt.Println("⚠️ Python is not installed or is not in the PATH.")
-			fmt.Println("Please install Python 3.x then run: pip install -U FlagEmbedding torch transformers")
+			fmt.Println("Please install Python 3.x then run: rlama install-dependencies")
 			return
 		}
 	}
 
-	// Install Python dependencies
-	fmt.Println("Installing FlagEmbedding and associated dependencies...")
-	installCmd := exec.Command(pythonCmd, "-m", "pip", "install", "--user", "-U", "FlagEmbedding", "torch", "transformers")
+	fmt.Println("Attempting system-wide installation...")
+	packages := []string{"FlagEmbedding", "torch", "transformers", "pdfminer.six", "docx2txt", "xlsx2csv"}
+
+	// Try --user flag first
+	installCmd := exec.Command(pythonCmd, "-m", "pip", "install", "--user", "-U")
+	installCmd.Args = append(installCmd.Args, packages...)
 	installCmd.Stdout = os.Stdout
 	installCmd.Stderr = os.Stderr
 
 	if err := installCmd.Run(); err != nil {
-		fmt.Printf("⚠️ Error installing Python dependencies: %v\n", err)
-		fmt.Println("Please install manually: pip install -U FlagEmbedding torch transformers")
+		fmt.Printf("⚠️ Error with --user installation: %v\n", err)
+		fmt.Println()
+		fmt.Println("=== MANUAL INSTALLATION REQUIRED ===")
+		fmt.Println("Due to PEP 668 (externally-managed-environment), you need to install dependencies manually.")
+		fmt.Println("Please run the following commands:")
+		fmt.Println()
+		fmt.Printf("# Create virtual environment\n")
+		fmt.Printf("python3 -m venv ~/.rlama/venv\n")
+		fmt.Printf("\n# Activate virtual environment\n")
+		fmt.Printf("source ~/.rlama/venv/bin/activate\n")
+		fmt.Printf("\n# Install dependencies\n")
+		fmt.Printf("pip install -U %s\n", "FlagEmbedding torch transformers pdfminer.six docx2txt xlsx2csv")
+		fmt.Printf("\n# Deactivate (optional)\n")
+		fmt.Printf("deactivate\n")
 	} else {
 		fmt.Println("✅ Python dependencies installed successfully!")
 	}

@@ -192,8 +192,26 @@ rlama --help
 These flags can be used with any command:
 
 ```bash
---host string   Ollama host (default: localhost)
---port string   Ollama port (default: 11434)
+--host string       Ollama host (default: localhost)
+--port string       Ollama port (default: 11434)
+--num-thread int    Number of threads for Ollama to use (default: 0, use Ollama default)
+```
+
+**Performance Optimization:**
+- Use `--num-thread 16` (or your CPU core count) to potentially improve processing speed
+- Ollama often uses half the available cores by default
+- Setting this to your full core count can significantly speed up text generation and embeddings
+
+**Usage Examples:**
+```bash
+# Use 16 threads for better performance
+rlama --num-thread 16 run my-docs
+
+# Create a RAG with optimized thread usage
+rlama --num-thread 16 rag llama3 documentation ./docs
+
+# Run with custom host and thread settings
+rlama --host 192.168.1.100 --port 11434 --num-thread 16 run my-rag
 ```
 
 ### Custom Data Directory

@@ -55,8 +55,8 @@ Example: rlama run rag1`,
 				rag.WatchOptions.ChunkSize,
 				rag.WatchOptions.ChunkOverlap)
 			if rag.RerankerEnabled {
-				fmt.Printf("Reranking: Enabled (model: %s, weight: %.2f)\n",
-					rag.RerankerModel, rag.RerankerWeight)
+				fmt.Printf("Reranking: Enabled (weight: %.2f)\n",
+					rag.RerankerWeight)
 				defaultOpts := service.DefaultRerankerOptions()
 				if contextSize <= 0 {
 					fmt.Printf("Using default TopK: %d\n", defaultOpts.TopK)

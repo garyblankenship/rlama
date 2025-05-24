@@ -539,7 +539,7 @@ func (rs *RagServiceImpl) UpdateRag(rag *domain.RagSystem) error {
 
 // ListAllRags lists all available RAGs
 func (rs *RagServiceImpl) ListAllRags() ([]string, error) {
-	return nil, nil
+	return rs.ragRepository.ListAll()
 }
 
 // SetupDirectoryWatching sets up directory watching for a RAG

@@ -96,20 +96,83 @@ elif [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; th
   fi
 fi
 
-# Install common Python dependencies
-echo "Installing common Python dependencies..."
-if is_installed pip3; then
-  pip3 install --user pdfminer.six docx2txt xlsx2csv
-  echo "Installing dependencies for BGE reranker..."
-  pip3 install --user -U FlagEmbedding torch transformers
-elif is_installed pip; then
-  pip install --user pdfminer.six docx2txt xlsx2csv
-  echo "Installing dependencies for BGE reranker..."
-  pip install --user -U FlagEmbedding torch transformers
+# Install common Python dependencies using virtual environment
+echo "Setting up Python virtual environment for RLAMA..."
+
+# Determine Python command
+PYTHON_CMD=""
+if is_installed python3; then
+  PYTHON_CMD="python3"
+elif is_installed python; then
+  PYTHON_CMD="python"
 else
-  echo "⚠️ Pip is not installed. Cannot install Python dependencies."
-  echo "Please install pip then run: pip install -U FlagEmbedding pdfminer.six docx2txt xlsx2csv"
+  echo "⚠️ Python is not installed. Please install Python 3.x first."
+  exit 1
 fi
+
+# Create virtual environment directory
+VENV_DIR="$HOME/.rlama/venv"
+mkdir -p "$HOME/.rlama"
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Creating virtual environment at $VENV_DIR..."
+  $PYTHON_CMD -m venv "$VENV_DIR"
+  if [ $? -ne 0 ]; then
+    echo "⚠️ Failed to create virtual environment. Falling back to --user installation..."
+    fallback_install
+    exit 0
+  fi
+  echo "✅ Virtual environment created successfully!"
+else
+  echo "Virtual environment already exists"
+fi
+
+# Activate virtual environment and install packages
+if [ -f "$VENV_DIR/bin/activate" ]; then
+  # Unix-like systems
+  source "$VENV_DIR/bin/activate"
+  VENV_PYTHON="$VENV_DIR/bin/python"
+elif [ -f "$VENV_DIR/Scripts/activate" ]; then
+  # Windows
+  source "$VENV_DIR/Scripts/activate"
+  VENV_PYTHON="$VENV_DIR/Scripts/python.exe"
+else
+  echo "⚠️ Virtual environment activation script not found. Falling back to --user installation..."
+  fallback_install
+  exit 0
+fi
+
+echo "Installing Python dependencies in virtual environment..."
+$VENV_PYTHON -m pip install --upgrade pip
+$VENV_PYTHON -m pip install -U pdfminer.six docx2txt xlsx2csv
+echo "Installing dependencies for BGE reranker..."
+$VENV_PYTHON -m pip install -U FlagEmbedding torch transformers
+
+if [ $? -eq 0 ]; then
+  echo "✅ All Python dependencies installed successfully in virtual environment!"
+  echo "Virtual environment location: $VENV_DIR"
+else
+  echo "⚠️ Error installing some packages. Please check the output above."
+fi
+
+# Function for fallback installation
+fallback_install() {
+  echo "Attempting --user installation..."
+  if is_installed pip3; then
+    pip3 install --user pdfminer.six docx2txt xlsx2csv
+    pip3 install --user -U FlagEmbedding torch transformers
+  elif is_installed pip; then
+    pip install --user pdfminer.six docx2txt xlsx2csv
+    pip install --user -U FlagEmbedding torch transformers
+  else
+    echo "⚠️ Pip is not installed. Cannot install Python dependencies."
+    echo "Please install pip then create a virtual environment manually:"
+    echo "python3 -m venv ~/.rlama/venv"
+    echo "source ~/.rlama/venv/bin/activate"
+    echo "pip install -U FlagEmbedding torch transformers pdfminer.six docx2txt xlsx2csv"
+  fi
+}
 
 echo "Installation completed!"
 echo ""
