@@ -8,13 +8,175 @@ import {
   DatabaseOutlined,
   RobotOutlined,
   ApiOutlined,
-  PlusOutlined
+  PlusOutlined,
+  FileTextOutlined,
+  BlockOutlined,
+  EyeOutlined,
+  GlobalOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { healthService, ragService } from '../services/api';
 import api from '../services/api';
 
 const { Title, Text, Paragraph } = Typography;
+
+// Composant pour afficher les statistiques du dashboard
+const DashboardStats = () => {
+  const [stats, setStats] = useState({
+    totalRags: 0,
+    totalDocuments: 0,
+    totalChunks: 0,
+    watchedFolders: 0,
+    watchedWebsites: 0,
+    loading: true,
+    error: null
+  });
+
+  const loadDashboardStats = async () => {
+    try {
+      setStats(prev => ({ ...prev, loading: true, error: null }));
+      
+      // Récupérer la liste des RAGs
+      const ragsResponse = await api.get('/rags');
+      const rags = ragsResponse.data || [];
+      
+      let totalDocuments = 0;
+      let totalChunks = 0;
+      let watchedFolders = 0;
+      let watchedWebsites = 0;
+      
+      // Pour chaque RAG, récupérer les détails
+      for (const rag of rags) {
+        try {
+          // Compter les documents
+          const docsResponse = await api.get(`/rags/${rag.name}/documents`);
+          const documents = docsResponse.data || [];
+          totalDocuments += documents.length;
+          
+          // Compter les chunks
+          const chunksResponse = await api.get(`/rags/${rag.name}/chunks`);
+          const chunks = chunksResponse.data || [];
+          totalChunks += chunks.length;
+          
+          // Vérifier le statut de surveillance des dossiers
+          try {
+            const watchStatusResponse = await api.get(`/rags/${rag.name}/watch-status`);
+            if (watchStatusResponse.data && watchStatusResponse.data.active) {
+              watchedFolders++;
+            }
+          } catch (e) {
+            // Ignore les erreurs de statut de surveillance
+          }
+          
+          // Vérifier le statut de surveillance web
+          try {
+            const webWatchStatusResponse = await api.get(`/rags/${rag.name}/web-watch-status`);
+            if (webWatchStatusResponse.data && webWatchStatusResponse.data.active) {
+              watchedWebsites++;
+            }
+          } catch (e) {
+            // Ignore les erreurs de statut de surveillance web
+          }
+        } catch (e) {
+          console.warn(`Erreur lors de la récupération des détails pour le RAG ${rag.name}:`, e);
+        }
+      }
+      
+      setStats({
+        totalRags: rags.length,
+        totalDocuments,
+        totalChunks,
+        watchedFolders,
+        watchedWebsites,
+        loading: false,
+        error: null
+      });
+    } catch (error) {
+      console.error('Erreur lors du chargement des statistiques:', error);
+      setStats(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Failed to load dashboard statistics'
+      }));
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardStats();
+  }, []);
+
+  if (stats.loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0' }}>
+        <Spin size="large" />
+        <Text type="secondary" style={{ display: 'block', marginTop: '16px' }}>
+          Loading statistics...
+        </Text>
+      </div>
+    );
+  }
+
+  if (stats.error) {
+    return (
+      <Alert
+        message="Error loading statistics"
+        description={stats.error}
+        type="error"
+        showIcon
+        action={
+          <Button size="small" onClick={loadDashboardStats}>
+            Retry
+          </Button>
+        }
+      />
+    );
+  }
+
+  return (
+    <Row gutter={[16, 16]}>
+      <Col xs={12} sm={8} md={6} lg={4}>
+        <Statistic
+          title="RAG Systems"
+          value={stats.totalRags}
+          prefix={<DatabaseOutlined style={{ color: 'var(--primary-600)' }} />}
+          valueStyle={{ color: 'var(--primary-700)' }}
+        />
+      </Col>
+      <Col xs={12} sm={8} md={6} lg={4}>
+        <Statistic
+          title="Documents"
+          value={stats.totalDocuments}
+          prefix={<FileTextOutlined style={{ color: 'var(--accent-blue)' }} />}
+          valueStyle={{ color: 'var(--accent-blue)' }}
+        />
+      </Col>
+      <Col xs={12} sm={8} md={6} lg={4}>
+        <Statistic
+          title="Chunks"
+          value={stats.totalChunks}
+          prefix={<BlockOutlined style={{ color: 'var(--accent-purple)' }} />}
+          valueStyle={{ color: 'var(--accent-purple)' }}
+        />
+      </Col>
+      <Col xs={12} sm={8} md={6} lg={4}>
+        <Statistic
+          title="Watched Folders"
+          value={stats.watchedFolders}
+          prefix={<EyeOutlined style={{ color: 'var(--accent-green)' }} />}
+          valueStyle={{ color: 'var(--accent-green)' }}
+        />
+      </Col>
+      <Col xs={12} sm={8} md={6} lg={4}>
+        <Statistic
+          title="Watched Websites"
+          value={stats.watchedWebsites}
+          prefix={<GlobalOutlined style={{ color: 'var(--accent-orange)' }} />}
+          valueStyle={{ color: 'var(--accent-orange)' }}
+        />
+      </Col>
+    </Row>
+  );
+};
 
 // Composant pour afficher l'état d'un service avec bouton aligné
 const ServiceStatus = ({ name, status, icon, details, logs, onShowDetails, version }) => {
@@ -94,7 +256,8 @@ const ServiceStatus = ({ name, status, icon, details, logs, onShowDetails, versi
 };
 
 const Home = () => {
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [rlamaStatus, setRlamaStatus] = useState('loading');
   const [ollamaStatus, setOllamaStatus] = useState('loading');
   const [modelsStatus, setModelsStatus] = useState('loading');
@@ -103,10 +266,10 @@ const Home = () => {
   const refreshingRef = useRef(false);
   const [error, setError] = useState(null);
   const [serviceDetails, setServiceDetails] = useState({
-    rlama: "Checking...",
-    ollama: "Checking...",
-    models: "Checking...",
-    embeddings: "Checking..."
+    rlama: "Initializing system check...",
+    ollama: "Initializing system check...",
+    models: "Initializing system check...",
+    embeddings: "Initializing system check..."
   });
   const [llmModelList, setLlmModelList] = useState([]);
   const [embeddingModelList, setEmbeddingModelList] = useState([]);
@@ -118,19 +281,53 @@ const Home = () => {
   });
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [currentServiceDetails, setCurrentServiceDetails] = useState(null);
-  const [rlamaCli, setRlamaCli] = useState({ status: 'loading', details: 'Checking...' });
-  const [ollamaCli, setOllamaCli] = useState({ status: 'loading', details: 'Checking...' });
+  const [rlamaCli, setRlamaCli] = useState({ status: 'loading', details: 'Initializing...' });
+  const [ollamaCli, setOllamaCli] = useState({ status: 'loading', details: 'Initializing...' });
   const navigate = useNavigate();
 
-  const checkSystemHealth = async () => {
-    if (refreshingRef.current) {
+  // Fonction utilitaire pour extraire la version courte
+  const extractVersion = (stdout) => {
+    if (!stdout) return null;
+    // Pour RLAMA: extraire juste "RLAMA version X.X.X"
+    const rlamaMatch = stdout.match(/RLAMA version (\S+)/i);
+    if (rlamaMatch) return `v${rlamaMatch[1]}`;
+    
+    // Pour Ollama: extraire juste "ollama version X.X.X"
+    const ollamaMatch = stdout.match(/ollama version (\S+)/i);
+    if (ollamaMatch) return `v${ollamaMatch[1]}`;
+    
+    // Si pas de match, prendre la première ligne non vide et la nettoyer
+    const lines = stdout.split('\n').filter(line => line.trim());
+    if (lines.length > 0) {
+      const firstLine = lines[0].trim();
+      // Éviter les messages comme "Initialized services:"
+      if (firstLine.toLowerCase().includes('initialized') || 
+          firstLine.toLowerCase().includes('checking') ||
+          firstLine.length > 50) {
+        return 'Available';
+      }
+      return firstLine;
+    }
+    return 'Available';
+  };
+
+  const checkSystemHealth = async (isInitial = false, retryCount = 0) => {
+    const maxRetries = 2;
+    
+    if (refreshingRef.current && retryCount === 0) {
       console.log("Health check already in progress. Skipping.");
       return;
     }
     
+    console.log(`Starting system health check (isInitial: ${isInitial}, retry: ${retryCount})`);
+    
     refreshingRef.current = true;
-    setRefreshing(true);
-    setLoading(true);
+    if (isInitial) {
+      setInitialLoading(true);
+    } else {
+      setRefreshing(true);
+      setLoading(true);
+    }
     setError(null);
 
     // Reset all statuses to loading
@@ -140,66 +337,120 @@ const Home = () => {
     setEmbeddingsStatus('loading');
     
     try {
+      // Petit délai pour s'assurer que le composant est bien monté
+      if (isInitial) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
       // Check RLAMA version
       try {
-        const rlamaVersionOutput = await api.get(`/exec?command=${encodeURIComponent('rlama -v')}`);
-        console.log("RLAMA version output:", rlamaVersionOutput);
+        console.log("🔍 Checking RLAMA CLI...");
+        const rlamaVersionOutput = await api.get(`/exec?command=${encodeURIComponent('rlama --version')}`);
+        console.log("✅ RLAMA version API response:", {
+          status: rlamaVersionOutput.status,
+          stdout: rlamaVersionOutput.data?.stdout,
+          stderr: rlamaVersionOutput.data?.stderr,
+          returncode: rlamaVersionOutput.data?.returncode
+        });
         
         if (rlamaVersionOutput && rlamaVersionOutput.data && rlamaVersionOutput.data.stdout && !rlamaVersionOutput.data.stderr) {
+          const shortVersion = extractVersion(rlamaVersionOutput.data.stdout);
+          console.log("✅ RLAMA CLI found, version:", shortVersion);
           setRlamaStatus('ok');
           setServiceDetails(prev => ({
             ...prev,
-            rlama: `RLAMA installed: ${rlamaVersionOutput.data.stdout.trim()}`
+            rlama: `RLAMA CLI installed and functional`
           }));
           setLogs(prev => ({ 
             ...prev, 
-            rlama: `RLAMA version check:\n${rlamaVersionOutput.data.stdout}`
+            rlama: `RLAMA version check successful: ${shortVersion}`
           }));
           setRlamaCli({
             status: 'ok',
-            version: rlamaVersionOutput.data.stdout.trim(),
+            version: shortVersion,
             details: 'RLAMA CLI available',
             output: rlamaVersionOutput.data.stdout
           });
         } else {
-          throw new Error('RLAMA not installed or version not detected');
+          // Fallback: essayer avec l'ancienne commande -v
+          console.log("🔄 Trying RLAMA fallback command...");
+          try {
+            const fallbackOutput = await api.get(`/exec?command=${encodeURIComponent('rlama -v')}`);
+            if (fallbackOutput?.data?.stdout) {
+              const shortVersion = extractVersion(fallbackOutput.data.stdout);
+              console.log("✅ RLAMA CLI found via fallback, version:", shortVersion);
+              setRlamaStatus('ok');
+              setServiceDetails(prev => ({
+                ...prev,
+                rlama: `RLAMA CLI installed and functional`
+              }));
+              setLogs(prev => ({ 
+                ...prev, 
+                rlama: `RLAMA version check successful: ${shortVersion}`
+              }));
+              setRlamaCli({
+                status: 'ok',
+                version: shortVersion,
+                details: 'RLAMA CLI available',
+                output: fallbackOutput.data.stdout
+              });
+            } else {
+              throw new Error('RLAMA not installed or version not detected');
+            }
+          } catch (fallbackError) {
+            throw new Error('RLAMA not installed or version not detected');
+          }
         }
       } catch (err) {
-        console.error("RLAMA check error:", err);
+        console.error("❌ RLAMA check error:", err);
         setRlamaStatus('error');
         setServiceDetails(prev => ({ 
           ...prev, 
-          rlama: `RLAMA not installed or inaccessible: ${err.message}` 
+          rlama: `RLAMA not installed or inaccessible` 
         }));
         setLogs(prev => ({ 
           ...prev, 
           rlama: `Error: ${err.message}`
         }));
+        setRlamaCli({
+          status: 'error',
+          version: null,
+          details: `Error: ${err.message}`
+        });
       }
 
       // Check Ollama version
       try {
-        const ollamaVersionOutput = await api.get(`/exec?command=${encodeURIComponent('ollama -v')}`);
-        console.log("Ollama version output:", ollamaVersionOutput);
+        console.log("🔍 Checking Ollama CLI...");
+        const ollamaVersionOutput = await api.get(`/exec?command=${encodeURIComponent('ollama --version')}`);
+        console.log("✅ Ollama version API response:", {
+          status: ollamaVersionOutput.status,
+          stdout: ollamaVersionOutput.data?.stdout,
+          stderr: ollamaVersionOutput.data?.stderr,
+          returncode: ollamaVersionOutput.data?.returncode
+        });
         
         if (ollamaVersionOutput && ollamaVersionOutput.data && ollamaVersionOutput.data.stdout && !ollamaVersionOutput.data.stderr) {
+          const shortVersion = extractVersion(ollamaVersionOutput.data.stdout);
+          console.log("✅ Ollama CLI found, version:", shortVersion);
           setOllamaStatus('ok');
           setServiceDetails(prev => ({
             ...prev,
-            ollama: `Ollama installed: ${ollamaVersionOutput.data.stdout.trim()}`
+            ollama: `Ollama CLI installed and functional`
           }));
           setLogs(prev => ({ 
             ...prev, 
-            ollama: `Ollama version check:\n${ollamaVersionOutput.data.stdout}`
+            ollama: `Ollama version check successful: ${shortVersion}`
           }));
           setOllamaCli({
             status: 'ok',
-            version: ollamaVersionOutput.data.stdout.trim(),
+            version: shortVersion,
             details: 'Ollama CLI available',
             output: ollamaVersionOutput.data.stdout
           });
           
           // Si Ollama est disponible, on considère que les modèles sont disponibles
+          console.log("✅ Setting models and embeddings as available");
           setModelsStatus('ok');
           setEmbeddingsStatus('ok');
           setServiceDetails(prev => ({
@@ -208,21 +459,64 @@ const Home = () => {
             embeddings: 'Ollama detected - embedding models available'
           }));
         } else {
-          throw new Error('Ollama not installed or version not detected');
+          // Fallback: essayer avec l'ancienne commande -v
+          console.log("🔄 Trying Ollama fallback command...");
+          try {
+            const fallbackOutput = await api.get(`/exec?command=${encodeURIComponent('ollama -v')}`);
+            if (fallbackOutput?.data?.stdout) {
+              const shortVersion = extractVersion(fallbackOutput.data.stdout);
+              console.log("✅ Ollama CLI found via fallback, version:", shortVersion);
+              setOllamaStatus('ok');
+              setServiceDetails(prev => ({
+                ...prev,
+                ollama: `Ollama CLI installed and functional`
+              }));
+              setLogs(prev => ({ 
+                ...prev, 
+                ollama: `Ollama version check successful: ${shortVersion}`
+              }));
+              setOllamaCli({
+                status: 'ok',
+                version: shortVersion,
+                details: 'Ollama CLI available',
+                output: fallbackOutput.data.stdout
+              });
+              
+              // Si Ollama est disponible, on considère que les modèles sont disponibles
+              console.log("✅ Setting models and embeddings as available (fallback)");
+              setModelsStatus('ok');
+              setEmbeddingsStatus('ok');
+              setServiceDetails(prev => ({
+                ...prev,
+                models: 'Ollama detected - LLM models available',
+                embeddings: 'Ollama detected - embedding models available'
+              }));
+            } else {
+              throw new Error('Ollama not installed or version not detected');
+            }
+          } catch (fallbackError) {
+            throw new Error('Ollama not installed or version not detected');
+          }
         }
       } catch (err) {
-        console.error("Ollama check error:", err);
+        console.error("❌ Ollama check error:", err);
         setOllamaStatus('error');
         setServiceDetails(prev => ({ 
           ...prev, 
-          ollama: `Ollama not installed or inaccessible: ${err.message}` 
+          ollama: `Ollama not installed or inaccessible` 
         }));
         setLogs(prev => ({ 
           ...prev, 
           ollama: `Error: ${err.message}`
         }));
+        setOllamaCli({
+          status: 'error',
+          version: null,
+          details: `Error: ${err.message}`
+        });
         
         // Si Ollama n'est pas disponible, les modèles ne le sont pas non plus
+        console.log("❌ Setting models and embeddings as error due to Ollama failure");
         setModelsStatus('error');
         setEmbeddingsStatus('error');
         setServiceDetails(prev => ({
@@ -232,28 +526,55 @@ const Home = () => {
         }));
       }
     } catch (globalError) {
-      setError(`System check error: ${globalError.message}`);
       console.error("System check global error:", globalError);
+      
+      // Si c'est un chargement initial et qu'on peut encore retry
+      if (isInitial && retryCount < maxRetries) {
+        console.log(`Retrying system check in 2 seconds (attempt ${retryCount + 1}/${maxRetries})`);
+        setTimeout(() => {
+          refreshingRef.current = false; // Reset pour permettre le retry
+          checkSystemHealth(true, retryCount + 1);
+        }, 2000);
+        return; // Ne pas exécuter le finally pour ce retry
+      }
+      
+      setError(`System check error: ${globalError.message}`);
       setRlamaStatus('error');
       setOllamaStatus('error');
       setModelsStatus('error');
       setEmbeddingsStatus('error');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
-      refreshingRef.current = false;
+      // Only reset states if we're not going to retry
+      if (!isInitial || retryCount >= maxRetries) {
+        setLoading(false);
+        setRefreshing(false);
+        setInitialLoading(false);
+        refreshingRef.current = false;
+        console.log("System health check completed");
+      }
     }
   };
 
   useEffect(() => {
-    checkSystemHealth();
+    console.log("🚀 RLAMA Dashboard mounting - starting initial system check");
     
-    const intervalId = setInterval(() => {
-      checkSystemHealth();
-    }, 30000);
+    // Lancer le check du système au démarrage avec le flag initial
+    checkSystemHealth(true);
+    
+    // Timeout de sécurité au cas où le premier check reste bloqué
+    const safetyTimeout = setTimeout(() => {
+      if (refreshingRef.current) {
+        console.warn("⚠️ System check seems stuck, forcing reset");
+        refreshingRef.current = false;
+        setInitialLoading(false);
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }, 30000); // 30 secondes de timeout
     
     return () => {
-      clearInterval(intervalId);
+      clearTimeout(safetyTimeout);
+      console.log("🏁 RLAMA Dashboard unmounting");
     };
   }, []);
 
@@ -328,11 +649,81 @@ const Home = () => {
     setDetailsModalVisible(true);
   };
 
+  // Écran de chargement initial
+  if (initialLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '70vh',
+        textAlign: 'center'
+      }}>
+        <div style={{ marginBottom: '32px' }}>
+          <Title level={1} style={{ color: 'var(--primary-800)', margin: 0 }}>
+            Initializing RLAMA
+          </Title>
+          <Text type="secondary">
+            Checking system components...
+            {rlamaStatus === 'error' && ollamaStatus === 'error' ? ' (retrying...)' : ''}
+          </Text>
+        </div>
+        
+        <Spin size="large" style={{ marginBottom: '24px' }} />
+        
+        <div style={{ width: '400px', textAlign: 'left' }}>
+          <div style={{ marginBottom: '12px' }}>
+            <Text type="secondary">
+              {rlamaStatus === 'loading' ? '🔄' : rlamaStatus === 'ok' ? '✅' : '❌'} 
+              {' '}Checking RLAMA CLI...
+            </Text>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <Text type="secondary">
+              {ollamaStatus === 'loading' ? '🔄' : ollamaStatus === 'ok' ? '✅' : '❌'} 
+              {' '}Checking Ollama...
+            </Text>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <Text type="secondary">
+              {modelsStatus === 'loading' ? '🔄' : modelsStatus === 'ok' ? '✅' : '❌'} 
+              {' '}Verifying models...
+            </Text>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <Text type="secondary">
+              {embeddingsStatus === 'loading' ? '🔄' : embeddingsStatus === 'ok' ? '✅' : '❌'} 
+              {' '}Checking embeddings...
+            </Text>
+          </div>
+        </div>
+        
+        <div style={{ marginTop: '24px', textAlign: 'center' }}>
+          <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: '16px' }}>
+            This usually takes a few seconds...
+          </Text>
+          <Button 
+            type="text" 
+            size="small" 
+            onClick={() => {
+              console.log("User skipped initial loading");
+              setInitialLoading(false);
+              refreshingRef.current = false;
+            }}
+          >
+            Skip and continue →
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="text-center mb-8">
         <Title level={1} style={{ color: 'var(--primary-800)', margin: 0 }}>RLAMA Dashboard</Title>
-        <Text type="secondary">Retrieval-Augmented Generation Platform</Text>
+        <Text type="secondary">Retrieval-Augmented Generation & Agents Platform</Text>
       </div>
       
       {error && (
@@ -407,283 +798,220 @@ const Home = () => {
       
       <Divider />
       
-      <Row gutter={[16, 16]} className="mb-8">
-        <Col xs={24} sm={12} md={8} style={{ display: 'flex' }}>
-          <Card 
-            title="RAG Systems" 
-            className="shadow-md rounded-lg text-center w-full"
-            bodyStyle={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              height: '100%', 
-              padding: '24px',
-              gap: '16px',
-              overflow: 'hidden'
-            }}
-            hoverable
+      {/* Dashboard Statistics */}
+      <Card 
+        title="Dashboard Statistics" 
+        className="shadow-md rounded-lg mb-8"
+        extra={
+          <Button 
+            type="link" 
             onClick={() => navigate('/systems')}
+            style={{ padding: 0 }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-              <DatabaseOutlined style={{ fontSize: 48, color: 'var(--primary-600)' }} />
-              <Paragraph className="mt-2 mb-0">Manage your existing RAG systems</Paragraph>
-            </div>
-            <div style={{ marginTop: 'auto', paddingTop: '16px', width: '100%' }}>
-              <Button type="primary" size="large" block>
-                View my systems
-              </Button>
-            </div>
+            View all systems →
+          </Button>
+        }
+      >
+        <DashboardStats />
+      </Card>
+      
+      {/* Quick Actions */}
+      <Row gutter={[16, 16]} className="mb-8">
+        <Col xs={24} sm={8}>
+          <Card className="text-center h-full" hoverable onClick={() => navigate('/systems')}>
+            <DatabaseOutlined style={{ fontSize: 32, color: 'var(--primary-600)', marginBottom: 8 }} />
+            <Title level={4} style={{ margin: '8px 0 4px 0' }}>Manage RAGs</Title>
+            <Text type="secondary">View and manage your RAG systems</Text>
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={8} style={{ display: 'flex' }}>
-          <Card 
-            title="Create RAG" 
-            className="shadow-md rounded-lg text-center w-full"
-            bodyStyle={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              height: '100%', 
-              padding: '24px',
-              gap: '16px',
-              overflow: 'hidden'
-            }}
-            hoverable
-            onClick={() => navigate('/create')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-              <PlusOutlined style={{ fontSize: 48, color: 'var(--accent-green)' }} />
-              <Paragraph className="mt-2 mb-0">Configure a new RAG system</Paragraph>
-            </div>
-            <div style={{ marginTop: 'auto', paddingTop: '16px', width: '100%' }}>
-              <Button type="primary" icon={<PlusOutlined />} size="large" block>
-                Create RAG
-              </Button>
-            </div>
+        <Col xs={24} sm={8}>
+          <Card className="text-center h-full" hoverable onClick={() => navigate('/create')}>
+            <PlusOutlined style={{ fontSize: 32, color: 'var(--accent-green)', marginBottom: 8 }} />
+            <Title level={4} style={{ margin: '8px 0 4px 0' }}>Create RAG</Title>
+            <Text type="secondary">Set up a new RAG system</Text>
           </Card>
         </Col>
-        <Col xs={24} md={8} style={{ display: 'flex' }}>
-          <Card 
-            title="Documentation" 
-            className="shadow-md rounded-lg text-center w-full"
-            bodyStyle={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              height: '100%', 
-              padding: '24px',
-              gap: '16px',
-              overflow: 'hidden'
-            }}
-            hoverable
-            onClick={() => window.open('https://github.com/DonTizi/rlama', '_blank')}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-              <RobotOutlined style={{ fontSize: 48, color: 'var(--primary-800)' }} />
-              <Paragraph className="mt-2 mb-0">View documentation</Paragraph>
-            </div>
-            <div style={{ marginTop: 'auto', paddingTop: '16px', width: '100%' }}>
-              <Button type="default" size="large" block>
-                Access documentation
-              </Button>
-            </div>
+        <Col xs={24} sm={8}>
+          <Card className="text-center h-full" hoverable onClick={() => window.open('https://github.com/DonTizi/rlama', '_blank')}>
+            <RobotOutlined style={{ fontSize: 32, color: 'var(--primary-800)', marginBottom: 8 }} />
+            <Title level={4} style={{ margin: '8px 0 4px 0' }}>Documentation</Title>
+            <Text type="secondary">Learn more about RLAMA</Text>
           </Card>
         </Col>
       </Row>
 
       <Modal
-        title={`Details of ${currentServiceDetails?.name}`}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ 
+              color: currentServiceDetails?.status === 'ok' ? 'var(--accent-green)' : 
+                     currentServiceDetails?.status === 'warning' ? 'var(--accent-yellow)' : 'var(--accent-red)',
+              fontSize: '20px'
+            }}>
+              {currentServiceDetails?.status === 'ok' ? <CheckCircleOutlined /> : 
+               currentServiceDetails?.status === 'warning' ? <ExclamationCircleOutlined /> : <CloseCircleOutlined />}
+            </div>
+            <span>{currentServiceDetails?.name} Details</span>
+          </div>
+        }
         open={detailsModalVisible}
         onCancel={() => setDetailsModalVisible(false)}
-        width={800}
+        width={700}
         footer={[
-          <Button 
-            key="debug" 
-            type="primary" 
-            danger
-            onClick={() => {
-              // Open console and log all available debug info
-              console.log("==== DEBUG INFO ====");
-              console.log("Service Details:", serviceDetails);
-              console.log("Service Logs:", logs);
-              console.log("RLAMA Status:", rlamaStatus);
-              console.log("Ollama Status:", ollamaStatus);
-              console.log("Current Service:", currentServiceDetails);
-            }}
-          >
-            Log Debug Info
-          </Button>,
-          <Button key="close" onClick={() => setDetailsModalVisible(false)}>
+          <Button key="close" type="primary" onClick={() => setDetailsModalVisible(false)}>
             Close
           </Button>
         ]}
       >
         {currentServiceDetails && (
-          <>
-            <Title level={5}>Status: <Text style={{ color: currentServiceDetails.status === 'ok' ? 'var(--accent-green)' : currentServiceDetails.status === 'warning' ? 'var(--accent-yellow)' : 'var(--accent-red)'}}>{currentServiceDetails.statusText}</Text></Title>
-            
-            {currentServiceDetails.name === 'RLAMA API' && rlamaCli.version && (
-              <Paragraph>
-                <Text strong>RLAMA Version:</Text> {rlamaCli.version}
-                {rlamaCli.output && (
-                  <pre style={{ 
-                    whiteSpace: 'pre-wrap', 
-                    background: 'var(--neutral-100)', 
-                    padding: '8px', 
-                    borderRadius: '4px',
-                    fontSize: '0.85em',
-                    marginTop: '8px'
-                  }}>
-                    {rlamaCli.output}
-                  </pre>
-                )}
-              </Paragraph>
-            )}
-            
-            {currentServiceDetails.name === 'Ollama' && ollamaCli.version && (
-              <Paragraph>
-                <Text strong>Ollama Version:</Text> {ollamaCli.version}
-                {ollamaCli.output && (
-                  <pre style={{ 
-                    whiteSpace: 'pre-wrap', 
-                    background: 'var(--neutral-100)', 
-                    padding: '8px', 
-                    borderRadius: '4px',
-                    fontSize: '0.85em',
-                    marginTop: '8px'
-                  }}>
-                    {ollamaCli.output}
-                  </pre>
-                )}
-              </Paragraph>
-            )}
-            
-            <Paragraph>{currentServiceDetails.details}</Paragraph>
+          <div style={{ padding: '8px 0' }}>
+            {/* Status Section */}
+            <div style={{ 
+              background: currentServiceDetails.status === 'ok' ? '#f6ffed' : 
+                         currentServiceDetails.status === 'warning' ? '#fffbe6' : '#fff2f0',
+              border: `1px solid ${currentServiceDetails.status === 'ok' ? '#b7eb8f' : 
+                                    currentServiceDetails.status === 'warning' ? '#ffe58f' : '#ffccc7'}`,
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '20px'
+            }}>
+              <Title level={5} style={{ margin: '0 0 8px 0' }}>
+                Status: <Text style={{ 
+                  color: currentServiceDetails.status === 'ok' ? 'var(--accent-green)' : 
+                         currentServiceDetails.status === 'warning' ? 'var(--accent-yellow)' : 'var(--accent-red)'
+                }}>
+                  {currentServiceDetails.statusText}
+                </Text>
+              </Title>
+              
+              {/* Version info */}
+              {currentServiceDetails.name === 'RLAMA API' && rlamaCli.version && (
+                <Text style={{ display: 'block', marginBottom: '8px' }}>
+                  <Text strong>Version:</Text> {rlamaCli.version}
+                </Text>
+              )}
+              
+              {currentServiceDetails.name === 'Ollama' && ollamaCli.version && (
+                <Text style={{ display: 'block', marginBottom: '8px' }}>
+                  <Text strong>Version:</Text> {ollamaCli.version}
+                </Text>
+              )}
+              
+              <Text type="secondary">{currentServiceDetails.details}</Text>
+            </div>
 
+            {/* Models Section */}
             {(currentServiceDetails.isLlmType && currentServiceDetails.modelList?.length > 0) && (
-              <>
-                <Paragraph strong>Local LLM models detected :</Paragraph>
+              <div style={{ marginBottom: '20px' }}>
+                <Title level={5}>Available LLM Models</Title>
                 <List
                   size="small"
                   bordered
                   dataSource={currentServiceDetails.modelList}
-                  renderItem={item => <List.Item>{typeof item === 'object' ? item.name : item}</List.Item>}
-                  style={{ marginBottom: '16px', maxHeight: '150px', overflowY: 'auto' }}
+                  renderItem={item => (
+                    <List.Item style={{ padding: '8px 16px' }}>
+                      {typeof item === 'object' ? item.name : item}
+                    </List.Item>
+                  )}
+                  style={{ maxHeight: '150px', overflowY: 'auto' }}
                 />
-              </>
+              </div>
             )}
-             {(currentServiceDetails.isEmbType && currentServiceDetails.modelList?.length > 0) && (
-              <>
-                <Paragraph strong>Local embedding models detected :</Paragraph>
+            
+            {(currentServiceDetails.isEmbType && currentServiceDetails.modelList?.length > 0) && (
+              <div style={{ marginBottom: '20px' }}>
+                <Title level={5}>Available Embedding Models</Title>
                 <List
                   size="small"
                   bordered
                   dataSource={currentServiceDetails.modelList}
-                  renderItem={item => <List.Item>{typeof item === 'object' ? item.name : item}</List.Item>}
-                  style={{ marginBottom: '16px', maxHeight: '150px', overflowY: 'auto' }}
+                  renderItem={item => (
+                    <List.Item style={{ padding: '8px 16px' }}>
+                      {typeof item === 'object' ? item.name : item}
+                    </List.Item>
+                  )}
+                  style={{ maxHeight: '150px', overflowY: 'auto' }}
                 />
-              </>
+              </div>
             )}
 
+            {/* Alerts */}
             {currentServiceDetails.isEmbType && currentServiceDetails.modelList?.length === 0 && (currentServiceDetails.status === 'warning' || currentServiceDetails.status === 'error') && (
               <Alert 
-                message="No local embedding model found or endpoint inaccessible"
+                message="No embedding models found"
                 description={
                   <>
-                    Check that your RLAMA backend exposes a functional `/embedding-models` endpoint.
-                    You can explore and download models (including embeddings) from the official Ollama site.{' '}
+                    No local embedding models detected. You can download models from{' '}
                     <a href="https://ollama.com/models" target="_blank" rel="noopener noreferrer">
-                      Visit Ollama Models
+                      Ollama Models
                     </a>.
                   </>
                 }
                 type="info"
                 showIcon
-                style={{ marginBottom: '16px' }}
+                style={{ marginBottom: '20px' }}
               />
             )}
             
             {currentServiceDetails.name === 'Ollama' && (currentServiceDetails.status === 'warning' || currentServiceDetails.status === 'error') && (
-                <Alert
-                    message="Ollama detection issue"
-                    description={
-                        <>
-                            Automatic Ollama detection (via `ollama list`) failed or returned a warning.
-                            If Ollama is installed and `ollama serve` is running on your machine, try refreshing.
-                            You can also check the Ollama documentation at{' '}
-                            <a href="https://ollama.com/" target="_blank" rel="noopener noreferrer">
-                                Ollama.com
-                            </a> or manually confirm if you're sure it's functional.
-                        </>
-                    }
-                    type="warning"
-                    showIcon
-                    style={{ marginBottom: '16px' }}
-                    action={
-                         <Space direction="vertical" style={{width: "100%"}}>
-                             <Button type="default" onClick={manuallyConfirmOllama} block>
-                                I've verified, Ollama is functional
-                            </Button>
-                             <Button type="primary" onClick={() => window.open('https://ollama.com/', '_blank')} block>
-                                Visit Ollama.com for help/installation
-                            </Button>
-                         </Space>
-                    }
-                />
+              <Alert
+                message="Ollama Connection Issue"
+                description="Ollama CLI detection failed. Make sure Ollama is installed and running."
+                type="warning"
+                showIcon
+                style={{ marginBottom: '20px' }}
+                action={
+                  <Space direction="vertical" style={{width: "100%"}}>
+                    <Button type="default" onClick={manuallyConfirmOllama} block>
+                      Mark as functional
+                    </Button>
+                    <Button type="primary" onClick={() => window.open('https://ollama.com/', '_blank')} block>
+                      Install Ollama
+                    </Button>
+                  </Space>
+                }
+              />
             )}
 
-            {currentServiceDetails.logs && (
-              <>
-                <Divider>Logs / Technical Information</Divider>
-                <pre style={{ 
-                  whiteSpace: 'pre-wrap', 
-                  wordBreak: 'break-all', 
-                  background: 'var(--neutral-100)', 
-                  padding: '10px', 
-                  borderRadius: '4px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  color: 'var(--neutral-700)',
-                  fontSize: '0.85em'
+            {/* Technical Details (collapsible) */}
+            {(currentServiceDetails.logs || (currentServiceDetails.name === 'RLAMA API' && rlamaCli.output) || (currentServiceDetails.name === 'Ollama' && ollamaCli.output)) && (
+              <div style={{ marginBottom: '20px' }}>
+                <Title level={5}>Technical Information</Title>
+                <div style={{ 
+                  background: '#fafafa', 
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '6px',
+                  padding: '12px',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  maxHeight: '120px',
+                  overflowY: 'auto'
                 }}>
-                  {currentServiceDetails.logs}
-                </pre>
-              </>
+                  {currentServiceDetails.name === 'RLAMA API' && rlamaCli.output && (
+                    <div><strong>RLAMA Output:</strong><br/>{rlamaCli.output}</div>
+                  )}
+                  {currentServiceDetails.name === 'Ollama' && ollamaCli.output && (
+                    <div><strong>Ollama Output:</strong><br/>{ollamaCli.output}</div>
+                  )}
+                  {currentServiceDetails.logs && (
+                    <div><strong>Logs:</strong><br/>{currentServiceDetails.logs}</div>
+                  )}
+                </div>
+              </div>
             )}
 
-            <Divider>Debug Information</Divider>
-            <Paragraph>
-              <Text strong>API URL:</Text> {window.location.origin}/api
-            </Paragraph>
-            <Paragraph>
-              <Text strong>Last check:</Text> {new Date().toLocaleString()}
-            </Paragraph>
-            <Button 
-              onClick={() => {
-                const debug = {
-                  apiUrl: window.location.origin + '/api',
-                  timestamp: new Date().toISOString(),
-                  statuses: {
-                    rlamaApi: rlamaStatus,
-                    ollama: ollamaStatus,
-                    models: modelsStatus,
-                    embeddings: embeddingsStatus
-                  },
-                  details: serviceDetails,
-                  logs: logs
-                };
-                
-                // Create a downloadable file with debug info
-                const blob = new Blob([JSON.stringify(debug, null, 2)], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'rlama-debug.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-              }}
-            >
-              Download debug logs
-            </Button>
-          </>
+            {/* Connection Info */}
+            <div style={{ 
+              background: '#f9f9f9', 
+              padding: '12px', 
+              borderRadius: '6px',
+              fontSize: '13px' 
+            }}>
+              <Text strong>Connection Info:</Text><br/>
+              <Text type="secondary">Backend API: http://localhost:5001</Text><br/>
+              <Text type="secondary">Last check: {new Date().toLocaleString()}</Text>
+            </div>
+          </div>
         )}
       </Modal>
 

@@ -8,6 +8,12 @@ contextBridge.exposeInMainWorld('electron', {
   // Gestion du backend
   isBackendReady: () => ipcRenderer.invoke('is-backend-ready'),
   
+  // Contrôles de fenêtre
+  windowMinimize: () => ipcRenderer.invoke('window-minimize'),
+  windowMaximize: () => ipcRenderer.invoke('window-maximize'),
+  windowClose: () => ipcRenderer.invoke('window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  
   // Événements
   onBackendReady: (callback) => {
     ipcRenderer.on('backend-ready', (_, value) => callback(value));

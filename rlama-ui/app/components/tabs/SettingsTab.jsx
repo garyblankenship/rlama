@@ -260,18 +260,27 @@ const SettingsTab = ({ ragName, ragInfo }) => {
     }
   };
 
+  // Style pour forcer le texte blanc
+  const whiteTextStyle = {
+    color: 'var(--text-primary)',
+  };
+
+  const strongWhiteTextStyle = {
+    color: '#fafafa !important',
+  };
+
   // Settings tabs
   const tabItems = [
     {
       key: 'watch',
       label: (
-        <span>
+        <span style={whiteTextStyle}>
           <FolderOpenOutlined />
           Folder Monitoring
         </span>
       ),
       children: (
-        <div>
+        <div style={whiteTextStyle}>
           <Alert
             message="Feature in development"
             description="Automatic folder monitoring is currently under development and will be available in a future version. Thank you for your patience."
@@ -280,8 +289,8 @@ const SettingsTab = ({ ragName, ragInfo }) => {
             style={{ marginBottom: 24 }}
           />
           
-          <div style={{ opacity: 0.6, pointerEvents: 'none' }}>
-            <Paragraph>
+          <div style={{ opacity: 0.6, pointerEvents: 'none', ...whiteTextStyle }}>
+            <Paragraph style={whiteTextStyle}>
               Configure automatic monitoring of a folder to update this RAG 
               when new files are added.
             </Paragraph>
@@ -292,11 +301,12 @@ const SettingsTab = ({ ragName, ragInfo }) => {
             >
               <Form.Item
                 name="folder_path"
-                label="Folder to monitor"
+                label={<span style={whiteTextStyle}>Folder to monitor</span>}
                 rules={[{ required: true, message: 'Please select a folder to monitor' }]}
               >
                 <Input 
                   placeholder="/path/to/folder" 
+                  style={whiteTextStyle}
                   addonAfter={
                     <Button 
                       type="text" 
@@ -310,11 +320,11 @@ const SettingsTab = ({ ragName, ragInfo }) => {
               
               <Form.Item
                 name="interval"
-                label="Check interval (minutes)"
-                help="0 = only when used"
+                label={<span style={whiteTextStyle}>Check interval (minutes)</span>}
+                help={<span style={whiteTextStyle}>0 = only when used</span>}
                 initialValue={0}
               >
-                <InputNumber min={0} max={1440} style={{ width: 200 }} disabled />
+                <InputNumber min={0} max={1440} style={{ width: 200, ...whiteTextStyle }} disabled />
               </Form.Item>
               
               <Form.Item>
@@ -335,13 +345,13 @@ const SettingsTab = ({ ragName, ragInfo }) => {
     {
       key: 'webwatch',
       label: (
-        <span>
+        <span style={whiteTextStyle}>
           <GlobalOutlined />
           Web Monitoring
         </span>
       ),
       children: (
-        <div>
+        <div style={whiteTextStyle}>
           <Alert
             message="Feature in development"
             description="Automatic web monitoring is currently under development and will be available in a future version. Thank you for your patience."
@@ -350,8 +360,8 @@ const SettingsTab = ({ ragName, ragInfo }) => {
             style={{ marginBottom: 24 }}
           />
           
-          <div style={{ opacity: 0.6, pointerEvents: 'none' }}>
-            <Paragraph>
+          <div style={{ opacity: 0.6, pointerEvents: 'none', ...whiteTextStyle }}>
+            <Paragraph style={whiteTextStyle}>
               Configure automatic monitoring of a website to update this RAG 
               when new pages are added or modified.
             </Paragraph>
@@ -362,30 +372,30 @@ const SettingsTab = ({ ragName, ragInfo }) => {
             >
               <Form.Item
                 name="url"
-                label="URL to monitor"
+                label={<span style={whiteTextStyle}>URL to monitor</span>}
                 rules={[
                   { required: true, message: 'Please enter a URL to monitor' },
                   { type: 'url', message: 'Please enter a valid URL' }
                 ]}
               >
-                <Input placeholder="https://example.com" disabled />
+                <Input placeholder="https://example.com" style={whiteTextStyle} disabled />
               </Form.Item>
               
               <Form.Item
                 name="interval"
-                label="Check interval (minutes)"
-                help="0 = only when used"
+                label={<span style={whiteTextStyle}>Check interval (minutes)</span>}
+                help={<span style={whiteTextStyle}>0 = only when used</span>}
                 initialValue={0}
               >
-                <InputNumber min={0} max={1440} style={{ width: 200 }} disabled />
+                <InputNumber min={0} max={1440} style={{ width: 200, ...whiteTextStyle }} disabled />
               </Form.Item>
               
               <Form.Item
                 name="depth"
-                label="Crawl depth"
+                label={<span style={whiteTextStyle}>Crawl depth</span>}
                 initialValue={1}
               >
-                <InputNumber min={1} max={10} style={{ width: 200 }} disabled />
+                <InputNumber min={1} max={10} style={{ width: 200, ...whiteTextStyle }} disabled />
               </Form.Item>
               
               <Form.Item>
@@ -406,14 +416,14 @@ const SettingsTab = ({ ragName, ragInfo }) => {
     {
       key: 'model',
       label: (
-        <span>
+        <span style={whiteTextStyle}>
           <SaveOutlined />
           LLM Model
         </span>
       ),
       children: (
-        <div>
-          <Paragraph>
+        <div style={whiteTextStyle}>
+          <Paragraph style={whiteTextStyle}>
             Update the LLM model used by this RAG. Note that existing embeddings won't be recalculated.
           </Paragraph>
           
@@ -435,16 +445,17 @@ const SettingsTab = ({ ragName, ragInfo }) => {
           >
             <Form.Item
               name="model"
-              label="New LLM model"
+              label={<span style={whiteTextStyle}>New LLM model</span>}
               rules={[{ required: true, message: 'Please select a model' }]}
             >
               <Select
                 placeholder="Select a model"
                 loading={loadingModels}
                 disabled={loadingModels || loading}
+                style={whiteTextStyle}
               >
                 {models.map(model => (
-                  <Option key={model} value={model}>{model}</Option>
+                  <Option key={model} value={model} style={whiteTextStyle}>{model}</Option>
                 ))}
               </Select>
             </Form.Item>
@@ -466,20 +477,30 @@ const SettingsTab = ({ ragName, ragInfo }) => {
     {
       key: 'info',
       label: (
-        <span>
+        <span style={whiteTextStyle}>
           <InfoCircleOutlined />
           Information
         </span>
       ),
       children: (
-        <div>
-          <Card title="RAG Information">
+        <div style={whiteTextStyle}>
+          <Card title={<span style={whiteTextStyle}>RAG Information</span>}>
             <Descriptions bordered column={1}>
-              <Descriptions.Item label="Name">{ragInfo.name}</Descriptions.Item>
-              <Descriptions.Item label="Model">{ragInfo.model}</Descriptions.Item>
-              <Descriptions.Item label="Creation Date">{new Date(ragInfo.created_on).toLocaleString()}</Descriptions.Item>
-              <Descriptions.Item label="Document Count">{ragInfo.documents_count}</Descriptions.Item>
-              <Descriptions.Item label="Total Size">{ragInfo.size}</Descriptions.Item>
+              <Descriptions.Item label={<span style={whiteTextStyle}>Name</span>}>
+                <span style={whiteTextStyle}>{ragInfo.name}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label={<span style={whiteTextStyle}>Model</span>}>
+                <span style={whiteTextStyle}>{ragInfo.model}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label={<span style={whiteTextStyle}>Creation Date</span>}>
+                <span style={whiteTextStyle}>{new Date(ragInfo.created_on).toLocaleString()}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label={<span style={whiteTextStyle}>Document Count</span>}>
+                <span style={whiteTextStyle}>{ragInfo.documents_count}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label={<span style={whiteTextStyle}>Total Size</span>}>
+                <span style={whiteTextStyle}>{ragInfo.size}</span>
+              </Descriptions.Item>
             </Descriptions>
           </Card>
         </div>
@@ -488,15 +509,15 @@ const SettingsTab = ({ ragName, ragInfo }) => {
   ];
 
   return (
-    <div>
-      <Title level={4}>Settings</Title>
+    <div style={whiteTextStyle}>
+      <Title level={4} style={whiteTextStyle}>Settings</Title>
       
       <Tabs
         activeKey={activeKey}
         onChange={setActiveKey}
         items={tabItems}
         tabPosition="left"
-        style={{ minHeight: '400px' }}
+        style={{ minHeight: '400px', ...whiteTextStyle }}
       />
     </div>
   );

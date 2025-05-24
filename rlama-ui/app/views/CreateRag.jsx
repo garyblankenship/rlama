@@ -111,7 +111,7 @@ const CreateRag = () => {
   ];
 
   return (
-    <div className="fade-in">
+    <div className="fade-in create-rag-container">
       <div className="mb-4">
         <div className="flex items-center gap-1">
           <Link to="/" className="flex items-center gap-1">
@@ -317,8 +317,8 @@ const CreateRag = () => {
         <div>
           <Card className="shadow-md rounded-lg">
             <div className="mb-4">
-              <Title level={5}>Creation Process</Title>
-              <Text type="secondary">Your RAG will be created following these steps</Text>
+              <Title level={5} style={{ color: 'var(--text-primary)' }}>Creation Process</Title>
+              <Text type="secondary" style={{ color: 'var(--text-secondary)' }}>Your RAG will be created following these steps</Text>
             </div>
             
             <Steps 
@@ -326,14 +326,15 @@ const CreateRag = () => {
               current={0} 
               items={steps}
               className="mb-4"
+              style={{ color: 'var(--text-primary)' }}
             />
             
-            <div className="bg-neutral-100 p-4 rounded-lg mt-6">
-              <Title level={5} className="mb-2">What is a RAG system?</Title>
-              <Paragraph className="text-neutral-700">
+            <div className="p-4 rounded-lg mt-6" style={{ background: 'var(--bg-tertiary)' }}>
+              <Title level={5} className="mb-2" style={{ color: 'var(--text-primary)' }}>What is a RAG system?</Title>
+              <Paragraph style={{ color: 'var(--text-secondary)' }}>
                 A RAG (Retrieval-Augmented Generation) system combines document search and text generation to produce accurate answers based on your own documents.
               </Paragraph>
-              <Paragraph className="text-neutral-700">
+              <Paragraph style={{ color: 'var(--text-secondary)' }}>
                 Once created, you can ask questions in natural language and get contextualized answers with source references.
               </Paragraph>
             </div>

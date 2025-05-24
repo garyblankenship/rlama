@@ -313,6 +313,23 @@ export const ragService = {
   },
 };
 
+// Fonction utilitaire pour extraire la version courte
+const extractShortVersion = (stdout) => {
+  if (!stdout) return null;
+  
+  // Pour RLAMA: extraire juste "RLAMA version X.X.X"
+  const rlamaMatch = stdout.match(/RLAMA version (\S+)/i);
+  if (rlamaMatch) return `v${rlamaMatch[1]}`;
+  
+  // Pour Ollama: extraire juste "ollama version X.X.X"
+  const ollamaMatch = stdout.match(/ollama version (\S+)/i);
+  if (ollamaMatch) return `v${ollamaMatch[1]}`;
+  
+  // Si pas de match, prendre la première ligne non vide et la limiter
+  const firstLine = stdout.split('\n')[0]?.trim();
+  return firstLine?.length > 50 ? `${firstLine.substring(0, 50)}...` : firstLine;
+};
+
 // Service de vérification de la disponibilité du backend et autres dépendances
 export const healthService = {
   checkHealth: async () => {
@@ -375,20 +392,17 @@ export const healthService = {
   // NOUVELLE FONCTION: Vérification de l'existence et version du CLI Ollama via /exec
   checkOllamaCli: async () => {
     try {
-      // ATTENTION: Relies on the backend /exec endpoint.
-      // This is generally NOT recommended for production without proper safeguards.
-      console.log("Attempting to check Ollama CLI via /exec?command=ollama+-v");
-      const response = await api.get(`/exec?command=${encodeURIComponent('ollama -v')}`);
+      console.log("Attempting to check Ollama CLI via /exec?command=ollama+--version");
+      const response = await api.get(`/exec?command=${encodeURIComponent('ollama --version')}`);
       
-      // A successful execution of 'ollama -v' usually prints version to stdout.
-      // Check if stdout is present and doesn't contain common error indicators.
       if (response.data && response.data.stdout && 
           !response.data.stdout.toLowerCase().includes("command not found") &&
-          !response.data.stdout.toLowerCase().includes("n'est pas reconnu") && // French for "is not recognized"
-          (!response.data.stderr || response.data.stderr.trim() === "") // Prefer empty stderr
+          !response.data.stdout.toLowerCase().includes("n'est pas reconnu") &&
+          (!response.data.stderr || response.data.stderr.trim() === "")
       ) {
-        console.log("Ollama CLI found:", response.data.stdout.trim());
-        return { available: true, version: response.data.stdout.trim(), details: response.data.stdout.trim() };
+        const shortVersion = extractShortVersion(response.data.stdout);
+        console.log("Ollama CLI found:", shortVersion);
+        return { available: true, version: shortVersion, details: `Ollama CLI available (${shortVersion})` };
       } else {
         const errorDetails = response.data.stderr || response.data.stdout || "Ollama CLI not found or error during execution via /exec.";
         console.warn("Ollama CLI not found or error:", errorDetails);
@@ -397,24 +411,24 @@ export const healthService = {
     } catch (error) {
       const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message;
       console.error('Ollama CLI check (/exec) catastrophically failed:', errorMsg);
-      return { available: false, details: `Error executing 'ollama -v' via /exec: ${errorMsg}` };
+      return { available: false, details: `Error executing 'ollama --version' via /exec: ${errorMsg}` };
     }
   },
 
   // NOUVELLE FONCTION: Vérification de l'existence et version du CLI RLAMA via /exec
   checkRlamaCli: async () => {
     try {
-      // ATTENTION: Relies on the backend /exec endpoint with the same security caveats.
-      console.log("Attempting to check RLAMA CLI via /exec?command=rlama+-v");
-      const response = await api.get(`/exec?command=${encodeURIComponent('rlama -v')}`);
+      console.log("Attempting to check RLAMA CLI via /exec?command=rlama+--version");
+      const response = await api.get(`/exec?command=${encodeURIComponent('rlama --version')}`);
       
       if (response.data && response.data.stdout &&
           !response.data.stdout.toLowerCase().includes("command not found") &&
           !response.data.stdout.toLowerCase().includes("n'est pas reconnu") &&
           (!response.data.stderr || response.data.stderr.trim() === "")
       ) {
-        console.log("RLAMA CLI found:", response.data.stdout.trim());
-        return { available: true, version: response.data.stdout.trim(), details: response.data.stdout.trim() };
+        const shortVersion = extractShortVersion(response.data.stdout);
+        console.log("RLAMA CLI found:", shortVersion);
+        return { available: true, version: shortVersion, details: `RLAMA CLI available (${shortVersion})` };
       } else {
         const errorDetails = response.data.stderr || response.data.stdout || "RLAMA CLI not found or error during execution via /exec.";
         console.warn("RLAMA CLI not found or error:", errorDetails);
@@ -423,7 +437,7 @@ export const healthService = {
     } catch (error) {
       const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message;
       console.error('RLAMA CLI check (/exec) catastrophically failed:', errorMsg);
-      return { available: false, details: `Error executing 'rlama -v' via /exec: ${errorMsg}` };
+      return { available: false, details: `Error executing 'rlama --version' via /exec: ${errorMsg}` };
     }
   },
   
@@ -485,6 +499,135 @@ export const ollamaService = {
       throw error;
     }
   }
+};
+
+// Services API pour les agents
+export const agentService = {
+  // Exécution d'un agent
+  runAgent: async (queryData) => {
+    const response = await api.post('/agent/run', queryData, {
+      timeout: 300000, // 5 minutes
+    });
+    return response.data;
+  },
+
+  // Exécution d'un agent avec streaming
+  runAgentStream: (queryData, { onProgress, onTaskUpdate, onAnswerChunk, onError, onDone }) => {
+    const controller = new AbortController();
+
+    const fetchData = async () => {
+      try {
+        console.log("Starting agent stream request", queryData);
+        const response = await fetch(`${API_URL}/agent/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream'
+          },
+          body: JSON.stringify(queryData),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          let errorDetail = `Request failed with status ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorDetail = errorData.detail || JSON.stringify(errorData);
+          } catch (e) {
+            errorDetail = response.statusText || errorDetail;
+          }
+          console.error("Agent stream failed with error:", errorDetail);
+          onError(errorDetail);
+          onDone();
+          return;
+        }
+
+        console.log("Agent stream started successfully");
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            console.log("Agent stream complete (done=true)");
+            break;
+          }
+
+          const chunk = decoder.decode(value, { stream: true });
+          console.log("Received agent SSE chunk:", chunk.substring(0, 50) + (chunk.length > 50 ? '...' : ''));
+          buffer += chunk;
+
+          // Process completed SSE messages
+          const standardDelimiter = '\r\n\r\n';
+          const altDelimiter = '\n\n';
+          
+          let eventEnd;
+          while ((eventEnd = buffer.indexOf(standardDelimiter)) >= 0 || 
+                 (eventEnd = buffer.indexOf(altDelimiter)) >= 0) {
+            
+            const foundStandardDelimiter = buffer.indexOf(standardDelimiter) === eventEnd;
+            const delimiter = foundStandardDelimiter ? standardDelimiter : altDelimiter;
+            const delimiterLength = delimiter.length;
+            
+            let eventData = buffer.substring(0, eventEnd);
+            buffer = buffer.substring(eventEnd + delimiterLength);
+            
+            // Process SSE data fields
+            const lines = eventData.split(/\r?\n/);
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const jsonData = JSON.parse(line.substring(6));
+                  console.log("Parsed agent SSE event:", jsonData.type);
+                  
+                  if (jsonData.type === 'progress') {
+                    onProgress(jsonData.content);
+                  } else if (jsonData.type === 'task_update') {
+                    onTaskUpdate(jsonData.content);
+                  } else if (jsonData.type === 'answer_chunk') {
+                    onAnswerChunk(jsonData.content);
+                  } else if (jsonData.type === 'error') {
+                    console.error('Agent SSE Error Event:', jsonData.content);
+                    onError(jsonData.content);
+                  } else if (jsonData.type === 'done') {
+                    console.log("Received done event from agent stream");
+                  }
+                } catch (e) {
+                  console.error('Error parsing agent SSE JSON data:', e, "Raw line:", line);
+                }
+              }
+            }
+          }
+        }
+        
+        console.log("Agent stream processing complete");
+        onDone();
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          console.log('Agent stream fetch aborted by user');
+        } else {
+          console.error('Agent SSE connection error:', err);
+          onError(err.message || 'Agent streaming connection failed');
+        }
+        onDone();
+      }
+    };
+    
+    fetchData();
+
+    return () => {
+      console.log("Aborting agent stream fetch");
+      controller.abort();
+    };
+  },
+
+  // Récupération des modèles disponibles pour les agents
+  getAvailableModels: async () => {
+    const response = await api.get('/agent/models');
+    return response.data.models;
+  },
 };
 
 export default api; 

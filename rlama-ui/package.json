@@ -27,6 +27,7 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.21.1",
     "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "sudo-prompt": "^9.2.1"
   },
   "devDependencies": {
@@ -40,11 +41,12 @@
     "html-webpack-plugin": "^5.6.0",
     "style-loader": "^3.3.3",
     "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.2.1"
   },
   "build": {
     "appId": "com.rlama.ui",
-    "productName": "RLAMA UI",
+    "productName": "rlama",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -57,13 +59,23 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "linux": {
-      "target": ["AppImage", "deb", "rpm"],
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
       "category": "Development"
     },
     "nsis": {

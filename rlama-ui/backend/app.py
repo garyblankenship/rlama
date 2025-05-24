@@ -26,6 +26,27 @@ class RagInfo(BaseModel):
     documents_count: int
     size: str
 
+# Nouveaux modèles pour les agents
+class AgentQueryRequest(BaseModel):
+    query: str
+    model: Optional[str] = None
+    rag_name: Optional[str] = None
+    web_search: Optional[bool] = False
+    context: Optional[Dict[str, Any]] = None
+
+class TaskProgress(BaseModel):
+    task_id: str
+    description: str
+    status: str  # "pending", "running", "completed", "failed"
+    result: Optional[str] = None
+    error: Optional[str] = None
+    tool: Optional[str] = None
+
+class AgentResponse(BaseModel):
+    response: str
+    tasks: List[TaskProgress]
+    metadata: Optional[Dict[str, Any]] = None
+
 class DocumentInfo(BaseModel):
     id: str
     name: str
@@ -1039,8 +1060,220 @@ class RlamaService:
         else:
             return f"{size_bytes / (1024 * 1024):.2f} MB"
 
-# Initialize the service
+# Service Agent
+class AgentService:
+    def __init__(self):
+        self.active_tasks = {}  # Store active task progress
+        
+    def run_agent(self, request: AgentQueryRequest) -> dict:
+        """Execute agent query and return real-time progress"""
+        # Build RLAMA agent command
+        cmd = [RLAMA_EXECUTABLE, "agent", "run"]
+        
+        # Add model if specified
+        if request.model:
+            cmd.extend(["-l", request.model])
+            
+        # Add RAG if specified
+        if request.rag_name:
+            cmd.append(request.rag_name)
+            
+        # Add web search if enabled
+        if request.web_search:
+            cmd.append("-w")
+            
+        # Add query
+        cmd.extend(["-q", request.query])
+        
+        print(f"Running agent command: {' '.join(cmd)}")
+        
+        try:
+            # Execute command and capture output
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=300  # 5 minutes timeout
+            )
+            
+            if result.returncode != 0:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Agent execution failed: {result.stderr or result.stdout}"
+                )
+                
+            return {
+                "response": result.stdout,
+                "tasks": [],  # Will be enhanced with real-time task tracking
+                "metadata": {
+                    "command": " ".join(cmd),
+                    "execution_time": "N/A"
+                }
+            }
+            
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=408, detail="Agent execution timeout")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Agent execution error: {str(e)}")
+    
+    async def run_agent_stream(self, request: AgentQueryRequest, fastapi_request: Request):
+        """Execute agent with real-time streaming progress"""
+        import uuid
+        import re
+        
+        # Generate session ID for this agent run
+        session_id = str(uuid.uuid4())
+        
+        # Build command
+        cmd = [RLAMA_EXECUTABLE, "agent", "run"]
+        if request.model:
+            cmd.extend(["-l", request.model])
+        if request.rag_name:
+            cmd.append(request.rag_name)
+        if request.web_search:
+            cmd.append("-w")
+        cmd.extend(["-q", request.query])
+        
+        async def event_generator():
+            try:
+                # Send initial status
+                yield f"data: {json.dumps({'type': 'progress', 'content': {'message': 'Starting agent...', 'status': 'running'}})}\n\n"
+                
+                # Start the process
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,
+                    universal_newlines=True
+                )
+                
+                # Read output line by line
+                current_tasks = {}
+                final_response = ""
+                
+                while True:
+                    if await fastapi_request.is_disconnected():
+                        process.kill()
+                        break
+                        
+                    output = process.stdout.readline()
+                    if output == '' and process.poll() is not None:
+                        break
+                        
+                    if output:
+                        line = output.strip()
+                        print(f"Agent output: {line}")
+                        
+                        # Parse different types of output
+                        if "Orchestrator:" in line:
+                            # Task orchestration messages
+                            task_info = self._parse_orchestrator_message(line)
+                            if task_info:
+                                yield f"data: {json.dumps({'type': 'progress', 'content': task_info})}\n\n"
+                                
+                        elif "Task" in line and ("completed" in line or "failed" in line or "running" in line):
+                            # Task status updates
+                            task_update = self._parse_task_status(line)
+                            if task_update:
+                                yield f"data: {json.dumps({'type': 'task_update', 'content': task_update})}\n\n"
+                                
+                        elif line and not line.startswith("Orchestrator:") and not line.startswith("Task"):
+                            # Accumulate final response
+                            final_response += line + "\n"
+                            # Send partial response
+                            yield f"data: {json.dumps({'type': 'answer_chunk', 'content': line})}\n\n"
+                
+                # Wait for process to complete
+                return_code = process.wait()
+                
+                if return_code != 0:
+                    stderr_output = process.stderr.read()
+                    yield f"data: {json.dumps({'type': 'error', 'content': f'Agent failed: {stderr_output}'})}\n\n"
+                else:
+                    # Send final response
+                    yield f"data: {json.dumps({'type': 'done', 'content': {'response': final_response.strip()}})}\n\n"
+                    
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'content': f'Stream error: {str(e)}'})}\n\n"
+                
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+    
+    def _parse_orchestrator_message(self, line: str) -> Optional[dict]:
+        """Parse orchestrator messages to extract task information"""
+        if "Decomposing query" in line:
+            return {"message": "Analyzing query and planning tasks...", "status": "planning"}
+        elif "Decomposed into" in line and "tasks" in line:
+            import re
+            match = re.search(r'(\d+) tasks', line)
+            if match:
+                task_count = match.group(1)
+                return {"message": f"Created {task_count} tasks", "status": "planning"}
+        elif "Executing task" in line:
+            return {"message": "Executing tasks...", "status": "executing"}
+        elif "All tasks completed" in line:
+            return {"message": "All tasks completed", "status": "completed"}
+        elif "Generating final response" in line:
+            return {"message": "Generating final response...", "status": "generating"}
+        return None
+    
+    def _parse_task_status(self, line: str) -> Optional[dict]:
+        """Parse task status updates"""
+        import re
+        
+        # Match patterns like "Task task1: Description completed successfully"
+        task_pattern = r'Task (\w+):\s*(.+?)\s*(completed|failed|running)'
+        match = re.search(task_pattern, line, re.IGNORECASE)
+        
+        if match:
+            task_id = match.group(1)
+            description = match.group(2)
+            status = match.group(3).lower()
+            
+            return {
+                "task_id": task_id,
+                "description": description,
+                "status": status,
+                "timestamp": time.time()
+            }
+        return None
+    
+    def get_available_models(self) -> List[str]:
+        """Get available models for agents"""
+        try:
+            result = subprocess.run(
+                [RLAMA_EXECUTABLE, "models"],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                # Parse model output
+                models = []
+                for line in result.stdout.strip().split('\n'):
+                    if line.strip():
+                        models.append(line.strip())
+                return models
+            else:
+                return []
+        except Exception as e:
+            print(f"Error getting models: {str(e)}")
+            return []
+
+# Initialize the services
 rlama_service = RlamaService()
+agent_service = AgentService()
 
 # API routes
 @app.get("/health")
@@ -1111,7 +1344,7 @@ def get_models():
 def execute_command(command: str):
     """Execute a shell command and return stdout/stderr"""
     # List of allowed commands for security
-    ALLOWED_COMMANDS = ["rlama -v", "ollama -v", "ollama list"]
+    ALLOWED_COMMANDS = ["rlama --version", "ollama --version", "ollama list", "rlama -v", "ollama -v"]
     
     # Verify if the command is allowed
     if command not in ALLOWED_COMMANDS:
@@ -1159,6 +1392,22 @@ def get_watch_status(rag_name: str):
 @app.get("/rags/{rag_name}/web-watch-status", response_model=WebWatchStatus)
 def get_web_watch_status(rag_name: str):
     return rlama_service.get_web_watch_status(rag_name)
+
+# Agent endpoints
+@app.post("/agent/run")
+def run_agent(request: AgentQueryRequest):
+    """Run agent query and get response"""
+    return agent_service.run_agent(request)
+
+@app.post("/agent/stream")
+async def stream_agent(request: AgentQueryRequest, fastapi_request: Request):
+    """Run agent with real-time streaming"""
+    return await agent_service.run_agent_stream(request, fastapi_request)
+
+@app.get("/agent/models")
+def get_agent_models():
+    """Get available models for agents"""
+    return {"models": agent_service.get_available_models()}
 
 # Start server when this file is executed directly
 if __name__ == "__main__":

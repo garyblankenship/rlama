@@ -17,6 +17,10 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    frame: false, // Remove native frame
+    titleBarStyle: 'hidden', // Hide title bar on macOS
+    vibrancy: 'under-window', // macOS vibrancy effect
+    icon: path.join(__dirname, '../public/logo.png'), // Add app icon
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -60,8 +64,10 @@ function createWindow() {
     );
   });
 
-  // Always open DevTools for debugging
-  mainWindow.webContents.openDevTools();
+  // Open DevTools only in development
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.webContents.openDevTools();
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -247,6 +253,33 @@ ipcMain.handle('execute-command', async (event, command, args) => {
       });
     }
   });
+});
+
+// Window control handlers
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) {
+    mainWindow.minimize();
+  }
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) {
+    mainWindow.close();
+  }
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow ? mainWindow.isMaximized() : false;
 });
 
 process.on('uncaughtException', (error) => {

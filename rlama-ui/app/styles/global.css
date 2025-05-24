@@ -1,632 +1,1480 @@
-/* Modern RAG UI Design System - RLAMA
-** Created based on analysis of modern AI RAG interfaces
-** Color palette, typography, and components designed for optimal user experience
+/* RLAMA UI - Cursor-Inspired Design System
+** Modern dark theme with sophisticated visual effects
+** Optimized for AI/RAG interfaces with clean, minimal aesthetics
 */
 
 :root {
-  /* Color Palette - Primary */
-  --primary-50: #eef2ff;
-  --primary-100: #d8e2fd;
-  --primary-200: #bacafc;
-  --primary-300: #94a8f8;
-  --primary-400: #6a7ef2;
-  --primary-500: #4d5de9;
-  --primary-600: #3a43db;
-  --primary-700: #3136c5;
-  --primary-800: #2c30a0;
-  --primary-900: #272d7e;
-  --primary-950: #1a1c48;
+  /* Core Colors - Dark Theme */
+  --bg-primary: #0a0a0b;
+  --bg-primary-rgb: 10, 10, 11;
+  --bg-secondary: #111113;
+  --bg-tertiary: #18181b;
+  --bg-elevated: #1e1e21;
+  --bg-hover: #252529;
   
-  /* Color Palette - Neutrals */
-  --neutral-50: #f8f9fa;
-  --neutral-100: #f1f3f5;
-  --neutral-200: #e9ecef;
-  --neutral-300: #dee2e6;
-  --neutral-400: #ced4da;
-  --neutral-500: #adb5bd;
-  --neutral-600: #868e96;
-  --neutral-700: #495057;
-  --neutral-800: #343a40;
-  --neutral-900: #212529;
-  --neutral-950: #0d0f12;
+  /* Surface Colors */
+  --surface-primary: #18181b;
+  --surface-secondary: #1e1e21;
+  --surface-hover: #252529;
+  --surface-active: #2a2a2e;
   
-  /* Color Palette - Accents */
+  /* Border Colors */
+  --border-primary: #27272a;
+  --border-secondary: #3f3f46;
+  --border-focus: #52525b;
+  
+  /* Text Colors */
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-muted: #52525b;
+  
+  /* Accent Colors - Changed to modern green */
+  --accent-primary: #10b981;
+  --accent-hover: #059669;
+  --accent-active: #047857;
+  --accent-glow: rgba(16, 185, 129, 0.5);
+  
+  /* Status Colors */
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+  
+  /* Legacy color mappings for backward compatibility */
+  --primary-700: #059669;
+  --primary-800: #047857;
+  --primary-600: #10b981;
+  --neutral-600: #71717a;
   --accent-green: #10b981;
-  --accent-red: #ef4444;
   --accent-yellow: #f59e0b;
+  --accent-red: #ef4444;
   --accent-purple: #8b5cf6;
   
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  /* Shadows & Effects */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
   
   /* Border Radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
   --radius-full: 9999px;
   
-  /* Spacing */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
-  
-  /* Animation */
+  /* Transitions */
+  --transition-fast: all 0.15s ease;
   --transition-normal: all 0.2s ease;
   --transition-slow: all 0.3s ease;
+  
+  /* Z-index layers */
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
 }
 
-/* Global Styles */
-* {
+/* Global Reset */
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-body {
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+html {
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--neutral-100);
-  color: var(--neutral-900);
-  line-height: 1.5;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+h1 { font-size: 2.5rem; margin-bottom: 1.5rem; }
+h2 { font-size: 2rem; margin-bottom: 1.25rem; }
+h3 { font-size: 1.5rem; margin-bottom: 1rem; }
+h4 { font-size: 1.25rem; margin-bottom: 0.875rem; }
+h5 { font-size: 1.125rem; margin-bottom: 0.75rem; }
+h6 { font-size: 1rem; margin-bottom: 0.625rem; }
+
+p { margin-bottom: 1rem; }
+
+a {
+  color: var(--accent-primary);
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+a:hover {
+  color: var(--accent-hover);
 }
 
 code, pre {
-  font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Fira Mono', 'Droid Sans Mono', 'Courier New', monospace;
 }
 
 /* Layout Components */
-.content-container {
-  padding: var(--space-6);
-}
-
-.site-layout-content {
-  min-height: 280px;
-  padding: var(--space-6);
-  background: #fff;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-/* Override Ant Design Components */
 .ant-layout {
-  background: var(--neutral-100) !important;
+  background: var(--bg-primary) !important;
+  min-height: 100vh;
 }
 
-.ant-layout-sider {
-  background: var(--primary-950) !important;
-}
-
+/* Sticky Header */
 .ant-layout-header {
-  background: #fff !important;
-  box-shadow: var(--shadow-sm);
+  position: sticky !important;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: var(--bg-secondary) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   height: 64px;
   line-height: 64px;
-  padding: 0 var(--space-6);
+  padding: 0 24px;
+  transition: var(--transition-normal);
+}
+
+/* Sidebar */
+.ant-layout-sider {
+  background: var(--bg-secondary) !important;
+  border-right: 1px solid var(--border-primary);
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Masquer complètement le trigger par défaut */
+.ant-layout-sider-trigger {
+  display: none !important;
+}
+
+/* Styles pour le bouton hamburger élégant */
+.sidebar-toggle-btn {
+  background: transparent !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-secondary) !important;
+  transition: var(--transition-fast) !important;
   position: relative;
   overflow: hidden;
 }
 
-/* Add proper containment for header elements */
-.ant-layout-header img {
-  max-height: 24px;
-  object-fit: contain;
-  vertical-align: middle;
+.sidebar-toggle-btn:hover {
+  background: var(--surface-hover) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.ant-layout-header .ant-typography {
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sidebar-toggle-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
-.ant-menu.ant-menu-dark {
-  background: var(--primary-950) !important;
+/* Animation pour l'icône hamburger */
+.sidebar-toggle-btn .anticon-menu {
+  transition: var(--transition-fast);
+}
+
+.sidebar-toggle-btn:hover .anticon-menu {
+  transform: scale(1.1);
+}
+
+/* Animation de la sidebar */
+.ant-layout-sider {
+  transition: var(--transition-normal) !important;
+}
+
+/* Effet de glissement plus fluide */
+.ant-layout-sider.ant-layout-sider-collapsed {
+  transform: translateX(-100%);
+}
+
+/* Responsive - masquer automatiquement sur mobile */
+@media (max-width: 768px) {
+  .sidebar-toggle-btn {
+    width: 36px !important;
+    height: 36px !important;
+    margin-right: 12px !important;
+  }
+}
+
+/* Indicateur visuel quand la sidebar est fermée */
+.sidebar-toggle-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  width: 3px;
+  height: 3px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  transform: translateY(-50%) scale(0);
+  transition: var(--transition-fast);
+}
+
+/* Afficher l'indicateur quand collapsed */
+.ant-layout-sider-collapsed ~ .site-layout .sidebar-toggle-btn::after {
+  transform: translateY(-50%) scale(1);
+}
+
+/* Menu Styling */
+.ant-menu {
+  background: transparent !important;
+  border: none !important;
+}
+
+.ant-menu-dark {
+  background: transparent !important;
+}
+
+.ant-menu-dark .ant-menu-item {
+  color: var(--text-secondary);
+  margin: 4px 8px;
+  border-radius: var(--radius-md);
+  transition: var(--transition-fast);
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background: var(--surface-hover) !important;
+  color: var(--text-primary);
 }
 
 .ant-menu-dark .ant-menu-item-selected {
-  background-color: var(--primary-700) !important;
+  background: var(--accent-primary) !important;
+  color: white !important;
 }
 
-.ant-btn-primary {
-  background-color: var(--primary-600) !important;
-}
-
-.ant-btn-primary:hover {
-  background-color: var(--primary-700) !important;
-}
-
-.ant-card {
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: none;
-}
-
-.ant-table {
-  border-radius: var(--radius-lg);
-}
-
-.ant-input, .ant-select-selector, .ant-input-number, .ant-picker {
-  border-radius: var(--radius-md) !important;
-}
-
-.ant-form-item-label > label {
-  font-weight: 500;
+.ant-menu-dark .ant-menu-item-selected::after {
+  border: none !important;
 }
 
 /* Logo */
 .logo {
-  height: 32px;
-  margin: 16px;
-  color: white;
-  font-weight: bold;
-  font-size: 18px;
+  height: 64px;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-primary);
+  letter-spacing: -0.02em;
 }
 
-/* RAG Chat Interface */
-.chat-container {
-  border: 1px solid var(--neutral-200);
+/* Content Area */
+.content-container {
+  padding: 24px;
+  min-height: calc(100vh - 64px);
+  background: var(--bg-primary);
+}
+
+.site-layout-content {
+  padding: 24px;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
-  height: 500px;
-  overflow-y: auto;
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-  background-color: #fff;
   box-shadow: var(--shadow-sm);
+  transition: var(--transition-normal);
+}
+
+/* Cards */
+.ant-card {
+  background: var(--surface-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: var(--transition-normal);
+  color: var(--text-primary) !important;
+}
+
+.ant-card * {
+  color: inherit;
+}
+
+.ant-card:hover {
+  border-color: var(--border-secondary) !important;
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-2px);
+}
+
+.ant-card-head {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-card-body {
+  color: var(--text-primary) !important;
+}
+
+/* Buttons */
+.ant-btn {
+  border-radius: var(--radius-md) !important;
+  font-weight: 500;
+  transition: var(--transition-fast);
+  border: 1px solid var(--border-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background: var(--surface-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-btn:hover {
+  background: var(--surface-hover) !important;
+  border-color: var(--border-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-btn-primary {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: white !important;
+}
+
+.ant-btn-primary:hover {
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.ant-btn-primary:active {
+  background: var(--accent-active) !important;
+  border-color: var(--accent-active) !important;
+  transform: translateY(0);
+}
+
+/* Default button style */
+.ant-btn-default {
+  background: var(--surface-primary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-btn-default:hover {
+  background: var(--surface-hover) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+}
+
+/* Form Controls */
+.ant-input,
+.ant-input-number,
+.ant-select-selector,
+.ant-picker {
+  background: var(--surface-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-primary) !important;
+  transition: var(--transition-fast);
+}
+
+.ant-input:hover,
+.ant-input-number:hover,
+.ant-select-selector:hover,
+.ant-picker:hover {
+  border-color: var(--border-secondary) !important;
+}
+
+.ant-input:focus,
+.ant-input-number:focus,
+.ant-select-selector:focus,
+.ant-picker:focus {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px var(--accent-glow) !important;
+}
+
+.ant-input::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Tables */
+.ant-table {
+  background: var(--surface-primary) !important;
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden;
+  color: var(--text-primary) !important;
+}
+
+.ant-table-thead > tr > th {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  font-weight: 600;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--surface-hover) !important;
+}
+
+/* Status Indicators */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  color: var(--status-success);
+  /* Ajout de flexibilité pour éviter le débordement */
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  animation: pulse 2s ease-in-out infinite;
+  /* Assurer que le point reste visible */
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+  }
+}
+
+.status-text {
+  color: var(--status-success);
+  /* Permettre la troncature si nécessaire */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: var(--radius-xs);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-focus);
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Utility Classes */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-primary);
+}
+
+.glow-effect {
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--status-info) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ant-layout-header {
+    padding: 0 16px;
+  }
+  
+  .content-container {
+    padding: 16px;
+  }
+  
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+}
+
+/* Override any conflicting styles */
+.ant-menu-dark .ant-menu-item a {
+  color: inherit;
+}
+
+.ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ant-menu.ant-menu-dark {
+  flex: 1;
+}
+
+/* Fix text colors in dark theme */
+.ant-typography {
+  color: var(--text-primary) !important;
+}
+
+.ant-form-item-label > label {
+  color: var(--text-secondary) !important;
+}
+
+/* Message styles */
+.ant-message-notice-content {
+  background: var(--surface-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Chat Interface - Cursor Style */
+.chat-container {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  height: 600px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .message {
-  max-width: 85%;
-  margin-bottom: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  position: relative;
-  clear: both;
-  line-height: 1.5;
-  box-shadow: var(--shadow-sm);
+  max-width: 80%;
+  animation: messageSlide 0.3s ease-out;
+}
+
+@keyframes messageSlide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .user-message {
-  background-color: var(--primary-500);
+  align-self: flex-end;
+  background: var(--accent-primary);
   color: white;
-  float: right;
-  border-bottom-right-radius: var(--space-1);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-xs) var(--radius-lg);
+  box-shadow: 0 2px 5px rgba(124, 58, 237, 0.3);
 }
 
 .assistant-message {
-  background-color: var(--neutral-200);
-  color: var(--neutral-900);
-  float: left;
-  border-bottom-left-radius: var(--space-1);
+  align-self: flex-start;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-xs);
+  border: 1px solid var(--border-primary);
 }
 
-/* Source citations in responses */
+/* Code blocks in messages */
+.message pre {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+
+.message code {
+  background: var(--bg-tertiary);
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.9em;
+  color: var(--accent-primary);
+}
+
+/* Chat input area */
+.chat-input-area {
+  padding: 1rem;
+  border-top: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.chat-input-wrapper {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.chat-input {
+  flex: 1;
+  background: var(--surface-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-primary) !important;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  transition: var(--transition-fast);
+}
+
+.chat-input:focus {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px var(--accent-glow) !important;
+}
+
+/* Source references */
 .source-reference {
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  margin: var(--space-1);
-  background-color: var(--neutral-100);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  margin: 0.25rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
-  color: var(--primary-700);
-  font-size: 0.85em;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  transition: var(--transition-fast);
   cursor: pointer;
-  transition: var(--transition-normal);
-  border: 1px solid var(--primary-200);
 }
 
 .source-reference:hover {
-  background-color: var(--primary-100);
+  background: var(--surface-hover);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
 }
 
-/* Code content styling */
-.code-content {
-  font-family: 'JetBrains Mono', monospace;
-  background-color: var(--neutral-900);
-  color: var(--neutral-100);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  overflow-x: auto;
-  white-space: pre-wrap;
-  margin: var(--space-4) 0;
-}
-
-/* RAG Document List */
+/* Document list items */
 .document-list-item {
-  padding: var(--space-3);
+  padding: 1rem;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-200);
-  margin-bottom: var(--space-2);
-  transition: var(--transition-normal);
+  margin-bottom: 0.75rem;
+  transition: var(--transition-fast);
+  cursor: pointer;
 }
 
 .document-list-item:hover {
-  border-color: var(--primary-400);
-  background-color: var(--primary-50);
+  border-color: var(--accent-primary);
+  transform: translateX(5px);
+  box-shadow: 0 0 15px rgba(124, 58, 237, 0.2);
 }
 
-/* Status indicators */
+/* Status badges */
 .status-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
 }
 
 .status-active {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--status-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .status-inactive {
-  background-color: rgba(107, 114, 128, 0.1);
-  color: var(--neutral-600);
+  background: rgba(161, 161, 170, 0.15);
+  color: var(--text-tertiary);
+  border: 1px solid rgba(161, 161, 170, 0.3);
 }
 
 .status-processing {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: var(--accent-yellow);
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--status-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
-/* Animations */
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
+/* Tooltips */
+.ant-tooltip-inner {
+  background: var(--surface-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 
-@keyframes fadeIn {
-  0% { opacity: 0; transform: translateY(5px); }
-  100% { opacity: 1; transform: translateY(0); }
+.ant-tooltip-arrow-content {
+  background: var(--surface-secondary) !important;
+  border-color: var(--border-primary) !important;
 }
 
-.pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  width: 6px !important;
-  height: 6px !important;
-  border-radius: 50%;
-  display: inline-block;
-  vertical-align: middle;
-  background-color: var(--accent-green);
+/* Modal styling */
+.ant-modal-content {
+  background: var(--surface-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-xl) !important;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.ant-modal-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-primary) !important;
 }
 
-/* Utility Classes */
+.ant-modal-title {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+}
+
+.ant-modal-body {
+  color: var(--text-primary) !important;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid var(--border-primary) !important;
+}
+
+/* Dropdown menus */
+.ant-dropdown-menu {
+  background: var(--surface-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.ant-dropdown-menu-item {
+  color: var(--text-secondary) !important;
+}
+
+.ant-dropdown-menu-item:hover {
+  background: var(--surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Notifications */
+.ant-notification-notice {
+  background: var(--surface-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+.ant-notification-notice-message {
+  color: var(--text-primary) !important;
+}
+
+.ant-notification-notice-description {
+  color: var(--text-secondary) !important;
+}
+
+/* Progress indicators */
+.ant-progress-line {
+  background: var(--border-primary) !important;
+}
+
+.ant-progress-bg {
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-hover)) !important;
+}
+
+/* Utility classes for spacing */
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-5 { margin-top: 1.25rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mt-8 { margin-top: 2rem; }
+
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 0.75rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-5 { margin-bottom: 1.25rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-8 { margin-bottom: 2rem; }
+
+.ml-1 { margin-left: 0.25rem; }
+.ml-2 { margin-left: 0.5rem; }
+.ml-3 { margin-left: 0.75rem; }
+.ml-4 { margin-left: 1rem; }
+
+.mr-1 { margin-right: 0.25rem; }
+.mr-2 { margin-right: 0.5rem; }
+.mr-3 { margin-right: 0.75rem; }
+.mr-4 { margin-right: 1rem; }
+
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.p-5 { padding: 1.25rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+
+/* Flexbox utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+.gap-1 { gap: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-5 { gap: 1.25rem; }
+.gap-6 { gap: 1.5rem; }
+
+/* Text utilities */
 .text-center { text-align: center; }
 .text-left { text-align: left; }
 .text-right { text-align: right; }
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.font-normal { font-weight: 400; }
 
-.mb-1 { margin-bottom: var(--space-1); }
-.mb-2 { margin-bottom: var(--space-2); }
-.mb-3 { margin-bottom: var(--space-3); }
-.mb-4 { margin-bottom: var(--space-4); }
-.mb-6 { margin-bottom: var(--space-6); }
-
-.mt-1 { margin-top: var(--space-1); }
-.mt-2 { margin-top: var(--space-2); }
-.mt-3 { margin-top: var(--space-3); }
-.mt-4 { margin-top: var(--space-4); }
-.mt-6 { margin-top: var(--space-6); }
-
-.ml-1 { margin-left: var(--space-1); }
-.ml-2 { margin-left: var(--space-2); }
-.mr-1 { margin-right: var(--space-1); }
-.mr-2 { margin-right: var(--space-2); }
-
-.p-1 { padding: var(--space-1); }
-.p-2 { padding: var(--space-2); }
-.p-3 { padding: var(--space-3); }
-.p-4 { padding: var(--space-4); }
-
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.items-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.justify-center { justify-content: center; }
-.gap-1 { gap: var(--space-1); }
-.gap-2 { gap: var(--space-2); }
-.gap-3 { gap: var(--space-3); }
-.gap-4 { gap: var(--space-4); }
-
-.rounded-md { border-radius: var(--radius-md); }
+/* Border radius utilities */
+.rounded { border-radius: var(--radius-md); }
+.rounded-sm { border-radius: var(--radius-sm); }
 .rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
 .rounded-full { border-radius: var(--radius-full); }
 
+/* Shadow utilities */
 .shadow-sm { box-shadow: var(--shadow-sm); }
-.shadow-md { box-shadow: var(--shadow-md); }
+.shadow { box-shadow: var(--shadow-md); }
 .shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-xl { box-shadow: var(--shadow-xl); }
 
-/* Responsive layout */
-@media screen and (max-width: 768px) {
-  .ant-layout-sider-children {
-    width: auto;
-  }
-  
-  .site-layout {
-    margin-left: 0;
-  }
-  
-  .content-container {
-    padding: var(--space-3);
-  }
-  
-  .message {
-    max-width: 95%;
-  }
+/* Special effects */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Markdown styling */
-.markdown-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  line-height: 1.6;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  color: var(--neutral-900);
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
-.markdown-body h1 {
-  font-size: 1.8em;
-  font-weight: 700;
-  margin-top: 1.2em;
-  margin-bottom: 0.6em;
-  color: var(--neutral-900);
-  border-bottom: 1px solid var(--neutral-200);
-  padding-bottom: 0.3em;
+.hover-glow {
+  transition: box-shadow 0.2s ease;
 }
 
-.markdown-body h2 {
-  font-size: 1.5em;
-  font-weight: 700;
-  margin-top: 1.2em;
-  margin-bottom: 0.6em;
-  color: var(--neutral-900);
-  border-bottom: 1px solid var(--neutral-200);
-  padding-bottom: 0.3em;
+.hover-glow:hover {
+  box-shadow: 0 0 20px var(--accent-glow);
 }
 
-.markdown-body h3 {
-  font-size: 1.3em;
-  font-weight: 600;
-  margin-top: 1em;
-  margin-bottom: 0.5em;
-  color: var(--neutral-900);
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, 
+    var(--surface-primary) 25%, 
+    var(--surface-secondary) 50%, 
+    var(--surface-primary) 75%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
 }
 
-.markdown-body h4, .markdown-body h5, .markdown-body h6 {
-  font-size: 1.1em;
-  font-weight: 600;
-  margin-top: 1em;
-  margin-bottom: 0.5em;
-  color: var(--neutral-900);
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
-.markdown-body p {
-  margin-bottom: 1em;
-  line-height: 1.7;
+/* Fix any remaining Ant Design overrides */
+.ant-select-dropdown {
+  background: var(--surface-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 
-.markdown-body ul, .markdown-body ol {
-  padding-left: 2em;
-  margin-top: 0.5em;
-  margin-bottom: 1em;
+.ant-select-item {
+  color: var(--text-secondary) !important;
 }
 
-.markdown-body li {
-  margin-bottom: 0.5em;
-  line-height: 1.7;
+.ant-select-item:hover {
+  background: var(--surface-hover) !important;
 }
 
-.markdown-body li > p {
-  margin-top: 0.5em;
+.ant-select-item-option-selected {
+  background: var(--accent-primary) !important;
+  color: white !important;
 }
 
-.markdown-body blockquote {
-  border-left: 4px solid var(--primary-300);
-  padding: 0.8em 1em;
-  margin: 1em 0;
-  background-color: var(--neutral-100);
-  border-radius: 0.25em;
-  color: var(--neutral-700);
+.ant-pagination-item {
+  background: var(--surface-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-secondary) !important;
 }
 
-.markdown-body code:not(.code-content code) {
-  background-color: var(--neutral-200);
-  padding: 0.2em 0.4em;
-  border-radius: 0.25em;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9em;
-  color: var(--primary-700);
+.ant-pagination-item:hover {
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
 }
 
-.markdown-body pre {
-  margin: 1em 0;
-  padding: 1em;
-  border-radius: 0.25em;
-  background-color: var(--neutral-900);
-  overflow-x: auto;
+.ant-pagination-item-active {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: white !important;
 }
 
-.markdown-body table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1.5em 0;
-  display: block;
-  overflow-x: auto;
+/* Final overrides to ensure dark theme consistency */
+.ant-layout-content {
+  color: var(--text-primary);
 }
 
-.markdown-body th, .markdown-body td {
-  border: 1px solid var(--neutral-300);
-  padding: 0.6em 1em;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-secondary) var(--bg-secondary);
 }
 
-.markdown-body th {
-  background-color: var(--neutral-100);
-  font-weight: 600;
+/* Ensure all text is readable in dark mode */
+.ant-form-item-label > label.ant-form-item-required:not(.ant-form-item-required-mark-optional)::before {
+  color: var(--status-error) !important;
 }
 
-.markdown-body tr:nth-child(even) {
-  background-color: var(--neutral-50);
+/* Fix for empty state background */
+.ant-empty {
+  color: var(--text-secondary) !important;
 }
 
-.markdown-body a {
-  color: var(--primary-600);
-  text-decoration: underline;
-  transition: color 0.2s ease;
+.ant-empty-description {
+  color: var(--text-tertiary) !important;
 }
 
-.markdown-body a:hover {
-  color: var(--primary-800);
+/* Ensure table content is visible */
+.ant-table-placeholder {
+  background: var(--surface-primary) !important;
+  color: var(--text-secondary) !important;
 }
 
-.markdown-body img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.25em;
-  margin: 1em 0;
-  border: 1px solid var(--neutral-200);
+.ant-table-empty .ant-table-placeholder {
+  background: var(--surface-primary) !important;
 }
 
-.markdown-body hr {
-  border: none;
-  border-top: 1px solid var(--neutral-300);
-  margin: 1.5em 0;
+.ant-table-content {
+  background: var(--surface-primary) !important;
 }
 
-.markdown-body strong {
-  font-weight: 700;
-  color: var(--neutral-900);
+/* Fix for table wrapper */
+.ant-table-wrapper {
+  color: var(--text-primary) !important;
 }
 
-.markdown-body em {
-  font-style: italic;
+.ant-table-wrapper .ant-table {
+  background: var(--surface-primary) !important;
 }
 
-/* Add spacing between list items */
-.markdown-body ul li ul,
-.markdown-body ol li ol,
-.markdown-body ul li ol,
-.markdown-body ol li ul {
-  margin-top: 0.5em;
-  margin-bottom: 0.5em;
+.ant-table-wrapper .ant-table-container {
+  background: var(--surface-primary) !important;
 }
 
-/* Better formatting for multiline code blocks */
-.markdown-body pre code {
-  display: block;
-  overflow-x: auto;
-  padding: 1em;
-  font-size: 0.9em;
-  line-height: 1.6;
+/* Fix pagination */
+.ant-table-pagination {
+  color: var(--text-primary) !important;
 }
 
-/* Improve appearance of the container */
-.assistant-message {
-  background-color: white;
-  border: 1px solid var(--neutral-200);
-  box-shadow: var(--shadow-sm);
-  padding: 1em 1.5em;
+/* Fix empty state in tables */
+.ant-table-tbody > tr.ant-table-placeholder:hover > td {
+  background: var(--surface-primary) !important;
 }
 
-/* Source reference styling improvements */
-.source-reference {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2em 0.5em;
-  margin: 0 0.3em;
-  background-color: var(--primary-50);
-  border-radius: var(--radius-sm);
-  color: var(--primary-700);
-  font-size: 0.85em;
-  cursor: pointer;
-  transition: var(--transition-normal);
-  border: 1px solid var(--primary-100);
-  font-weight: 500;
+/* Fix text in descriptions */
+.ant-descriptions-item-label {
+  color: var(--text-secondary) !important;
 }
 
-/* Nouveau style pour le statut de connexion */
-.connection-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background-color: rgba(16, 185, 129, 0.1);
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--accent-green);
-  height: 24px;
-  max-width: 100px;
-  overflow: hidden;
-  margin-left: 10px;
-  flex-shrink: 1;
+.ant-descriptions-item-content {
+  color: var(--text-primary) !important;
 }
 
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--accent-green);
-  flex-shrink: 0;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* Ensure all text elements are visible */
+p, span, div, label {
+  color: inherit;
 }
 
-.status-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Override any hardcoded colors */
+.text-black {
+  color: var(--text-primary) !important;
 }
 
-/* Fix for logo appearing outside navbar */
-.ant-layout > img, 
-body > img,
-#root > img,
-.site-layout > img,
-img[src*="rlama.svg"]:not(.logo img):not(.ant-layout-header img) {
-  display: none !important;
+.text-gray-600 {
+  color: var(--text-secondary) !important;
 }
 
-/* Override for intended logos only */
-.logo img,
-.ant-layout-header img {
-  display: inline-block !important;
+/* Available status with green color */
+.status-available {
+  color: var(--status-success) !important;
 }
 
-/* Ensure proper container behavior */
-#root, .ant-layout {
+/* Fix for any remaining white backgrounds */
+.bg-white {
+  background-color: var(--surface-primary) !important;
+}
+
+/* Ensure list items are visible */
+.ant-list-item {
+  color: var(--text-primary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+.ant-list-empty-text {
+  color: var(--text-secondary) !important;
+}
+
+/* Fix for all Typography components */
+.ant-typography {
+  color: var(--text-primary) !important;
+}
+
+.ant-typography.ant-typography-secondary {
+  color: var(--text-secondary) !important;
+}
+
+/* Fix Tags */
+.ant-tag {
+  background: var(--surface-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Fix Badges */
+.ant-badge-status-dot {
+  background: var(--accent-primary) !important;
+}
+
+.ant-badge-status-text {
+  color: var(--text-primary) !important;
+}
+
+/* Fix Statistic component */
+.ant-statistic {
+  color: var(--text-primary) !important;
+}
+
+.ant-statistic-title {
+  color: var(--text-secondary) !important;
+}
+
+.ant-statistic-content {
+  color: var(--text-primary) !important;
+}
+
+/* Fix for hover states in tables */
+.ant-table-tbody > tr:hover {
+  background: var(--surface-hover) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: inherit !important;
+}
+
+/* Fix for sorting icons */
+.ant-table-column-sorter {
+  color: var(--text-tertiary) !important;
+}
+
+.ant-table-column-sorter:hover {
+  color: var(--text-secondary) !important;
+}
+
+.ant-table-column-sorter-up.active,
+.ant-table-column-sorter-down.active {
+  color: var(--accent-primary) !important;
+}
+
+/* Make sure all icons inherit color */
+.anticon {
+  color: inherit;
+}
+
+/* Override inline styles with CSS variables */
+[style*="color: var(--primary-800)"] {
+  color: var(--text-primary) !important;
+}
+
+[style*="color: var(--primary-700)"] {
+  color: var(--accent-primary) !important;
+}
+
+[style*="color: var(--primary-600)"] {
+  color: var(--accent-primary) !important;
+}
+
+[style*="color: var(--neutral-600)"] {
+  color: var(--text-secondary) !important;
+}
+
+[style*="color: var(--accent-green)"] {
+  color: var(--status-success) !important;
+}
+
+[style*="color: var(--accent-yellow)"] {
+  color: var(--status-warning) !important;
+}
+
+[style*="color: var(--accent-red)"] {
+  color: var(--status-error) !important;
+}
+
+[style*="color: var(--accent-purple)"] {
+  color: var(--status-info) !important;
+}
+
+/* Fix popconfirm */
+.ant-popover-inner {
+  background: var(--surface-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.ant-popover-inner-content {
+  color: var(--text-primary) !important;
+}
+
+.ant-popover-message-title {
+  color: var(--text-primary) !important;
+}
+
+.ant-popover-buttons {
+  border-top: 1px solid var(--border-primary) !important;
+}
+
+/* Fix row hover in tables */
+.hover\:bg-primary-50:hover {
+  background-color: var(--surface-hover) !important;
+}
+
+/* Fix layout scroll issues */
+.site-layout {
   position: relative;
-  overflow-x: hidden;
-  width: 100%;
-  height: 100%;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* More aggressive fix for stray logos */
-img[src*="rlama.svg"]:not(.logo img):not(.ant-layout-header .ant-typography img) {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  position: absolute !important;
-  z-index: -1 !important;
-  pointer-events: none !important;
+.site-layout .ant-layout-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Fix Select components */
+.ant-select {
+  color: var(--text-primary) !important;
+}
+
+.ant-select-arrow {
+  color: var(--text-secondary) !important;
+}
+
+.ant-select-clear {
+  background: var(--surface-primary) !important;
+  color: var(--text-secondary) !important;
+}
+
+.ant-select-selection-placeholder {
+  color: var(--text-muted) !important;
+}
+
+.ant-select-selection-item {
+  color: var(--text-primary) !important;
+}
+
+/* Fix dropdown content that might be empty */
+.ant-select-empty {
+  color: var(--text-secondary) !important;
+  text-align: center;
+  padding: 10px;
+}
+
+.ant-empty-normal {
+  color: var(--text-secondary) !important;
+}
+
+.ant-empty-normal .ant-empty-image {
+  filter: brightness(0.5);
+}
+
+/* Fix Alert component */
+.ant-alert {
+  background: var(--surface-secondary) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-alert-message {
+  color: var(--text-primary) !important;
+}
+
+.ant-alert-description {
+  color: var(--text-secondary) !important;
+}
+
+.ant-alert-info {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.ant-alert-info .ant-alert-icon {
+  color: var(--status-info) !important;
+}
+
+.ant-alert-success {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.ant-alert-warning {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.ant-alert-error {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Fix TextArea */
+.ant-input-textarea {
+  color: var(--text-primary) !important;
+}
+
+.ant-input-textarea textarea {
+  background: var(--surface-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-input-textarea textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Fix all input types */
+input, textarea, select {
+  color: var(--text-primary) !important;
+}
+
+/* Fix for Select Option items */
+.ant-select-dropdown .ant-select-item-option-content {
+  color: var(--text-primary) !important;
+}
+
+.ant-select-dropdown .ant-select-item-empty {
+  color: var(--text-muted) !important;
+  text-align: center;
+  padding: 10px;
+}
+
+/* Ensure Select dropdowns have no data message */
+.ant-select-dropdown .ant-empty-description {
+  color: var(--text-secondary) !important;
+}
+
+/* Fix Option hover state */
+.ant-select-item-option:hover {
+  background: var(--surface-hover) !important;
+}
+
+.ant-select-item-option-selected {
+  background: var(--accent-primary) !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.ant-select-item-option-active {
+  background: var(--surface-hover) !important;
+}
+
+/* Settings Tab - Force white text */
+.ant-tabs-tab-btn,
+.ant-tabs-tab-btn * {
+  color: var(--text-primary) !important;
+}
+
+.ant-form-item-label > label,
+.ant-form-item-label > label * {
+  color: var(--text-secondary) !important;
+}
+
+.ant-descriptions-item-label,
+.ant-descriptions-item-content,
+.ant-descriptions-item-label *,
+.ant-descriptions-item-content * {
+  color: var(--text-primary) !important;
+}
+
+.ant-alert-message,
+.ant-alert-description {
+  color: var(--text-primary) !important;
+}
+
+/* Force white text for all Typography components */
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5,
+.ant-typography h6,
+.ant-typography p,
+.ant-typography div,
+.ant-typography span {
+  color: var(--text-primary) !important;
+}
+
+/* Settings specific styles */
+.settings-container * {
+  color: var(--text-primary) !important;
+}
+
+/* Steps component styling for white text */
+.ant-steps-item-title {
+  color: var(--text-primary) !important;
+}
+
+.ant-steps-item-description {
+  color: var(--text-secondary) !important;
+}
+
+.ant-steps-item-icon {
+  color: var(--text-primary) !important;
+}
+
+.ant-steps-item-content {
+  color: var(--text-primary) !important;
+}
+
+/* Override text-neutral-700 class to use white text */
+.text-neutral-700 {
+  color: var(--text-secondary) !important;
+}
+
+/* Override bg-neutral-100 to use dark background */
+.bg-neutral-100 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* Ensure all text in CreateRag component is white */
+.create-rag-container * {
+  color: var(--text-primary) !important;
+}
+
+.create-rag-container .text-secondary {
+  color: var(--text-secondary) !important;
+}
+
+/* Amélioration des champs de recherche pour éviter l'effet "bloc noir" */
+.ant-input-search,
+.ant-input-search .ant-input,
+.ant-input-search .ant-input-group .ant-input {
+  background: var(--bg-elevated) !important;
+  border: 2px solid var(--border-secondary) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-primary) !important;
+  transition: var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ant-input-search:hover,
+.ant-input-search .ant-input:hover,
+.ant-input-search .ant-input-group .ant-input:hover {
+  border-color: var(--accent-primary) !important;
+  background: var(--surface-secondary) !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+
+.ant-input-search:focus-within,
+.ant-input-search .ant-input:focus,
+.ant-input-search .ant-input-group .ant-input:focus {
+  border-color: var(--accent-primary) !important;
+  background: var(--surface-secondary) !important;
+  box-shadow: 0 0 0 3px var(--accent-glow) !important;
+}
+
+/* Styles pour l'icône de recherche */
+.ant-input-search .ant-input-suffix {
+  background: transparent !important;
+}
+
+.ant-input-search .ant-input-search-button {
+  border-left: 2px solid var(--border-secondary) !important;
+  background: var(--surface-hover) !important;
+  border-color: var(--border-secondary) !important;
+}
+
+.ant-input-search .ant-input-search-button:hover {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
 } 
