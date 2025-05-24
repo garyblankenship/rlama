@@ -55,6 +55,8 @@ func (s *AgentService) RunAgent(ctx context.Context, mode agent.AgentMode, input
 		agentInstance = agent.NewConversationalAgent(memory, s.llmClient)
 	case agent.AutonomousMode:
 		return "", fmt.Errorf("autonomous mode not yet implemented")
+	case agent.OrchestratedMode:
+		agentInstance = agent.NewOrchestratedAgent(memory, s.llmClient)
 	default:
 		return "", fmt.Errorf("unsupported agent mode: %s", mode)
 	}
