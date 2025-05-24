@@ -11,9 +11,10 @@ import (
 )
 
 // PureGoBGEClient implements BGE reranking with pure Go tokenization
-// and optional fallback to Python inference
+// and ONNX inference with optional fallback to Python inference
 type PureGoBGEClient struct {
 	tokenizer      *PureGoTokenizer
+	onnxInference  *PureGoONNXInference
 	pythonEndpoint string
 	httpClient     *http.Client
 	maxLength      int
@@ -32,8 +33,18 @@ func NewPureGoBGEClient(modelPath string, usePureGo bool, fallbackURL string) (*
 		return nil, fmt.Errorf("failed to create tokenizer: %w", err)
 	}
 	
+	var onnxInference *PureGoONNXInference
+	if usePureGo {
+		// Initialize ONNX inference for pure Go mode
+		onnxInference, err = NewPureGoONNXInference(modelPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ONNX inference: %w", err)
+		}
+	}
+	
 	client := &PureGoBGEClient{
 		tokenizer:      tokenizer,
+		onnxInference:  onnxInference,
 		pythonEndpoint: fallbackURL,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -87,31 +98,46 @@ func (c *PureGoBGEClient) Rerank(ctx context.Context, query string, documents []
 	return c.rerankWithFallback(ctx, query, documents, topK)
 }
 
-// rerankPureGo implements pure Go reranking (tokenization + eventual ONNX inference)
+// rerankPureGo implements pure Go reranking with tokenization and ONNX inference
 func (c *PureGoBGEClient) rerankPureGo(ctx context.Context, query string, documents []string, topK int) ([]RerankResult, error) {
 	// Step 1: Tokenize all query-document pairs using pure Go
 	var inputIDs [][]int64
 	var attentionMasks [][]int64
-	var tokenTypeIDs [][]int64
 	
 	for _, doc := range documents {
-		tokenIDs, attMask, tokenTypes := c.tokenizer.EncodeQueryPassagePair(query, doc, c.maxLength)
+		tokenIDs, attMask, _ := c.tokenizer.EncodeQueryPassagePair(query, doc, c.maxLength)
 		inputIDs = append(inputIDs, tokenIDs)
 		attentionMasks = append(attentionMasks, attMask)
-		tokenTypeIDs = append(tokenTypeIDs, tokenTypes)
 	}
 	
-	// Step 2: For now, fall back to Python inference service
-	// TODO: Replace with pure Go ONNX inference when available
-	request := BGEInferenceRequest{
-		InputIDs:      inputIDs,
-		AttentionMask: attentionMasks,
-		TokenTypeIDs:  tokenTypeIDs,
-	}
+	// Step 2: Use pure Go ONNX inference if available
+	var scores []float64
+	var err error
 	
-	scores, err := c.callInferenceService(ctx, request)
-	if err != nil {
-		return nil, fmt.Errorf("inference failed: %w", err)
+	if c.onnxInference != nil && c.onnxInference.IsInitialized() {
+		// Use pure Go ONNX inference
+		request := ONNXInferenceRequest{
+			InputIDs:      inputIDs,
+			AttentionMask: attentionMasks,
+		}
+		
+		response, err := c.onnxInference.RunInference(request)
+		if err != nil {
+			return nil, fmt.Errorf("pure Go ONNX inference failed: %w", err)
+		}
+		scores = response.Scores
+	} else {
+		// Fallback to Python inference service
+		request := BGEInferenceRequest{
+			InputIDs:      inputIDs,
+			AttentionMask: attentionMasks,
+			TokenTypeIDs:  make([][]int64, len(inputIDs)), // Not used in pure Go mode
+		}
+		
+		scores, err = c.callInferenceService(ctx, request)
+		if err != nil {
+			return nil, fmt.Errorf("Python fallback inference failed: %w", err)
+		}
 	}
 	
 	// Step 3: Create results with scores
@@ -253,5 +279,18 @@ func (c *PureGoBGEClient) Health(ctx context.Context) error {
 	// Test tokenization
 	_, _, _ = c.tokenizer.Encode("test", 10)
 	
+	// Check ONNX inference if in pure Go mode
+	if c.usePureGo && c.onnxInference != nil && !c.onnxInference.IsInitialized() {
+		return fmt.Errorf("ONNX inference not initialized")
+	}
+	
+	return nil
+}
+
+// Close cleans up resources
+func (c *PureGoBGEClient) Close() error {
+	if c.onnxInference != nil {
+		return c.onnxInference.Close()
+	}
 	return nil
 }
