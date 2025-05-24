@@ -28,6 +28,20 @@ func (a *RagServiceAdapter) Query(ctx context.Context, query string) (string, er
 		return "", fmt.Errorf("no RAG system available - please specify a RAG system when running the agent")
 	}
 
-	// Call the existing RagService with default parameters
-	return a.ragService.Query(a.ragSystem, query, 3) // Using 3 as a default k value
+	// Use a more reasonable default context size for agent queries
+	// This should provide better results for complex agent queries
+	contextSize := 10 // Increased from 3 to 10 for better context
+
+	// If reranker is enabled, use a higher initial retrieval count
+	if a.ragSystem.RerankerEnabled {
+		// Use reranker's TopK if configured, otherwise use a reasonable default
+		if a.ragSystem.RerankerTopK > 0 {
+			contextSize = a.ragSystem.RerankerTopK
+		} else {
+			contextSize = 15 // Higher default for reranked results
+		}
+	}
+
+	// Call the existing RagService with improved parameters
+	return a.ragService.Query(a.ragSystem, query, contextSize)
 }

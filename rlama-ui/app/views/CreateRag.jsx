@@ -13,10 +13,11 @@ import {
   RobotOutlined,
   SettingOutlined,
   FileTextOutlined,
-  HomeOutlined
+  HomeOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
-import { ragService } from '../services/api';
+import { ragService, settingsService } from '../services/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -24,6 +25,7 @@ const { Option } = Select;
 const CreateRag = () => {
   const [form] = Form.useForm();
   const [models, setModels] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingModels, setLoadingModels] = useState(true);
   const [enableReranker, setEnableReranker] = useState(true);
@@ -31,19 +33,29 @@ const CreateRag = () => {
 
   // Charger les modèles disponibles au chargement
   useEffect(() => {
-    const fetchModels = async () => {
+    const fetchData = async () => {
       try {
+        // Load models
         const availableModels = await ragService.getAvailableModels();
         setModels(availableModels);
+        
+        // Load profiles
+        const profilesData = await settingsService.getProfiles();
+        setProfiles(profilesData || []);
       } catch (error) {
-        console.error('Error loading models:', error);
-        message.error('Unable to load available LLM models');
+        console.error('Error loading data:', error);
+        if (error.message && error.message.includes('models')) {
+          message.error('Unable to load available LLM models');
+        }
+        if (error.message && error.message.includes('profiles')) {
+          message.error('Unable to load profiles');
+        }
       } finally {
         setLoadingModels(false);
       }
     };
     
-    fetchModels();
+    fetchData();
   }, []);
 
   // Gérer la sélection de dossier
@@ -76,7 +88,8 @@ const CreateRag = () => {
         chunk_size: values.chunk_size,
         chunk_overlap: values.chunk_overlap,
         enable_reranker: values.enable_reranker,
-        reranker_weight: values.reranker_weight
+        reranker_weight: values.reranker_weight,
+        profile: values.profile || undefined
       };
       
       // Appeler l'API pour créer le RAG
@@ -111,7 +124,7 @@ const CreateRag = () => {
   ];
 
   return (
-    <div className="fade-in">
+    <div className="fade-in create-rag-container">
       <div className="mb-4">
         <div className="flex items-center gap-1">
           <Link to="/" className="flex items-center gap-1">
@@ -192,6 +205,28 @@ const CreateRag = () => {
                     <Option key={model} value={model}>{model}</Option>
                   ))}
                 </Select>
+              </Form.Item>
+              
+              <Form.Item
+                name="profile"
+                label="OpenAI Profile (Optional)"
+                tooltip="Select a specific OpenAI profile or leave empty to use default API keys"
+              >
+                <Select
+                  placeholder="Use default API keys"
+                  allowClear
+                  className="rounded-md"
+                  suffixIcon={<UserOutlined />}
+                >
+                  {profiles.map(profile => (
+                    <Option key={profile.name} value={profile.name}>
+                      <UserOutlined /> {profile.name}
+                    </Option>
+                  ))}
+                </Select>
+                <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  Leave empty to use default API keys from Settings
+                </Text>
               </Form.Item>
               
               <Form.Item
@@ -317,8 +352,8 @@ const CreateRag = () => {
         <div>
           <Card className="shadow-md rounded-lg">
             <div className="mb-4">
-              <Title level={5}>Creation Process</Title>
-              <Text type="secondary">Your RAG will be created following these steps</Text>
+              <Title level={5} style={{ color: 'var(--text-primary)' }}>Creation Process</Title>
+              <Text type="secondary" style={{ color: 'var(--text-secondary)' }}>Your RAG will be created following these steps</Text>
             </div>
             
             <Steps 
@@ -326,14 +361,15 @@ const CreateRag = () => {
               current={0} 
               items={steps}
               className="mb-4"
+              style={{ color: 'var(--text-primary)' }}
             />
             
-            <div className="bg-neutral-100 p-4 rounded-lg mt-6">
-              <Title level={5} className="mb-2">What is a RAG system?</Title>
-              <Paragraph className="text-neutral-700">
+            <div className="p-4 rounded-lg mt-6" style={{ background: 'var(--bg-tertiary)' }}>
+              <Title level={5} className="mb-2" style={{ color: 'var(--text-primary)' }}>What is a RAG system?</Title>
+              <Paragraph style={{ color: 'var(--text-secondary)' }}>
                 A RAG (Retrieval-Augmented Generation) system combines document search and text generation to produce accurate answers based on your own documents.
               </Paragraph>
-              <Paragraph className="text-neutral-700">
+              <Paragraph style={{ color: 'var(--text-secondary)' }}>
                 Once created, you can ask questions in natural language and get contextualized answers with source references.
               </Paragraph>
             </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Input, Button, List, Avatar, Spin, Select, 
   InputNumber, Tooltip, Typography, message, 
-  Divider, Tag, Card, Space
+  Divider, Tag, Card, Space, Badge
 } from 'antd';
 import { 
   SendOutlined, 
@@ -14,7 +14,12 @@ import {
   UserOutlined,
   SettingOutlined,
   InfoCircleOutlined,
-  LinkOutlined
+  LinkOutlined,
+  LoadingOutlined,
+  DatabaseOutlined,
+  SearchOutlined,
+  EyeOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons';
 import { ragService } from '../../services/api';
 import ReactMarkdown from 'react-markdown';
@@ -39,7 +44,68 @@ const QATab = ({ ragName, defaultModel }) => {
   const currentStreamController = useRef(null);
   const chatContainerRef = useRef(null);
 
-  // Fonction pour nettoyer les balises <think> des réponses
+  // Simple progress tracking
+  const [currentStep, setCurrentStep] = useState('');
+
+  // Helper function to clean text from debug info but preserve useful content
+  const cleanText = (text) => {
+    if (typeof text !== 'string') return '';
+    
+    let cleaned = text;
+    
+    // Remove only obvious debug patterns, keep most content
+    cleaned = cleaned.replace(/\[[0-9]+[A-Z]\]/g, ''); // [2A], [1B], etc.
+    cleaned = cleaned.replace(/\[K\]/g, ''); // [K]
+    cleaned = cleaned.replace(/\([0-9.]+s\)/g, ''); // (0.8s)
+    cleaned = cleaned.replace(/\[[0-9]+B\]/g, ''); // [2B]
+    
+    // Remove SSE data prefixes but keep content
+    cleaned = cleaned.replace(/^data:\s*/, '');
+    cleaned = cleaned.replace(/^event:\s*\w+\s*/, '');
+    
+    // Normalize excessive whitespace but preserve structure
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    cleaned = cleaned.replace(/\n\s*\n/g, '\n');
+    
+    return cleaned.trim();
+  };
+
+  // Simple function to extract step message from progress
+  const getStepMessage = (message) => {
+    const cleaned = cleanText(message);
+    
+    // Just look for key patterns and return simple messages
+    if (cleaned.toLowerCase().includes('search') || 
+        cleaned.toLowerCase().includes('looking') ||
+        cleaned.toLowerCase().includes('finding')) {
+      return 'Searching documents...';
+    }
+    
+    if (cleaned.toLowerCase().includes('embedding') || 
+        cleaned.toLowerCase().includes('vector')) {
+      return 'Generating embeddings...';
+    }
+    
+    if (cleaned.toLowerCase().includes('retriev') || 
+        cleaned.toLowerCase().includes('match')) {
+      return 'Retrieving relevant chunks...';
+    }
+    
+    if (cleaned.toLowerCase().includes('process') && 
+        cleaned.toLowerCase().includes('prompt')) {
+      return 'Processing query...';
+    }
+    
+    if (cleaned.toLowerCase().includes('generat') && 
+        cleaned.toLowerCase().includes('response')) {
+      return 'Generating response...';
+    }
+    
+    // Default
+    return 'Searching...';
+  };
+
+  // Function to clean think tags
   const cleanThinkTags = (text) => {
     if (!text) return "";
     const thinkRegex = /<think>[\s\S]*?<\/think>/g;
@@ -153,6 +219,7 @@ const QATab = ({ ragName, defaultModel }) => {
     setInput('');
     setProgressMessages([]);
     setLoading(true);
+    setCurrentStep('Starting search...');
 
     let accumulatedAnswer = "";
 
@@ -165,10 +232,23 @@ const QATab = ({ ragName, defaultModel }) => {
       },
       {
         onProgress: (progressContent) => {
-          setProgressMessages(prev => [...prev, progressContent]);
+          const progressStr = typeof progressContent === 'string' ? progressContent : 
+                            (progressContent?.message || progressContent?.content || JSON.stringify(progressContent));
+          
+          // Update current step with simple message
+          const stepMessage = getStepMessage(progressStr);
+          setCurrentStep(stepMessage);
+          
+          // Keep legacy progress for compatibility with existing code
+          setProgressMessages(prev => [...prev, progressStr]);
         },
         onAnswerChunk: (answerChunk) => {
-          const cleanedChunk = cleanThinkTags(answerChunk);
+          const chunkStr = typeof answerChunk === 'string' ? answerChunk : JSON.stringify(answerChunk);
+          const cleanedChunk = cleanThinkTags(chunkStr);
+          
+          console.log('🎯 Answer chunk received:', chunkStr);
+          console.log('🧹 Cleaned chunk:', cleanedChunk);
+          
           if (cleanedChunk) {
             accumulatedAnswer += cleanedChunk;
             setMessages(prevMessages =>
@@ -191,11 +271,13 @@ const QATab = ({ ragName, defaultModel }) => {
           );
           setLoading(false);
           setProgressMessages([]);
+          setCurrentStep('');
           currentStreamController.current = null;
         },
         onDone: () => {
           setLoading(false);
           setProgressMessages([]);
+          setCurrentStep('');
           
           const finalCleanedAnswer = cleanThinkTags(accumulatedAnswer);
           
@@ -216,10 +298,6 @@ const QATab = ({ ragName, defaultModel }) => {
           );
           currentStreamController.current = null;
           accumulatedAnswer = "";
-          
-          setTimeout(() => {
-            setMessages(prevMessages => [...prevMessages]);
-          }, 100);
         },
       }
     );
@@ -228,6 +306,8 @@ const QATab = ({ ragName, defaultModel }) => {
   const handleClearChat = () => {
     setMessages([]);
     setProgressMessages([]);
+    setCurrentStep('');
+    
     if (loading && currentStreamController.current) {
       currentStreamController.current();
       currentStreamController.current = null;
@@ -434,21 +514,16 @@ const QATab = ({ ragName, defaultModel }) => {
               </div>
             ))}
             
-            {loading && progressMessages.length > 0 && (
+            {/* Simple loading indicator in chat */}
+            {loading && (
               <div className="p-3 bg-neutral-100 rounded-lg mt-4 mb-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Spin size="small" />
-                  <Text strong>Searching...</Text>
-                </div>
-                <div className="pl-6 text-xs font-mono text-neutral-600">
-                  {progressMessages.map((msg, index) => (
-                    <div key={`prog-${index}`} className="mb-1">
-                      {msg}
-                    </div>
-                  ))}
+                  <Text strong>{currentStep || 'Searching...'}</Text>
                 </div>
               </div>
             )}
+            
             <div ref={messagesEndRef} />
           </div>
         )}

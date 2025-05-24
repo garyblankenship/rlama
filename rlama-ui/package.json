@@ -1,6 +1,6 @@
 {
   "name": "rlama-ui",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "RLAMA UI - Retrieval-Augmented Generation Interface",
   "main": "./main/main.js",
   "scripts": {
@@ -12,6 +12,7 @@
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
+    "publish": "electron-builder --publish=always",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -21,12 +22,14 @@
     "@ant-design/icons": "^6.0.0",
     "antd": "^5.12.8",
     "axios": "^1.6.5",
+    "electron-updater": "^6.6.2",
     "highlight.js": "^11.9.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.21.1",
     "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
     "sudo-prompt": "^9.2.1"
   },
   "devDependencies": {
@@ -40,11 +43,12 @@
     "html-webpack-plugin": "^5.6.0",
     "style-loader": "^3.3.3",
     "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.2.1"
   },
   "build": {
     "appId": "com.rlama.ui",
-    "productName": "RLAMA UI",
+    "productName": "rlama",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -55,15 +59,39 @@
       "backend/**/*",
       "package.json"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "votre-username",
+        "repo": "rlama-ui",
+        "private": false
+      }
+    ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "certificateFile": null,
+      "certificatePassword": null
     },
     "linux": {
-      "target": ["AppImage", "deb", "rpm"],
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
       "category": "Development"
     },
     "nsis": {
