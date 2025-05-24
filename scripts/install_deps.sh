@@ -81,18 +81,18 @@ elif [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; th
   echo "It is recommended to use WSL (Windows Subsystem for Linux) for better performance."
   echo "You can install the dependencies manually:"
   echo "1. Install Python: https://www.python.org/downloads/windows/"
-  echo "2. Install Python packages: pip install pdfminer.six docx2txt xlsx2csv FlagEmbedding torch transformers"
+  echo "2. Install Python packages: pip install pdfminer.six docx2txt xlsx2csv FlagEmbedding==1.2.10 torch transformers"
   echo "3. For OCR, install Tesseract: https://github.com/UB-Mannheim/tesseract/wiki"
   
   # Try to install Python packages with pip in Windows
   if is_installed pip; then
     echo "Installing Python dependencies on Windows..."
     pip install --user pdfminer.six docx2txt xlsx2csv
-    pip install --user -U FlagEmbedding torch transformers
+    pip install --user -U "FlagEmbedding==1.2.10" torch transformers
   elif is_installed pip3; then
     echo "Installing Python dependencies on Windows..."
     pip3 install --user pdfminer.six docx2txt xlsx2csv
-    pip3 install --user -U FlagEmbedding torch transformers
+    pip3 install --user -U "FlagEmbedding==1.2.10" torch transformers
   fi
 fi
 
@@ -147,7 +147,7 @@ echo "Installing Python dependencies in virtual environment..."
 $VENV_PYTHON -m pip install --upgrade pip
 $VENV_PYTHON -m pip install -U pdfminer.six docx2txt xlsx2csv
 echo "Installing dependencies for BGE reranker..."
-$VENV_PYTHON -m pip install -U FlagEmbedding torch transformers
+$VENV_PYTHON -m pip install -U "FlagEmbedding==1.2.10" torch transformers
 
 if [ $? -eq 0 ]; then
   echo "✅ All Python dependencies installed successfully in virtual environment!"
@@ -161,16 +161,16 @@ fallback_install() {
   echo "Attempting --user installation..."
   if is_installed pip3; then
     pip3 install --user pdfminer.six docx2txt xlsx2csv
-    pip3 install --user -U FlagEmbedding torch transformers
+    pip3 install --user -U "FlagEmbedding==1.2.10" torch transformers
   elif is_installed pip; then
     pip install --user pdfminer.six docx2txt xlsx2csv
-    pip install --user -U FlagEmbedding torch transformers
+    pip install --user -U "FlagEmbedding==1.2.10" torch transformers
   else
     echo "⚠️ Pip is not installed. Cannot install Python dependencies."
     echo "Please install pip then create a virtual environment manually:"
     echo "python3 -m venv ~/.rlama/venv"
     echo "source ~/.rlama/venv/bin/activate"
-    echo "pip install -U FlagEmbedding torch transformers pdfminer.six docx2txt xlsx2csv"
+    echo "pip install -U FlagEmbedding==1.2.10 torch transformers pdfminer.six docx2txt xlsx2csv"
   fi
 }
 

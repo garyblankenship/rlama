@@ -94,7 +94,7 @@ func installPythonDependencies() {
 	}
 
 	// Install required packages in virtual environment
-	packages := []string{"FlagEmbedding", "torch", "transformers", "pdfminer.six", "docx2txt", "xlsx2csv"}
+	packages := []string{"FlagEmbedding==1.2.10", "torch", "transformers", "pdfminer.six", "docx2txt", "xlsx2csv"}
 
 	for _, pkg := range packages {
 		if !pythonExecutor.CheckPackageInstalled(pkg) {
@@ -124,7 +124,7 @@ func installSystemWide() {
 	}
 
 	fmt.Println("Attempting system-wide installation...")
-	packages := []string{"FlagEmbedding", "torch", "transformers", "pdfminer.six", "docx2txt", "xlsx2csv"}
+	packages := []string{"FlagEmbedding==1.2.10", "torch", "transformers", "pdfminer.six", "docx2txt", "xlsx2csv"}
 
 	// Try --user flag first
 	installCmd := exec.Command(pythonCmd, "-m", "pip", "install", "--user", "-U")
@@ -144,7 +144,7 @@ func installSystemWide() {
 		fmt.Printf("\n# Activate virtual environment\n")
 		fmt.Printf("source ~/.rlama/venv/bin/activate\n")
 		fmt.Printf("\n# Install dependencies\n")
-		fmt.Printf("pip install -U %s\n", "FlagEmbedding torch transformers pdfminer.six docx2txt xlsx2csv")
+		fmt.Printf("pip install -U %s\n", "FlagEmbedding==1.2.10 torch transformers pdfminer.six docx2txt xlsx2csv")
 		fmt.Printf("\n# Deactivate (optional)\n")
 		fmt.Printf("deactivate\n")
 	} else {

@@ -53,6 +53,10 @@ Main commands:
   delete [rag-name]                       Delete a RAG system
   update                                  Check and install RLAMA updates`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Skip service initialization for version command
+		if versionFlag {
+			return
+		}
 		// Initialize services before any command runs
 		initServices()
 	},
