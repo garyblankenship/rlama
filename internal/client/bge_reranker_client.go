@@ -4,21 +4,23 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os/exec"
-	"strings"
+
+	"github.com/dontizi/rlama/internal/utils"
 )
 
 // BGERerankerClient handles interactions with the BGE Reranker model via Python
 type BGERerankerClient struct {
-	modelName string
-	useFP16   bool
+	modelName      string
+	useFP16        bool
+	pythonExecutor *utils.PythonExecutor
 }
 
 // NewBGERerankerClient creates a new instance of BGERerankerClient
 func NewBGERerankerClient(modelName string) *BGERerankerClient {
 	client := &BGERerankerClient{
-		modelName: modelName,
-		useFP16:   true,
+		modelName:      modelName,
+		useFP16:        true,
+		pythonExecutor: utils.NewPythonExecutor(),
 	}
 
 	// Check dependencies and model
@@ -101,10 +103,8 @@ except Exception as e:
 		return nil, fmt.Errorf("error marshaling input data: %w", err)
 	}
 
-	// Execute the Python script
-	cmd := exec.Command("python", "-c", pythonScript)
-	cmd.Stdin = strings.NewReader(string(inputJSON))
-	output, err := cmd.CombinedOutput()
+	// Execute the Python script using the Python executor
+	output, err := c.pythonExecutor.ExecuteScript(pythonScript, string(inputJSON))
 	if err != nil {
 		return nil, fmt.Errorf("error executing Python script: %w, output: %s", err, string(output))
 	}
@@ -146,30 +146,9 @@ except Exception as e:
 
 // CheckDependencies checks if FlagEmbedding is installed
 func (c *BGERerankerClient) CheckDependencies() error {
-	checkScript := `
-import importlib.util
-import sys
-
-# Check if FlagEmbedding is installed
-flag_spec = importlib.util.find_spec("FlagEmbedding")
-if flag_spec is None:
-    print("not_installed")
-    sys.exit(0)
-else:
-    print("installed")
-    sys.exit(0)
-`
-	cmd := exec.Command("python", "-c", checkScript)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error checking Python dependencies: %w", err)
-	}
-
-	result := strings.TrimSpace(string(output))
-	if result == "not_installed" {
+	if !c.pythonExecutor.CheckPackageInstalled("FlagEmbedding") {
 		return fmt.Errorf("FlagEmbedding library is not installed. Run 'rlama install-dependencies' to install it")
 	}
-
 	return nil
 }
 
@@ -189,8 +168,7 @@ except Exception as e:
     print(json.dumps({"error": str(e)}))
     sys.exit(1)
 `
-	cmd := exec.Command("python", "-c", pythonScript)
-	output, err := cmd.CombinedOutput()
+	output, err := c.pythonExecutor.ExecuteScript(pythonScript)
 	if err != nil {
 		return fmt.Errorf("error executing Python script: %w, output: %s", err, string(output))
 	}

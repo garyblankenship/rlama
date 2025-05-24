@@ -5,6 +5,8 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.3.7
+	github.com/JohannesKaufmann/html-to-markdown/v2 v2.3.1
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/blevesearch/bleve/v2 v2.4.4
 	github.com/spf13/cobra v1.8.0
@@ -13,9 +15,7 @@ require (
 )
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
-	github.com/JohannesKaufmann/html-to-markdown/v2 v2.3.1 // indirect
 	github.com/RoaringBitmap/roaring v1.9.3 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/bits-and-blooms/bitset v1.12.0 // indirect

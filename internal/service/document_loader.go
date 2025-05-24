@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/dontizi/rlama/internal/domain"
+	"github.com/dontizi/rlama/internal/utils"
 )
 
 // DocumentLoaderOptions defines filtering options for document loading
@@ -506,7 +507,12 @@ func (dl *DocumentLoader) extractWithOCR(path string) (string, error) {
 	os.MkdirAll(outBaseDir, 0755)
 
 	// Determine optimal number of workers
-	numWorkers := runtime.NumCPU() + 1
+	// Use NumCPU - 1 to avoid resource starvation since tesseract spawns additional threads
+	// Minimum of 1 to handle single-core systems
+	numWorkers := runtime.NumCPU() - 1
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
 
 	// For PDFs, first convert to images if possible
 	ext := strings.ToLower(filepath.Ext(path))
@@ -654,22 +660,16 @@ func (dl *DocumentLoader) parallelOCR(imgFiles []string, tesseractPath, outBaseD
 
 // tryInstallDependencies attempts to install dependencies if necessary
 func (dl *DocumentLoader) tryInstallDependencies() {
-	// Check if pip is available (for Python tools)
-	pipPath, err := exec.LookPath("pip3")
-	if err != nil {
-		pipPath, err = exec.LookPath("pip")
-	}
+	pythonExecutor := utils.NewPythonExecutor()
 
-	if err == nil {
-		fmt.Println("Checking Python text extraction tools...")
-		// Try to install useful packages
-		for _, pkg := range []string{"pdfminer.six", "docx2txt", "xlsx2csv"} {
-			cmd := exec.Command(pipPath, "show", pkg)
-			if err := cmd.Run(); err != nil {
-				fmt.Printf("Installing %s...\n", pkg)
-				installCmd := exec.Command(pipPath, "install", "--user", pkg)
-				installCmd.Run() // Ignore errors
-			}
+	fmt.Println("Checking Python text extraction tools...")
+	packages := []string{"pdfminer.six", "docx2txt", "xlsx2csv"}
+
+	for _, pkg := range packages {
+		if !pythonExecutor.CheckPackageInstalled(pkg) {
+			fmt.Printf("Installing %s...\n", pkg)
+			// Try to install in virtual environment, ignore errors for background installation
+			pythonExecutor.InstallPackage(pkg)
 		}
 	}
 }
@@ -752,17 +752,21 @@ func (dl *DocumentLoader) extractExcelContent(path string) (string, error) {
 	}
 
 	// Fallback to Python xlsx2csv package if installed
-	cmd := exec.Command("python3", "-c", `
+	pythonExecutor := utils.NewPythonExecutor()
+	pythonScript := fmt.Sprintf(`
 import xlsx2csv
 import sys
-converter = xlsx2csv.Xlsx2csv(sys.argv[1], skip_empty_lines=True)
-converter.convert(sys.stdout)
+try:
+    converter = xlsx2csv.Xlsx2csv("%s", skip_empty_lines=True)
+    converter.convert(sys.stdout)
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
 	`, path)
 
-	var output bytes.Buffer
-	cmd.Stdout = &output
-	if err := cmd.Run(); err == nil {
-		return output.String(), nil
+	output, err := pythonExecutor.ExecuteScript(pythonScript)
+	if err == nil && len(output) > 0 {
+		return string(output), nil
 	}
 
 	return "", fmt.Errorf("failed to extract Excel content: no suitable extractor found")
