@@ -501,6 +501,306 @@ export const ollamaService = {
   }
 };
 
+// Service de gestion des paramètres et profils
+export const settingsService = {
+  // Gestion des profils
+  getProfiles: async () => {
+    try {
+      console.log('🔍 API: Getting profiles...');
+      const response = await api.get('/profiles');
+      console.log('✅ API: Profiles response:', response.data);
+      console.log('✅ API: Profiles type:', typeof response.data);
+      console.log('✅ API: Profiles array?', Array.isArray(response.data));
+      
+      // Fix: Backend returns {profiles: [array]}, we need to extract the profiles array
+      const profilesArray = response.data.profiles || response.data;
+      
+      if (Array.isArray(profilesArray)) {
+        console.log('✅ API: Found', profilesArray.length, 'profiles');
+        profilesArray.forEach((profile, index) => {
+          console.log(`📋 Profile ${index}:`, {
+            name: profile.name,
+            provider: profile.provider,
+            created_on: profile.created_on,
+            last_used: profile.last_used,
+            description: profile.description
+          });
+        });
+      }
+      
+      // Also log the raw response for debugging
+      console.log('🔍 API: Raw response status:', response.status);
+      console.log('🔍 API: Raw response headers:', response.headers);
+      
+      return profilesArray;
+    } catch (error) {
+      console.error('❌ API: Error getting profiles:', error);
+      // Try direct CLI command as fallback
+      try {
+        console.log('🔄 API: Trying direct CLI command...');
+        const execResponse = await api.get('/exec?command=rlama+profile+list');
+        console.log('🔄 API: CLI response:', execResponse.data);
+        
+        if (execResponse.data.stdout) {
+          // Parse the tabular output
+          const lines = execResponse.data.stdout.trim().split('\n');
+          const profiles = [];
+          
+          // Skip first two lines (header and empty line)
+          for (let i = 3; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line && !line.startsWith('-')) {
+              const parts = line.split(/\s+/);
+              if (parts.length >= 4) {
+                profiles.push({
+                  name: parts[0],
+                  provider: parts[1],
+                  created_at: parts[2],
+                  last_used_at: parts[3] === 'never' ? null : parts[3]
+                });
+              }
+            }
+          }
+          
+          console.log('✅ API: Parsed CLI profiles:', profiles);
+          return profiles;
+        }
+      } catch (execError) {
+        console.warn('❌ API: CLI fallback failed:', execError);
+      }
+      return [];
+    }
+  },
+
+  // Debug function to see raw CLI output
+  debugProfilesRaw: async () => {
+    try {
+      console.log('🔍 API: Getting raw CLI output for profiles...');
+      const execResponse = await api.get('/exec?command=rlama+profile+list');
+      console.log('🔍 API: Raw CLI stdout:', execResponse.data.stdout);
+      console.log('🔍 API: Raw CLI stderr:', execResponse.data.stderr);
+      console.log('🔍 API: Raw CLI return code:', execResponse.data.returncode);
+      
+      // Also test the JSON version
+      const execJsonResponse = await api.get('/exec?command=rlama+profile+list+--json');
+      console.log('🔍 API: Raw CLI JSON stdout:', execJsonResponse.data.stdout);
+      console.log('🔍 API: Raw CLI JSON stderr:', execJsonResponse.data.stderr);
+      
+      return {
+        normal: execResponse.data,
+        json: execJsonResponse.data
+      };
+    } catch (error) {
+      console.error('❌ API: Error getting raw CLI output:', error);
+      return null;
+    }
+  },
+
+  createProfile: async (profileData) => {
+    try {
+      console.log('🌐 API: Creating profile with data:', {
+        name: profileData.name,
+        provider: profileData.provider,
+        api_key: profileData.api_key ? `${profileData.api_key.substring(0, 10)}...` : 'MISSING',
+        description: profileData.description
+      });
+      
+      const response = await api.post('/profiles', profileData);
+      console.log('✅ API: Profile created successfully:', response.data);
+      console.log('✅ API: Response status:', response.status);
+      console.log('✅ API: Response headers:', response.headers);
+      console.log('✅ API: Full response object:', response);
+      
+      // Immediately test if the profile was actually saved
+      console.log('🔍 API: Testing immediate profile retrieval...');
+      try {
+        const testResponse = await api.get('/profiles');
+        console.log('🔍 API: Immediate profiles check:', testResponse.data);
+        console.log('🔍 API: Found profiles count:', testResponse.data?.length || 0);
+        
+        if (testResponse.data && Array.isArray(testResponse.data)) {
+          const foundProfile = testResponse.data.find(p => p.name === profileData.name);
+          if (foundProfile) {
+            console.log('✅ API: Profile found immediately after creation:', foundProfile);
+          } else {
+            console.log('❌ API: Profile NOT found immediately after creation!');
+            console.log('❌ API: Available profiles:', testResponse.data.map(p => p.name));
+          }
+        }
+      } catch (testError) {
+        console.warn('⚠️ API: Could not test immediate profile retrieval:', testError);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ API: Error creating profile via API:', error);
+      console.error('❌ API: Error response:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        headers: error.response?.headers
+      });
+      
+      // Don't try CLI fallback for profile creation due to URL length limits with API keys
+      // Instead, throw a more descriptive error
+      if (error.response?.status === 500) {
+        throw new Error('Server error creating profile. Please check your API key format and try again.');
+      } else if (error.response?.status === 400) {
+        throw new Error('Invalid profile data. Please check all fields and try again.');
+      } else if (error.response?.status === 409) {
+        throw new Error('A profile with this name already exists. Please choose a different name.');
+      } else if (!error.response) {
+        throw new Error('Network error. Please check that the RLAMA backend is running on localhost:5001');
+      } else {
+        throw new Error(`Failed to create profile: ${error.response?.data?.detail || error.message}`);
+      }
+    }
+  },
+
+  updateProfile: async (profileName, profileData) => {
+    try {
+      const response = await api.put(`/profiles/${profileName}`, profileData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating profile via API:', error);
+      
+      // Don't try CLI fallback for profile updates due to URL length limits with API keys
+      if (error.response?.status === 404) {
+        throw new Error('Profile not found. It may have been deleted.');
+      } else if (error.response?.status === 400) {
+        throw new Error('Invalid profile data. Please check all fields and try again.');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error updating profile. Please try again.');
+      } else {
+        throw new Error(`Failed to update profile: ${error.response?.data?.detail || error.message}`);
+      }
+    }
+  },
+
+  deleteProfile: async (profileName) => {
+    try {
+      const response = await api.delete(`/profiles/${profileName}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting profile via API:', error);
+      
+      // Try CLI fallback for deletion (safer since no long API key involved)
+      try {
+        const command = `rlama profile delete ${profileName}`;
+        const execResponse = await api.get(`/exec?command=${encodeURIComponent(command)}`);
+        if (execResponse.data.stderr && execResponse.data.stderr.includes('not found')) {
+          throw new Error('Profile not found. It may have already been deleted.');
+        }
+        return { success: !execResponse.data.stderr };
+      } catch (execError) {
+        console.error('CLI fallback failed:', execError);
+        if (error.response?.status === 404) {
+          throw new Error('Profile not found. It may have already been deleted.');
+        } else {
+          throw new Error(`Failed to delete profile: ${error.response?.data?.detail || error.message}`);
+        }
+      }
+    }
+  },
+
+  // Gestion des clés API
+  getApiKeys: async () => {
+    try {
+      const response = await api.get('/settings/api-keys');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting API keys:', error);
+      // Try to get from localStorage as fallback
+      try {
+        const stored = localStorage.getItem('rlama_api_keys');
+        return stored ? JSON.parse(stored) : {};
+      } catch (storageError) {
+        console.warn('Could not read from localStorage:', storageError);
+        return {};
+      }
+    }
+  },
+
+  saveApiKeys: async (apiKeysData) => {
+    try {
+      // Save to backend first
+      const response = await api.post('/settings/api-keys', apiKeysData);
+      
+      // Also save to localStorage as backup
+      localStorage.setItem('rlama_api_keys', JSON.stringify(apiKeysData));
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error saving API keys to backend:', error);
+      
+      // Fallback to localStorage only
+      try {
+        localStorage.setItem('rlama_api_keys', JSON.stringify(apiKeysData));
+        console.log('API keys saved to localStorage as fallback');
+        return { success: true, source: 'localStorage' };
+      } catch (storageError) {
+        console.error('Could not save to localStorage either:', storageError);
+        throw error;
+      }
+    }
+  },
+
+  // Set environment variable for CLI commands
+  setEnvironmentVariable: async (name, value) => {
+    try {
+      const response = await api.post('/settings/environment', { name, value });
+      return response.data;
+    } catch (error) {
+      console.error('Error setting environment variable:', error);
+      // Try via exec command as fallback
+      try {
+        const command = `export ${name}="${value}"`;
+        const execResponse = await api.get(`/exec?command=${encodeURIComponent(command)}`);
+        return { success: !execResponse.data.stderr, source: 'exec' };
+      } catch (execError) {
+        console.warn('Could not set environment variable via exec:', execError);
+        throw error;
+      }
+    }
+  },
+
+  // Paramètres généraux
+  getGeneralSettings: async () => {
+    try {
+      const response = await api.get('/settings/general');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting general settings:', error);
+      return {
+        auto_save: true,
+        show_notifications: true,
+        default_model: 'gpt-3.5-turbo'
+      };
+    }
+  },
+
+  saveGeneralSettings: async (settingsData) => {
+    try {
+      const response = await api.post('/settings/general', settingsData);
+      return response.data;
+    } catch (error) {
+      console.error('Error saving general settings:', error);
+      throw error;
+    }
+  },
+
+  // Modèles disponibles
+  getAvailableModels: async () => {
+    try {
+      const response = await api.get('/models');
+      return response.data.models;
+    } catch (error) {
+      console.error('Error getting available models:', error);
+      return [];
+    }
+  }
+};
+
 // Services API pour les agents
 export const agentService = {
   // Exécution d'un agent

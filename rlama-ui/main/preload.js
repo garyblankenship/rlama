@@ -21,4 +21,22 @@ contextBridge.exposeInMainWorld('electron', {
   },
   executeCommand: (command, args) => ipcRenderer.invoke('execute-command', command, args)
 
+});
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  // ... existing APIs ...
+  
+  // APIs de mise à jour
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  
+  // Écouter les événements de mise à jour
+  onDownloadProgress: (callback) => {
+    ipcRenderer.on('download-progress', (event, progress) => callback(progress));
+  },
+  
+  removeDownloadProgressListener: () => {
+    ipcRenderer.removeAllListeners('download-progress');
+  }
 }); 

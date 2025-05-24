@@ -957,75 +957,194 @@ rlama rag hf.co/mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF:Q5_K_M my-r
 
 ## Using OpenAI Models
 
-RLAMA now supports using OpenAI models for inference while keeping Ollama for embeddings:
+RLAMA supports using OpenAI models with two approaches:
 
-1. Set your OpenAI API key:
-   ```bash
-   export OPENAI_API_KEY="your-api-key"
-   ```
+### Option 1: Default API Keys (Automatic Usage)
 
-2. Create a RAG system with an OpenAI model:
-   ```bash
-   rlama rag gpt-4-turbo my-rag ./documents
-   ```
+Set your default OpenAI API key in the web interface or via environment variable. This key will be automatically used for all RLAMA commands without needing to specify a profile.
 
-3. Run your RAG as usual:
-   ```bash
-   rlama run my-rag
-   ```
+**Via Web Interface:**
+1. Navigate to **Settings → Default API Keys**
+2. Enter your OpenAI API key (starts with `sk-`)
+3. Click **Save Default API Keys**
 
-Supported OpenAI models include:
-- o3-mini
-- gpt-4o and more...
+**Via Environment Variable:**
+```bash
+export OPENAI_API_KEY="your-api-key"
+```
+
+**Usage with default keys:**
+```bash
+# These commands will automatically use your default OpenAI API key
+rlama rag o3-mini my-rag ./documents
+rlama rag gpt-4o another-rag ./docs
+rlama update-model my-rag gpt-4o
+rlama run my-rag
+```
+
+### Option 2: Named Profiles (Specific Usage)
+
+Create named profiles for different OpenAI accounts or organizations. Use these when you need to switch between different API keys.
+
+**Create profiles:**
+```bash
+# Create profiles for different accounts
+rlama profile add work-account openai "sk-work-api-key"
+rlama profile add personal-account openai "sk-personal-api-key"
+```
+
+**Usage with named profiles:**
+```bash
+# Specify profile with --profile flag
+rlama rag o3-mini work-rag ./documents --profile work-account
+rlama rag gpt-4o personal-rag ./docs --profile personal-account
+rlama update-model my-rag gpt-4o --profile work-account
+```
+
+### Available OpenAI Models (Updated January 2025)
+
+#### Reasoning Models (o-series)
+| Model | Input Price | Output Price | Context | Description |
+|-------|------------|-------------|---------|-------------|
+| **o3-mini** ⭐ | $1.10/1M | $4.40/1M | 200K | Latest reasoning model, 93% cheaper than o1 |
+| o1-pro | $150.00/1M | $600.00/1M | 200K | Most powerful reasoning model (Enterprise) |
+| o1 | $15.00/1M | $60.00/1M | 200K | Advanced reasoning model |
+
+#### GPT-4 Series  
+| Model | Input Price | Output Price | Context | Description |
+|-------|------------|-------------|---------|-------------|
+| **GPT-4.5** 🆕 | $75.00/1M | $150.00/1M | 128K | Natural conversation, emotional intelligence |
+| **GPT-4.1** 🆕 | $30.00/1M | $60.00/1M | 1M | Latest GPT-4 with 1M context window |
+| **GPT-4.1-nano** 🆕 | $5.00/1M | $15.00/1M | 128K | Lightweight version of GPT-4.1 |
+| **GPT-4o** 🔥 | $5.00/1M | $15.00/1M | 128K | Multimodal with images and audio support |
+| **GPT-4o mini** 💰 | $0.15/1M | $0.60/1M | 128K | Efficient version of GPT-4o |
+
+#### GPT-3.5 Series
+| Model | Input Price | Output Price | Context | Description |
+|-------|------------|-------------|---------|-------------|
+| GPT-3.5 Turbo | $0.50/1M | $1.50/1M | 16K | Fast and economical model |
+
+**Legend:** ⭐ = Recommended, 🆕 = New (2025), 🔥 = Popular, 💰 = Budget-friendly
+
+**Cost Optimization Tips:**
+- Use context caching for 50% reduction on repeated content
+- Choose appropriate context window sizes
+- Test multiple models for your specific use case
+- Consider o3-mini for reasoning tasks at reduced cost
 
 Note: Only inference uses OpenAI API. Document embeddings still use Ollama for processing.
 
 ## Managing API Profiles
 
-RLAMA allows you to create API profiles to manage multiple API keys for different providers:
+### Using Default Keys (Recommended for Most Users)
 
-### Creating a Profile
+For most users, setting up default API keys is the simplest approach:
 
+**Via Web Interface:**
+1. Open RLAMA web interface
+2. Go to **Settings → Default API Keys** 
+3. Enter your OpenAI API key
+4. Save the configuration
+
+**Commands will automatically use your default key:**
 ```bash
-# Create a profile for your OpenAI account
-rlama profile add openai-work openai "sk-your-api-key"
-
-# Create another profile for a different account
-rlama profile add openai-personal openai "sk-your-personal-api-key" 
+# No --profile needed - uses default key automatically
+rlama rag o3-mini my-rag ./documents
+rlama update-model my-rag gpt-4o
+rlama run my-rag
 ```
 
-### Listing Profiles
+### Using Named Profiles (Advanced Users)
+
+For users managing multiple OpenAI accounts or organizations:
+
+#### Creating Named Profiles
+
+**Via CLI:**
+```bash
+# Create profiles for different environments
+rlama profile add work-openai openai "sk-work-key..."
+rlama profile add personal-openai openai "sk-personal-key..."
+```
+
+**Via Web Interface:**
+1. Navigate to **Settings → Named Profiles**
+2. Click **"New Profile"**
+3. Fill in the profile details:
+   - **Name**: Unique identifier (e.g., `work-account`, `personal-account`)
+   - **Provider**: OpenAI (automatically selected)
+   - **API Key**: Your OpenAI API key (starts with `sk-`)
+   - **Description**: Optional description for the profile
+
+#### Managing Profiles
 
 ```bash
-# View all available profiles
+# List all profiles
 rlama profile list
-```
 
-### Deleting a Profile
-
-```bash
 # Delete a profile
-rlama profile delete openai-old
+rlama profile delete old-profile
 ```
 
-### Using Profiles with RAGs
-
-When creating a new RAG:
+#### Using Named Profiles
 
 ```bash
-# Create a RAG with a specific profile
-rlama rag gpt-4 my-rag ./documents --profile openai-work
+# Specify profile with --profile flag
+rlama rag gpt-4o work-rag ./documents --profile work-openai
+rlama rag o3-mini personal-rag ./documents --profile personal-openai
+
+# Update models with specific profiles
+rlama update-model work-rag gpt-4o --profile work-openai
+rlama update-model personal-rag o3-mini --profile personal-openai
 ```
 
-When updating an existing RAG:
+### Web Interface Features
 
+The RLAMA web interface provides:
+- **Real-time validation** of API key format
+- **Secure storage** with masked key display
+- **Integration examples** showing exact CLI commands
+- **Model pricing table** with latest 2025 rates
+- **Usage guidance** for both default keys and named profiles
+
+### Benefits of Each Approach
+
+**Default API Keys:**
+- ✅ Simple setup - configure once, use everywhere
+- ✅ No need to remember profile names
+- ✅ Automatic usage in all commands
+- ✅ Perfect for single OpenAI account users
+
+**Named Profiles:**
+- ✅ Multiple API keys management
+- ✅ Project-specific configurations
+- ✅ Environment separation (dev/staging/prod)
+- ✅ Organization account switching
+- ✅ Audit trail with usage tracking
+
+### Example Workflows
+
+#### Simple Workflow (Default Keys)
 ```bash
-# Update a RAG to use a different model and profile
-rlama update-model my-rag gpt-4-turbo --profile openai-personal
+# 1. Set default API key in web interface (one-time setup)
+# 2. Use RLAMA commands directly - no profiles needed
+rlama rag o3-mini my-docs ./docs
+rlama run my-docs  # Uses default key automatically
 ```
 
-Benefits of using profiles:
-- Manage multiple API keys for different projects
-- Easily switch between different accounts
-- Keep API keys secure (stored in ~/.rlama/profiles)
-- Track which profile was used last and when
+#### Advanced Workflow (Named Profiles)
+```bash
+# 1. Create profiles for different environments
+rlama profile add dev-openai openai "sk-dev-key..."
+rlama profile add prod-openai openai "sk-prod-key..."
+
+# 2. Create RAGs with specific profiles
+rlama rag o3-mini dev-docs ./dev-docs --profile dev-openai
+rlama rag gpt-4o prod-docs ./prod-docs --profile prod-openai
+
+# 3. Use RAGs with their associated profiles
+rlama run dev-docs   # Must specify profile or use default
+rlama run prod-docs  # Profile is remembered per RAG
+```
+
+This dual approach ensures RLAMA works seamlessly for both simple single-account usage and complex multi-account enterprise scenarios.

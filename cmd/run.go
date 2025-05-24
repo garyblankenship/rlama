@@ -14,6 +14,7 @@ import (
 var (
 	contextSize      int
 	promptTemplate   string
+	queryTemplate    string
 	printChunks      bool
 	streamOutput     bool
 	apiProfileName   string
@@ -31,9 +32,11 @@ var runCmd = &cobra.Command{
 Starts an interactive session to interact with the RAG system.
 Example: rlama run rag1
 
-If the --prompt flag is provided with a value, the command will run non-interactively,
+If the --prompt or --query flag is provided with a value, the command will run non-interactively,
 process the given prompt, print the answer, and then exit.
-Example: rlama run rag1 --prompt "What is RLAMA?"`,
+Examples: 
+  rlama run rag1 --prompt "What is RLAMA?"
+  rlama run rag1 --query "How does RAG work?"`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ragName := args[0]
@@ -51,8 +54,11 @@ Example: rlama run rag1 --prompt "What is RLAMA?"`,
 
 		fmt.Printf("RAG '%s' loaded. Model: %s\n", rag.Name, rag.ModelName)
 
-		// Check if a non-interactive prompt is provided
-		questionFromFlag := strings.TrimSpace(promptTemplate) // promptTemplate is bound to --prompt
+		// Check if a non-interactive prompt is provided (--query takes priority over --prompt)
+		questionFromFlag := strings.TrimSpace(queryTemplate)
+		if questionFromFlag == "" {
+			questionFromFlag = strings.TrimSpace(promptTemplate) // Fallback to --prompt if --query not provided
+		}
 
 		if questionFromFlag != "" {
 			// Non-interactive mode
@@ -191,6 +197,7 @@ func init() {
 	// Add flags
 	runCmd.Flags().IntVar(&contextSize, "context-size", 0, "Number of chunks to use as context (0 = auto: 5 with reranking, 20 without)")
 	runCmd.Flags().StringVar(&promptTemplate, "prompt", "", "Custom prompt template to use (enclose in quotes)")
+	runCmd.Flags().StringVarP(&queryTemplate, "query", "q", "", "Query to execute non-interactively (enclose in quotes)")
 	runCmd.Flags().BoolVar(&printChunks, "print-chunks", false, "Print the chunks used for the response")
 	runCmd.Flags().BoolVar(&streamOutput, "stream", true, "Stream the model's output")
 	runCmd.Flags().StringVar(&apiProfileName, "profile", "", "API profile name for OpenAI models")

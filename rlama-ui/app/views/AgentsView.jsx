@@ -25,11 +25,12 @@ import {
   ExclamationCircleOutlined,
   ClockCircleOutlined,
   DatabaseOutlined,
-  SearchOutlined
+  SearchOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { agentService, ragService } from '../services/api';
+import { agentService, ragService, settingsService } from '../services/api';
 import api from '../services/api';
 import './AgentsView.css';
 
@@ -45,6 +46,8 @@ const AgentsView = () => {
   const [webSearch, setWebSearch] = useState(false);
   const [availableModels, setAvailableModels] = useState([]);
   const [availableRags, setAvailableRags] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [selectedProfile, setSelectedProfile] = useState('');
   
   // State for execution
   const [isExecuting, setIsExecuting] = useState(false);
@@ -387,6 +390,15 @@ const AgentsView = () => {
         // Set empty array if loading fails
         setAvailableRags([]);
       }
+
+      // Load available profiles
+      try {
+        const profilesData = await settingsService.getProfiles();
+        setProfiles(profilesData || []);
+      } catch (profileError) {
+        console.error('Error loading profiles:', profileError);
+        setProfiles([]);
+      }
     } catch (error) {
       console.error('Error loading initial data:', error);
     }
@@ -418,6 +430,7 @@ const AgentsView = () => {
         model: model || undefined,
         rag_name: ragName || undefined,
         web_search: webSearch,
+        profile: selectedProfile || undefined,
         verbose: true
       };
 
@@ -903,6 +916,27 @@ const AgentsView = () => {
                   </Option>
                 ))}
               </Select>
+            </div>
+
+            <div>
+              <Text strong>OpenAI Profile (Optional)</Text>
+              <Select
+                value={selectedProfile}
+                onChange={setSelectedProfile}
+                style={{ width: '100%' }}
+                placeholder="Use default API keys"
+                allowClear
+                disabled={isExecuting}
+              >
+                {profiles.map(profile => (
+                  <Option key={profile.name} value={profile.name}>
+                    <UserOutlined /> {profile.name}
+                  </Option>
+                ))}
+              </Select>
+              <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                Leave empty to use default API keys from Settings
+              </Text>
             </div>
 
             <div className="switch-item">

@@ -17,6 +17,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { healthService, ragService } from '../services/api';
 import api from '../services/api';
+import InstallationHelper from '../components/InstallationHelper';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -284,6 +285,23 @@ const Home = () => {
   const [rlamaCli, setRlamaCli] = useState({ status: 'loading', details: 'Initializing...' });
   const [ollamaCli, setOllamaCli] = useState({ status: 'loading', details: 'Initializing...' });
   const navigate = useNavigate();
+
+  // Détermine quels outils sont manquants
+  const getMissingTools = () => {
+    const missing = [];
+    if (rlamaStatus === 'error') missing.push('rlama');
+    if (ollamaStatus === 'error') missing.push('ollama');
+    return missing;
+  };
+
+  // Callback après installation d'un outil
+  const handleInstallComplete = (tool) => {
+    console.log(`🔧 ${tool.toUpperCase()} installation completed, checking system...`);
+    // Attendre un peu puis relancer la vérification
+    setTimeout(() => {
+      checkSystemHealth();
+    }, 3000);
+  };
 
   // Fonction utilitaire pour extraire la version courte
   const extractVersion = (stdout) => {
@@ -796,27 +814,44 @@ const Home = () => {
         </Spin>
       </Card>
       
+      {/* Installation Helper - appears when tools are missing */}
+      {!initialLoading && getMissingTools().length > 0 && (
+        <Card 
+          title="Missing Dependencies" 
+          className="shadow-md rounded-lg mb-8"
+          style={{ borderColor: '#faad14' }}
+        >
+          <InstallationHelper 
+            missingTools={getMissingTools()}
+            onInstallComplete={handleInstallComplete}
+          />
+        </Card>
+      )}
+      
       <Divider />
       
-      {/* Dashboard Statistics */}
-      <Card 
-        title="Dashboard Statistics" 
-        className="shadow-md rounded-lg mb-8"
-        extra={
-          <Button 
-            type="link" 
-            onClick={() => navigate('/systems')}
-            style={{ padding: 0 }}
-          >
-            View all systems →
-          </Button>
-        }
-      >
-        <DashboardStats />
-      </Card>
+      {/* Dashboard Statistics - only show if no critical tools are missing */}
+      {getMissingTools().length === 0 && (
+        <Card 
+          title="Dashboard Statistics" 
+          className="shadow-md rounded-lg mb-8"
+          extra={
+            <Button 
+              type="link" 
+              onClick={() => navigate('/systems')}
+              style={{ padding: 0 }}
+            >
+              View all systems
+            </Button>
+          }
+        >
+          <DashboardStats />
+        </Card>
+      )}
       
-      {/* Quick Actions */}
-      <Row gutter={[16, 16]} className="mb-8">
+      {/* Quick Actions - only show if no critical tools are missing */}
+      {getMissingTools().length === 0 && (
+        <Row gutter={[16, 16]} className="mb-8">
         <Col xs={24} sm={8}>
           <Card className="text-center h-full" hoverable onClick={() => navigate('/systems')}>
             <DatabaseOutlined style={{ fontSize: 32, color: 'var(--primary-600)', marginBottom: 8 }} />
@@ -839,6 +874,7 @@ const Home = () => {
           </Card>
         </Col>
       </Row>
+      )}
 
       <Modal
         title={

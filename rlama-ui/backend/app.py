@@ -12,11 +12,21 @@ from pydantic import BaseModel
 import httpx
 import asyncio
 from fastapi.responses import StreamingResponse
+from datetime import datetime
 
 # Chemins
 HOME_DIR = os.path.expanduser("~")
 RLAMA_DATA_DIR = os.path.join(HOME_DIR, ".rlama")
 RLAMA_EXECUTABLE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "rlama")
+
+# Constants for storage
+SETTINGS_DIR = os.path.join(RLAMA_DATA_DIR, "settings")
+PROFILES_DIR = os.path.join(RLAMA_DATA_DIR, "profiles")
+API_KEYS_FILE = os.path.join(SETTINGS_DIR, "api_keys.json")
+
+# Create necessary directories
+os.makedirs(SETTINGS_DIR, exist_ok=True)
+os.makedirs(PROFILES_DIR, exist_ok=True)
 
 # Modèles de données
 class RagInfo(BaseModel):
@@ -32,6 +42,7 @@ class AgentQueryRequest(BaseModel):
     model: Optional[str] = None
     rag_name: Optional[str] = None
     web_search: Optional[bool] = False
+    profile: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
 
 class TaskProgress(BaseModel):
@@ -73,6 +84,7 @@ class CreateRagRequest(BaseModel):
     chunk_overlap: Optional[int] = 200
     enable_reranker: Optional[bool] = True
     reranker_weight: Optional[float] = 0.7
+    profile: Optional[str] = None
 
 class WatchRequest(BaseModel):
     rag_name: str
@@ -319,6 +331,10 @@ class RlamaService:
             cmd.append("--disable-reranker")
         elif request.reranker_weight is not None:
             cmd.extend(["--reranker-weight", str(request.reranker_weight)])
+        
+        # Add profile if specified
+        if request.profile:
+            cmd.extend(["--profile", request.profile])
         
         print(f"RLAMA command: {' '.join(cmd)}")
         
@@ -1017,7 +1033,9 @@ class RlamaService:
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     def get_available_models(self) -> List[str]:
-        """Get the list of models available via Ollama"""
+        """Get the list of models available via Ollama + OpenAI models"""
+        models = []
+        
         try:
             # Get Ollama models
             process = subprocess.Popen(
@@ -1029,27 +1047,56 @@ class RlamaService:
             
             stdout, _ = process.communicate()
             
-            if process.returncode != 0:
-                return ["llama2"]  # Default model if Ollama is not available
+            if process.returncode == 0:
+                lines = stdout.strip().split('\n')
                 
-            models = []
-            lines = stdout.strip().split('\n')
-            
-            # Ignore the first line (header)
-            for line in lines[1:]:
-                if line.strip():
-                    # The first column is the model name
-                    model_name = line.strip().split()[0]
-                    if model_name and not model_name.startswith("NAME"):
-                        models.append(model_name)
-            
-            # Add classic OpenAI models
-            models.extend(["gpt-4", "gpt-3.5-turbo"])
-            
-            return models
+                # Ignore the first line (header)
+                for line in lines[1:]:
+                    if line.strip():
+                        # The first column is the model name
+                        model_name = line.strip().split()[0]
+                        if model_name and not model_name.startswith("NAME"):
+                            models.append(model_name)
+            else:
+                print("Ollama not available or no models installed")
+                
         except Exception as e:
-            print(f"Error retrieving models: {str(e)}")
-            return ["llama2"]  # Default model
+            print(f"Error retrieving Ollama models: {str(e)}")
+        
+        # Add current OpenAI models (2024)
+        openai_models = [
+            # GPT-4 models
+            "gpt-4o",
+            "gpt-4o-mini", 
+            "gpt-4-turbo",
+            "gpt-4",
+            "gpt-4-32k",
+            
+            # GPT-3.5 models
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-16k",
+            
+            # Legacy models
+            "text-davinci-003",
+            "text-davinci-002"
+        ]
+        
+        # Add OpenAI models
+        models.extend(openai_models)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_models = []
+        for model in models:
+            if model not in seen:
+                seen.add(model)
+                unique_models.append(model)
+        
+        # If no models found, return default
+        if not unique_models:
+            unique_models = ["gpt-3.5-turbo", "llama2"]
+            
+        return unique_models
     
     def _format_size(self, size_bytes: int) -> str:
         """Format a size in bytes in a readable format"""
@@ -1081,6 +1128,10 @@ class AgentService:
         # Add web search if enabled
         if request.web_search:
             cmd.append("-w")
+            
+        # Add profile if specified
+        if request.profile:
+            cmd.extend(["--profile", request.profile])
             
         # Add query
         cmd.extend(["-q", request.query])
@@ -1133,6 +1184,8 @@ class AgentService:
             cmd.append(request.rag_name)
         if request.web_search:
             cmd.append("-w")
+        if request.profile:
+            cmd.extend(["--profile", request.profile])
         cmd.extend(["-q", request.query])
         
         async def event_generator():
@@ -1408,6 +1461,309 @@ async def stream_agent(request: AgentQueryRequest, fastapi_request: Request):
 def get_agent_models():
     """Get available models for agents"""
     return {"models": agent_service.get_available_models()}
+
+# =======================================
+# Endpoints pour la gestion des paramètres
+# =======================================
+
+# Modèles pour les paramètres
+class ProfileRequest(BaseModel):
+    name: str
+    provider: str
+    api_key: str
+    description: Optional[str] = None
+
+class ApiKeys(BaseModel):
+    openai_api_key: Optional[str] = None
+    openai_organization: Optional[str] = None
+    google_api_key: Optional[str] = None
+    google_search_engine_id: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+
+class GeneralSettingsRequest(BaseModel):
+    auto_save: Optional[bool] = True
+    show_notifications: Optional[bool] = True
+    default_model: Optional[str] = "gpt-3.5-turbo"
+    default_embedding_model: Optional[str] = "text-embedding-ada-002"
+
+# =======================================
+# Fonctions utilitaires pour les profils et paramètres
+# =======================================
+
+def load_profiles():
+    """Load all API profiles from files"""
+    profiles = []
+    
+    try:
+        # First try to get profiles from RLAMA CLI
+        result = subprocess.run(
+            ["rlama", "profile", "list"],
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode == 0 and result.stdout:
+            # Parse RLAMA CLI output
+            lines = result.stdout.strip().split('\n')
+            header_found = False
+            
+            for line in lines:
+                line = line.strip()
+                
+                # Skip empty lines and header lines
+                if not line or line.startswith("Available") or line.startswith("NAME"):
+                    if line.startswith("NAME"):
+                        header_found = True
+                    continue
+                
+                # Only process data lines after header is found
+                if header_found and line:
+                    # Split by multiple spaces to handle proper column separation
+                    import re
+                    parts = re.split(r'\s{2,}', line)  # Split on 2+ spaces
+                    
+                    if len(parts) >= 4:
+                        name = parts[0].strip()
+                        provider = parts[1].strip()
+                        created_on = parts[2].strip()
+                        last_used = parts[3].strip()
+                        
+                        profiles.append({
+                            "name": name,
+                            "provider": provider,
+                            "created_on": created_on,
+                            "last_used": last_used
+                        })
+                    elif len(parts) >= 3:
+                        # Fallback for lines that might have fewer columns
+                        name = parts[0].strip()
+                        provider = parts[1].strip()
+                        # Try to parse the rest as date and last_used
+                        remaining = ' '.join(parts[2:]).strip()
+                        # Simple heuristic: if 'never' is at the end, split there
+                        if remaining.endswith('never'):
+                            created_on = remaining[:-5].strip()
+                            last_used = 'never'
+                        else:
+                            # Assume the last word/phrase is last_used
+                            parts_remaining = remaining.rsplit(' ', 1)
+                            if len(parts_remaining) == 2:
+                                created_on = parts_remaining[0].strip()
+                                last_used = parts_remaining[1].strip()
+                            else:
+                                created_on = remaining
+                                last_used = 'unknown'
+                        
+                        profiles.append({
+                            "name": name,
+                            "provider": provider,
+                            "created_on": created_on,
+                            "last_used": last_used
+                        })
+            
+        # Also check local profile files
+        if os.path.exists(PROFILES_DIR):
+            for filename in os.listdir(PROFILES_DIR):
+                if filename.endswith('.json'):
+                    profile_name = filename[:-5]  # Remove .json extension
+                    
+                    # Check if this profile is already in the list from CLI
+                    existing = any(p['name'] == profile_name for p in profiles)
+                    if not existing:
+                        profile_path = os.path.join(PROFILES_DIR, filename)
+                        try:
+                            with open(profile_path, 'r') as f:
+                                profile_data = json.load(f)
+                                profiles.append({
+                                    "name": profile_data.get("name", profile_name),
+                                    "provider": profile_data.get("provider", "unknown"),
+                                    "created_on": profile_data.get("created_on", "unknown"),
+                                    "last_used": profile_data.get("last_used", "never")
+                                })
+                        except Exception as e:
+                            print(f"Error loading profile {filename}: {e}")
+    
+    except Exception as e:
+        print(f"Error loading profiles: {e}")
+        # Fallback to empty list
+        profiles = []
+    
+    print(f"Debug: Found {len(profiles)} profiles: {[p['name'] for p in profiles]}")
+    return {"profiles": profiles}
+
+def save_profile(profile: ProfileRequest):
+    """Save a profile both locally and via RLAMA CLI"""
+    try:
+        # First, try to save via RLAMA CLI
+        result = subprocess.run(
+            ["rlama", "profile", "add", profile.name, profile.provider, profile.api_key],
+            capture_output=True,
+            text=True,
+            input="\n"  # Auto-confirm if needed
+        )
+        
+        if result.returncode != 0:
+            print(f"RLAMA CLI profile creation failed: {result.stderr}")
+            # Continue to save locally anyway
+        
+        # Also save locally for backup/additional info
+        profile_file = os.path.join(PROFILES_DIR, f"{profile.name}.json")
+        profile_data = {
+            "name": profile.name,
+            "provider": profile.provider,
+            "api_key": profile.api_key,  # Note: In production, encrypt this
+            "description": profile.description,
+            "created_on": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "last_used": "never"
+        }
+        
+        with open(profile_file, 'w') as f:
+            json.dump(profile_data, f, indent=2)
+            
+    except Exception as e:
+        raise Exception(f"Failed to save profile: {str(e)}")
+
+def load_api_keys():
+    """Load API keys from settings file"""
+    try:
+        if os.path.exists(API_KEYS_FILE):
+            with open(API_KEYS_FILE, 'r') as f:
+                return json.load(f)
+        else:
+            # Return default empty structure
+            return {
+                "openai_api_key": None,
+                "openai_organization": None,
+                "google_api_key": None,
+                "google_search_engine_id": None,
+                "anthropic_api_key": None
+            }
+    except Exception as e:
+        print(f"Error loading API keys: {e}")
+        return {
+            "openai_api_key": None,
+            "openai_organization": None,
+            "google_api_key": None,
+            "google_search_engine_id": None,
+            "anthropic_api_key": None
+        }
+
+def save_api_keys(api_keys: ApiKeys):
+    """Save API keys to settings file"""
+    try:
+        # Convert Pydantic model to dict, filtering out None values
+        keys_dict = {}
+        for key, value in api_keys.dict().items():
+            if value is not None:
+                keys_dict[key] = value
+        
+        # Load existing keys if file exists
+        existing_keys = {}
+        if os.path.exists(API_KEYS_FILE):
+            try:
+                with open(API_KEYS_FILE, 'r') as f:
+                    existing_keys = json.load(f)
+            except:
+                existing_keys = {}
+        
+        # Merge with existing keys (only update provided ones)
+        existing_keys.update(keys_dict)
+        
+        # Save to file
+        with open(API_KEYS_FILE, 'w') as f:
+            json.dump(existing_keys, f, indent=2)
+            
+    except Exception as e:
+        raise Exception(f"Failed to save API keys: {str(e)}")
+
+@app.get("/profiles")
+def get_profiles():
+    """Get all API profiles"""
+    return load_profiles()
+
+@app.post("/profiles")
+def create_profile(request: ProfileRequest):
+    """Create a new API profile"""
+    try:
+        save_profile(request)
+        return {"message": f"Profile '{request.name}' created successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/profiles/{profile_name}")
+def delete_profile(profile_name: str):
+    """Delete an API profile"""
+    try:
+        profile_file = os.path.join(PROFILES_DIR, f"{profile_name}.json")
+        if os.path.exists(profile_file):
+            os.remove(profile_file)
+            
+        # Also try CLI deletion
+        try:
+            subprocess.run(
+                [RLAMA_EXECUTABLE, "profile", "delete", profile_name],
+                input="y\n",
+                capture_output=True,
+                text=True
+            )
+        except Exception as e:
+            print(f"Warning: CLI profile deletion failed (but file deleted): {e}")
+            
+        return {"message": f"Profile '{profile_name}' deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/settings/api-keys")
+def get_api_keys():
+    """Get stored API keys"""
+    return load_api_keys()
+
+@app.post("/settings/api-keys")
+def save_api_keys_endpoint(api_keys: ApiKeys):
+    """Save API keys"""
+    try:
+        save_api_keys(api_keys)
+        return {"message": "API keys saved successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/settings/general")
+def get_general_settings():
+    """Get general settings"""
+    try:
+        settings_file = os.path.join(SETTINGS_DIR, "general.json")
+        if os.path.exists(settings_file):
+            with open(settings_file, "r") as f:
+                return json.load(f)
+        
+        # Retourner paramètres par défaut
+        return {
+            "auto_save": True,
+            "show_notifications": True,
+            "default_model": "gpt-3.5-turbo",
+            "default_embedding_model": "text-embedding-ada-002"
+        }
+    except Exception as e:
+        print(f"Error getting general settings: {str(e)}")
+        return {
+            "auto_save": True,
+            "show_notifications": True,
+            "default_model": "gpt-3.5-turbo",
+            "default_embedding_model": "text-embedding-ada-002"
+        }
+
+@app.post("/settings/general")
+def save_general_settings(request: GeneralSettingsRequest):
+    """Save general settings"""
+    try:
+        settings_file = os.path.join(SETTINGS_DIR, "general.json")
+        
+        with open(settings_file, "w") as f:
+            json.dump(request.dict(), f, indent=2)
+        
+        return {"message": "General settings saved successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving general settings: {str(e)}")
 
 # Start server when this file is executed directly
 if __name__ == "__main__":

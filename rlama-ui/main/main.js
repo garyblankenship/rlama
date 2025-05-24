@@ -4,9 +4,11 @@ const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const axios = require('axios');
 const sudo = require('sudo-prompt');
+const AppUpdater = require('./updater');
 
 let mainWindow;
 let pythonProcess;
+let updater;
 const BACKEND_PORT = 5001;
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 let backendReady = false;
@@ -72,6 +74,11 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Initialiser le système de mise à jour après la création de la fenêtre
+  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'production') {
+    updater = new AppUpdater(mainWindow);
+  }
 }
 
 async function startPythonBackend() {
@@ -290,4 +297,23 @@ process.on('uncaughtException', (error) => {
       `Une erreur non gérée s'est produite: ${error.message}`
     );
   }
+});
+
+// Nouveaux IPC handlers pour les mises à jour
+ipcMain.handle('check-for-updates', async () => {
+  if (updater) {
+    updater.checkForUpdates();
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('quit-and-install', async () => {
+  if (updater) {
+    updater.quitAndInstall();
+  }
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 }); 

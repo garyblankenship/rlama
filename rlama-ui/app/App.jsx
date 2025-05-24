@@ -10,7 +10,8 @@ import {
   GlobalOutlined,
   TwitterOutlined,
   LinkedinOutlined,
-  GithubOutlined
+  GithubOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import { createHashRouter, RouterProvider, Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -20,6 +21,7 @@ import Dashboard from './views/Dashboard';
 import CreateRag from './views/CreateRag';
 import RagDetail from './views/RagDetail';
 import AgentsView from './views/AgentsView';
+import Settings from './views/Settings';
 import TitleBar from './components/TitleBar';
 
 const { Header, Sider, Content } = Layout;
@@ -57,7 +59,7 @@ const MainLayout = () => {
           style={{ boxShadow: 'var(--shadow-md)' }}
         >
           <div className="logo">
-            {!collapsed && "rlama"}
+            {!collapsed && "RLAMA"}
           </div>
           <Menu
             theme="dark"
@@ -88,6 +90,11 @@ const MainLayout = () => {
                 type: 'divider',
               },
               {
+                key: '/settings',
+                icon: <SettingOutlined />,
+                label: <Link to="/settings">Settings</Link>,
+              },
+              {
                 key: 'docs',
                 icon: <BookOutlined />,
                 label: <a href="https://github.com/DonTizi/rlama" target="_blank" rel="noopener noreferrer">Documentation</a>,
@@ -116,11 +123,7 @@ const MainLayout = () => {
                     }}
                   />
                 </Tooltip>
-                <Title level={4} style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    RLAMA
-                  </span>
-                </Title>
+
               </div>
               <div className="flex items-center gap-2" style={{ marginRight: '16px' }}>
                 <Tooltip title="Discord Community" placement="bottom">
@@ -229,6 +232,10 @@ const router = createHashRouter([
       {
         path: "create",
         element: <CreateRag />,
+      },
+      {
+        path: "settings",
+        element: <Settings />,
       },
       {
         path: "rag/:ragName",

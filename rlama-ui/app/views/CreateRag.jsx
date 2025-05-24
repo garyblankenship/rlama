@@ -13,10 +13,11 @@ import {
   RobotOutlined,
   SettingOutlined,
   FileTextOutlined,
-  HomeOutlined
+  HomeOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
-import { ragService } from '../services/api';
+import { ragService, settingsService } from '../services/api';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -24,6 +25,7 @@ const { Option } = Select;
 const CreateRag = () => {
   const [form] = Form.useForm();
   const [models, setModels] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingModels, setLoadingModels] = useState(true);
   const [enableReranker, setEnableReranker] = useState(true);
@@ -31,19 +33,29 @@ const CreateRag = () => {
 
   // Charger les modèles disponibles au chargement
   useEffect(() => {
-    const fetchModels = async () => {
+    const fetchData = async () => {
       try {
+        // Load models
         const availableModels = await ragService.getAvailableModels();
         setModels(availableModels);
+        
+        // Load profiles
+        const profilesData = await settingsService.getProfiles();
+        setProfiles(profilesData || []);
       } catch (error) {
-        console.error('Error loading models:', error);
-        message.error('Unable to load available LLM models');
+        console.error('Error loading data:', error);
+        if (error.message && error.message.includes('models')) {
+          message.error('Unable to load available LLM models');
+        }
+        if (error.message && error.message.includes('profiles')) {
+          message.error('Unable to load profiles');
+        }
       } finally {
         setLoadingModels(false);
       }
     };
     
-    fetchModels();
+    fetchData();
   }, []);
 
   // Gérer la sélection de dossier
@@ -76,7 +88,8 @@ const CreateRag = () => {
         chunk_size: values.chunk_size,
         chunk_overlap: values.chunk_overlap,
         enable_reranker: values.enable_reranker,
-        reranker_weight: values.reranker_weight
+        reranker_weight: values.reranker_weight,
+        profile: values.profile || undefined
       };
       
       // Appeler l'API pour créer le RAG
@@ -192,6 +205,28 @@ const CreateRag = () => {
                     <Option key={model} value={model}>{model}</Option>
                   ))}
                 </Select>
+              </Form.Item>
+              
+              <Form.Item
+                name="profile"
+                label="OpenAI Profile (Optional)"
+                tooltip="Select a specific OpenAI profile or leave empty to use default API keys"
+              >
+                <Select
+                  placeholder="Use default API keys"
+                  allowClear
+                  className="rounded-md"
+                  suffixIcon={<UserOutlined />}
+                >
+                  {profiles.map(profile => (
+                    <Option key={profile.name} value={profile.name}>
+                      <UserOutlined /> {profile.name}
+                    </Option>
+                  ))}
+                </Select>
+                <Text type="secondary" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  Leave empty to use default API keys from Settings
+                </Text>
               </Form.Item>
               
               <Form.Item
